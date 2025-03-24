@@ -7,7 +7,8 @@ on:
       - main
     types:
       - opened
-      - edited
+      - synchronize
+      - reopened
 
 jobs:
   publish-to-testpypi:
