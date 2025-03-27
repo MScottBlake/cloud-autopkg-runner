@@ -1,27 +1,25 @@
 # Cloud AutoPkg Runner
 
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)  <!-- Replace LICENSE with your actual license file -->
-[![PyPI Version](https://img.shields.io/pypi/v/cloud-autopkg-runner)](https://pypi.org/project/cloud-autopkg-runner/) <!-- Update on PyPI -->
-[![Coverage Status](https://img.shields.io/codecov/c/github/<your_github_org>/cloud-autopkg-runner)](https://codecov.io/gh/<your_github_org>/cloud-autopkg-runner) <!-- Update with your Codecov repo -->
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PyPI Version](https://img.shields.io/pypi/v/cloud-autopkg-runner)](https://pypi.org/project/cloud-autopkg-runner/)
 
 ## Description
 
-Cloud AutoPkg Runner is a Python library designed to provide asynchronous tools and utilities for managing [AutoPkg](https://github.com/autopkg/autopkg) recipes and workflows. It streamlines AutoPkg automation in cloud environments and CI/CD pipelines, offering enhanced performance and scalability.
+Cloud AutoPkg Runner is a Python library designed to provide tools and utilities for managing [AutoPkg](https://github.com/autopkg/autopkg) recipes and workflows concurrently. It streamlines AutoPkg automation in CI/CD pipelines, offering enhanced performance and scalability.
 
-This library provides modules for:
+The main goal of this project is to streamline CI/CD pipelines and similar environments where AutoPkg is run ephemerally. In these environments, a file that was downloaded previously, is usually not available on the next run. This causes unnecessary downloads of the same content over and over. The metadata cache feature stores relevent file attributes from each downloaded file so that it can construct fake files on subsequent runs. Not only does this feature reduce the amount of downloaded material, it significantly decreases runtime.
 
-* Managing metadata caching
-* Processing AutoPkg recipes asynchronously
-* Executing shell commands with robust error handling
-* Centralized configuration management
+As the name implies, Cloud AutoPkg Runner is designed to make integration in cloud environments like hosted runners seamless, but you don't need to be running in the cloud. You can just as easily run a LaunchDaemon on a Mac Mini that sits in a closet. It is versatile enough that tou can run as a CLI or as a Python library import, whatever fits your workflow.
+
+:memo: Note: Example workflows will be showcased in [cloud-autopkg-runner-examples](https://github.com/MScottBlake/cloud-autopkg-runner-examples) but this is currently a Work in Progress.
 
 ## Features
 
-* **Asynchronous Recipe Processing:** Run AutoPkg recipes concurrently for faster execution.
-* **Metadata Caching:** Improve efficiency by caching metadata and reducing redundant data fetching.
+* **Concurrent Recipe Processing:** Run AutoPkg recipes concurrently for faster execution.
+* **Metadata Caching:** Improves efficiency by caching metadata from downloads and reducing redundant subsequent downloading of the same file.
 * **Robust Error Handling:** Comprehensive exception handling and logging for reliable automation.
-* **Flexible Configuration:** Easily configure the library using command-line arguments and environment variables.
-* **Cloud-Friendly:** Designed for seamless integration with cloud environments and CI/CD systems.
+* **Flexible Configuration:** Easily configure the library using command-line arguments.
+* **Cloud-Friendly:** Designed for seamless integration with CI/CD systems, even on hosted runners.
 
 ## Installation
 
@@ -33,20 +31,22 @@ This library provides modules for:
 ### Installing with uv
 
 ```bash
-uv add cloud-autopkg-runer
+uv add cloud-autopkg-runner
 ```
 
-### Installing from PyPI
+### Installing with pip
 
 ```bash
-pip install cloud-autopkg-runner
+python -m pip install cloud-autopkg-runner
 ```
 
 ## Usage
 
 ### Command Line
 
-The cloud-autopkg-runner library provides a command-line interface (CLI) for running AutoPkg recipes. UV is recommended (`uv run autopkg-run`), but you can also call it as a python module (`python -m cloud_autopkg_runner`).
+The cloud-autopkg-runner library provides a command-line interface (CLI) for running AutoPkg recipes. [uv](https://docs.astral.sh/uv/) is recommended (`uv run autopkg-run`), but you can also call it from the command line as a Python module (`python -m cloud_autopkg_runner`) or as a Python import (`import cloud_autopkg_runner`).
+
+Future examples will assume you are running it with `uv`.
 
 ### Running a Recipe
 
@@ -101,37 +101,32 @@ You can also use `cloud-autopkg-runner` as a Python library in your own scripts.
 
 ```python
 import asyncio
-from cloud_autopkg_runner import AppConfig, generate_recipe_list
-from cloud_autopkg_runner.__main__ import (
-    parse_arguments,
-    load_metadata_cache,
-    create_dummy_files,
-    process_recipe_list,
-)
+import json
 from pathlib import Path
 
-async def main():
-    args = parse_arguments()
+from cloud_autopkg_runner.metadata_cache import create_dummy_files, load_metadata_cache
+from cloud_autopkg_runner.recipe import Recipe
 
-    # Configure the library
-    AppConfig.set_config(verbosity_level=args.verbose, log_file=args.log_file)
-    AppConfig.initialize_logger()
+async def main() -> None:
+    metatada_cache_path = Path("/path/to/metadata_cache.json")
+    metadata_cache = load_metadata_cache(metatada_cache_path)
 
-    # Generate the recipe list
-    recipe_list = generate_recipe_list(args)
+    recipe_list_path = Path("/path/to/recipe_list.json")
+    recipe_list = json.loads(recipe_list_path.read_text())
 
-    # Load and create dummy files
-    metadata_cache = load_metadata_cache(args.cache_file)
     create_dummy_files(recipe_list, metadata_cache)
 
-    #Get preferences
-    autopkg_preferences = AppConfig.autopkg_preferences()
-    overrides_dir = autopkg_preferences.get("RECIPE_OVERRIDE_DIRS")
+    override_dir = Path("/path/to/autopkg/overrides")
 
-    # Run the recipes
-    await process_recipe_list(
-        Path(overrides_dir).expanduser(), recipe_list, Path("tmp")
-    )  # replace with your working dir
+    for recipe_name in recipe_list:
+        recipe = Recipe(override_dir / recipe_name)
+
+        if not await recipe.verify_trust_info():
+            await recipe.run()
+            # Commit changes
+        else:
+            await recipe.update_trust_info()
+            # Open a PR
 
 
 if __name__ == "__main__":
