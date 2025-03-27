@@ -1,27 +1,25 @@
 # Cloud AutoPkg Runner
 
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)  <!-- Replace LICENSE with your actual license file -->
-[![PyPI Version](https://img.shields.io/pypi/v/cloud-autopkg-runner)](https://pypi.org/project/cloud-autopkg-runner/) <!-- Update on PyPI -->
-[![Coverage Status](https://img.shields.io/codecov/c/github/<your_github_org>/cloud-autopkg-runner)](https://codecov.io/gh/<your_github_org>/cloud-autopkg-runner) <!-- Update with your Codecov repo -->
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PyPI Version](https://img.shields.io/pypi/v/cloud-autopkg-runner)](https://pypi.org/project/cloud-autopkg-runner/)
 
 ## Description
 
-Cloud AutoPkg Runner is a Python library designed to provide asynchronous tools and utilities for managing [AutoPkg](https://github.com/autopkg/autopkg) recipes and workflows. It streamlines AutoPkg automation in cloud environments and CI/CD pipelines, offering enhanced performance and scalability.
+Cloud AutoPkg Runner is a Python library designed to provide tools and utilities for managing [AutoPkg](https://github.com/autopkg/autopkg) recipes and workflows concurrently. It streamlines AutoPkg automation in CI/CD pipelines, offering enhanced performance and scalability.
 
-This library provides modules for:
+The main goal of this project is to streamline CI/CD pipelines and similar environments where AutoPkg is run ephemerally. In these environments, a file that was downloaded previously, is usually not available on the next run. This causes unnecessary downloads of the same content over and over. The metadata cache feature stores relevent file attributes from each downloaded file so that it can construct fake files on subsequent runs. Not only does this feature reduce the amount of downloaded material, it significantly decreases runtime.
 
-* Managing metadata caching
-* Processing AutoPkg recipes asynchronously
-* Executing shell commands with robust error handling
-* Centralized configuration management
+As the name implies, cloud AutoPkg Runner is designed to make integration in cloud environments like hosted runners seamless, but you don't need to be running in the cloud. You can just as easily run a LaunchDaemon on a Mac Mini that sits in a closet. It is versatile enough that tou can run as a CLI or as a Python library import, whatever fits your workflow.
+
+:memo: Note: Example workflows will be showcased in [cloud-autopkg-runner-examples](https://github.com/MScottBlake/cloud-autopkg-runner-examples) but this is currently a Work in Progress.
 
 ## Features
 
-* **Asynchronous Recipe Processing:** Run AutoPkg recipes concurrently for faster execution.
-* **Metadata Caching:** Improve efficiency by caching metadata and reducing redundant data fetching.
+* **Concurrent Recipe Processing:** Run AutoPkg recipes concurrently for faster execution.
+* **Metadata Caching:** Improves efficiency by caching metadata from downloads and reducing redundant subsequent downloading of the same file.
 * **Robust Error Handling:** Comprehensive exception handling and logging for reliable automation.
-* **Flexible Configuration:** Easily configure the library using command-line arguments and environment variables.
-* **Cloud-Friendly:** Designed for seamless integration with cloud environments and CI/CD systems.
+* **Flexible Configuration:** Easily configure the library using command-line arguments.
+* **Cloud-Friendly:** Designed for seamless integration with CI/CD systems, even on hosted runners.
 
 ## Installation
 
@@ -33,20 +31,22 @@ This library provides modules for:
 ### Installing with uv
 
 ```bash
-uv add cloud-autopkg-runer
+uv add cloud-autopkg-runner
 ```
 
 ### Installing from PyPI
 
 ```bash
-pip install cloud-autopkg-runner
+python -m pip install cloud-autopkg-runner
 ```
 
 ## Usage
 
 ### Command Line
 
-The cloud-autopkg-runner library provides a command-line interface (CLI) for running AutoPkg recipes. UV is recommended (`uv run autopkg-run`), but you can also call it as a python module (`python -m cloud_autopkg_runner`).
+The cloud-autopkg-runner library provides a command-line interface (CLI) for running AutoPkg recipes. [uv](https://docs.astral.sh/uv/) is recommended (`uv run autopkg-run`), but you can also call it from the command line as a Python module (`python -m cloud_autopkg_runner`) or as a Python import (`import cloud_autopkg_runner`).
+
+Future examples will assume you are running it with `uv`.
 
 ### Running a Recipe
 
