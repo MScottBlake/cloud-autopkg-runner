@@ -9,7 +9,7 @@ Cloud AutoPkg Runner is a Python library designed to provide tools and utilities
 
 The main goal of this project is to streamline CI/CD pipelines and similar environments where AutoPkg is run ephemerally. In these environments, a file that was downloaded previously, is usually not available on the next run. This causes unnecessary downloads of the same content over and over. The metadata cache feature stores relevent file attributes from each downloaded file so that it can construct fake files on subsequent runs. Not only does this feature reduce the amount of downloaded material, it significantly decreases runtime.
 
-As the name implies, cloud AutoPkg Runner is designed to make integration in cloud environments like hosted runners seamless, but you don't need to be running in the cloud. You can just as easily run a LaunchDaemon on a Mac Mini that sits in a closet. It is versatile enough that tou can run as a CLI or as a Python library import, whatever fits your workflow.
+As the name implies, Cloud AutoPkg Runner is designed to make integration in cloud environments like hosted runners seamless, but you don't need to be running in the cloud. You can just as easily run a LaunchDaemon on a Mac Mini that sits in a closet. It is versatile enough that tou can run as a CLI or as a Python library import, whatever fits your workflow.
 
 :memo: Note: Example workflows will be showcased in [cloud-autopkg-runner-examples](https://github.com/MScottBlake/cloud-autopkg-runner-examples) but this is currently a Work in Progress.
 
@@ -34,7 +34,7 @@ As the name implies, cloud AutoPkg Runner is designed to make integration in clo
 uv add cloud-autopkg-runner
 ```
 
-### Installing from PyPI
+### Installing with pip
 
 ```bash
 python -m pip install cloud-autopkg-runner
