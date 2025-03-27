@@ -101,37 +101,32 @@ You can also use `cloud-autopkg-runner` as a Python library in your own scripts.
 
 ```python
 import asyncio
-from cloud_autopkg_runner import AppConfig, generate_recipe_list
-from cloud_autopkg_runner.__main__ import (
-    parse_arguments,
-    load_metadata_cache,
-    create_dummy_files,
-    process_recipe_list,
-)
+import json
 from pathlib import Path
 
-async def main():
-    args = parse_arguments()
+from cloud_autopkg_runner.metadata_cache import create_dummy_files, load_metadata_cache
+from cloud_autopkg_runner.recipe import Recipe
 
-    # Configure the library
-    AppConfig.set_config(verbosity_level=args.verbose, log_file=args.log_file)
-    AppConfig.initialize_logger()
+async def main() -> None:
+    metatada_cache_path = Path("/path/to/metadata_cache.json")
+    metadata_cache = load_metadata_cache(metatada_cache_path)
 
-    # Generate the recipe list
-    recipe_list = generate_recipe_list(args)
+    recipe_list_path = Path("/path/to/recipe_list.json")
+    recipe_list = json.loads(recipe_list_path.read_text())
 
-    # Load and create dummy files
-    metadata_cache = load_metadata_cache(args.cache_file)
     create_dummy_files(recipe_list, metadata_cache)
 
-    #Get preferences
-    autopkg_preferences = AppConfig.autopkg_preferences()
-    overrides_dir = autopkg_preferences.get("RECIPE_OVERRIDE_DIRS")
+    override_dir = Path("/path/to/autopkg/overrides")
 
-    # Run the recipes
-    await process_recipe_list(
-        Path(overrides_dir).expanduser(), recipe_list, Path("tmp")
-    )  # replace with your working dir
+    for recipe_name in recipe_list:
+        recipe = Recipe(override_dir / recipe_name)
+
+        if not await recipe.verify_trust_info():
+            await recipe.run()
+            # Commit changes
+        else:
+            await recipe.update_trust_info()
+            # Open a PR
 
 
 if __name__ == "__main__":
