@@ -21,6 +21,8 @@ import plistlib
 from pathlib import Path
 from typing import Any, Literal, Optional, TypeVar, Union, overload
 
+from cloud_autopkg_runner.exceptions import AutoPkgRunnerException, InvalidPlistContents
+
 T = TypeVar("T")
 
 # Overload key sources:
@@ -58,8 +60,8 @@ class AutoPkgPrefs:
                 `~/Library/Preferences/com.github.autopkg.plist`.
 
         Raises:
-            FileNotFoundError: If the specified plist file does not exist.
-            ValueError: If the specified plist file is invalid.
+            AutoPkgRunnerException: If the specified plist file does not exist.
+            InvalidPlistContents: If the specified plist file is invalid.
         """
         if not plist_path:
             plist_path = Path(
@@ -70,7 +72,7 @@ class AutoPkgPrefs:
         self._prefs: dict[str, Any] = {
             "CACHE_DIR": Path("~/Library/AutoPkg/Cache").expanduser(),
             "RECIPE_SEARCH_DIRS": [
-                Path("."),
+                Path(),
                 Path("~/Library/AutoPkg/Recipes").expanduser(),
                 Path("/Library/AutoPkg/Recipes"),
             ],
@@ -82,16 +84,10 @@ class AutoPkgPrefs:
 
         try:
             prefs: dict[str, Any] = plistlib.loads(plist_path.read_bytes())
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Plist file not found: {plist_path}")
-        except plistlib.InvalidFileException:
-            raise ValueError(f"Invalid plist file: {plist_path}")
-
-        # Force into lists to reduce branching logic
-        if isinstance(prefs["RECIPE_SEARCH_DIRS"], str):
-            prefs["RECIPE_SEARCH_DIRS"] = [prefs["RECIPE_SEARCH_DIRS"]]
-        if isinstance(prefs["RECIPE_OVERRIDE_DIRS"], str):
-            prefs["RECIPE_OVERRIDE_DIRS"] = [prefs["RECIPE_OVERRIDE_DIRS"]]
+        except FileNotFoundError as exc:
+            raise AutoPkgRunnerException(f"Plist file not found: {plist_path}") from exc  # noqa: TRY003
+        except plistlib.InvalidFileException as exc:
+            raise InvalidPlistContents(plist_path) from exc
 
         # Convert `str` to `Path`
         if "CACHE_DIR" in prefs:
@@ -101,11 +97,17 @@ class AutoPkgPrefs:
         if "MUNKI_REPO" in prefs:
             prefs["MUNKI_REPO"] = Path(prefs["MUNKI_REPO"]).expanduser()
 
-        prefs["RECIPE_SEARCH_DIRS"] = map(
-            lambda x: Path(x).expanduser(), prefs["RECIPE_SEARCH_DIRS"]
+        # Force into lists to reduce branching logic
+        if isinstance(prefs["RECIPE_SEARCH_DIRS"], str):
+            prefs["RECIPE_SEARCH_DIRS"] = [prefs["RECIPE_SEARCH_DIRS"]]
+        if isinstance(prefs["RECIPE_OVERRIDE_DIRS"], str):
+            prefs["RECIPE_OVERRIDE_DIRS"] = [prefs["RECIPE_OVERRIDE_DIRS"]]
+
+        prefs["RECIPE_SEARCH_DIRS"] = (
+            Path(x).expanduser() for x in prefs["RECIPE_SEARCH_DIRS"]
         )
-        prefs["RECIPE_SEARCH_DIRS"] = map(
-            lambda x: Path(x).expanduser(), prefs["RECIPE_SEARCH_DIRS"]
+        prefs["RECIPE_OVERRIDE_DIRS"] = (
+            Path(x).expanduser() for x in prefs["RECIPE_OVERRIDE_DIRS"]
         )
 
         self._prefs.update(prefs)

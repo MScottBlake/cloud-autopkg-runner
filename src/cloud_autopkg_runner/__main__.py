@@ -13,6 +13,7 @@ execute these tasks efficiently.
 """
 
 import asyncio
+import contextlib
 import json
 import os
 import signal
@@ -25,7 +26,11 @@ from types import FrameType
 from typing import NoReturn
 
 from cloud_autopkg_runner import AppConfig, logger
-from cloud_autopkg_runner.exceptions import AutoPkgRunnerException
+from cloud_autopkg_runner.exceptions import (
+    InvalidFileContents,
+    InvalidJsonContents,
+    RecipeException,
+)
 from cloud_autopkg_runner.metadata_cache import create_dummy_files, load_metadata_cache
 from cloud_autopkg_runner.recipe import ConsolidatedReport, Recipe
 
@@ -45,8 +50,8 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
         A set of strings, where each string is a recipe name.
 
     Raises:
-        AutoPkgRunnerException: If the JSON file specified by 'args.recipe_list'
-            contains invalid JSON.
+        InvalidJsonContents: If the JSON file specified by 'args.recipe_list' contains
+            invalid JSON.
     """
     logger.debug("Generating recipe list...")
 
@@ -56,9 +61,7 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
         try:
             output.update(json.loads(Path(args.recipe_list).read_text()))
         except json.JSONDecodeError as exc:
-            raise AutoPkgRunnerException(
-                f"Invalid file contents in {args.recipe_list}"
-            ) from exc
+            raise InvalidJsonContents(args.recipe_list) from exc
 
     if args.recipe:
         output.update(args.recipe)
@@ -130,10 +133,8 @@ async def _process_recipe_list(recipe_list: Iterable[str], working_dir: Path) ->
 
     recipes: list[Recipe] = []
     for recipe_name in recipe_list:
-        try:
-            recipes.append(Recipe(recipe_name, working_dir))
-        except AutoPkgRunnerException:
-            continue
+        with contextlib.suppress(InvalidFileContents, RecipeException):
+            recipes.append(Recipe(recipe_name, working_dir))  # Skips failures
 
     recipe_output: dict[str, ConsolidatedReport] = {}
     for recipe in recipes:

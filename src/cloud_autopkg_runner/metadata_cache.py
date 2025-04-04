@@ -18,7 +18,7 @@ from typing import Iterable, TypeAlias, TypedDict, cast
 import xattr  # pyright: ignore[reportMissingTypeStubs]
 
 from cloud_autopkg_runner import logger
-from cloud_autopkg_runner.exceptions import AutoPkgRunnerException
+from cloud_autopkg_runner.exceptions import InvalidJsonContents
 
 
 class DownloadMetadata(TypedDict, total=False):
@@ -175,7 +175,7 @@ def load_metadata_cache(file_path: Path) -> MetadataCache:
         A `MetadataCache` dictionary containing the loaded metadata.
 
     Raises:
-        AutoPkgRunnerException: If the file contains invalid JSON.
+        InvalidJsonContents: If the file contains invalid JSON.
     """
     logger.debug(f"Loading metadata cache from {file_path}...")
 
@@ -188,7 +188,7 @@ def load_metadata_cache(file_path: Path) -> MetadataCache:
         metadata_cache = MetadataCache(json.loads(file_path.read_text()))
         logger.info(f"Metadata cache loaded from {file_path}.")
     except json.JSONDecodeError as exc:
-        raise AutoPkgRunnerException(f"Invalid file contents in {file_path}") from exc
+        raise InvalidJsonContents(file_path) from exc
 
     logger.debug(f"Metadata cache: {metadata_cache}")
     return metadata_cache

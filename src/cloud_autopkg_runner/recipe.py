@@ -23,7 +23,13 @@ import yaml
 
 from cloud_autopkg_runner import AppConfig, logger
 from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
-from cloud_autopkg_runner.exceptions import AutoPkgRunnerException
+from cloud_autopkg_runner.exceptions import (
+    InvalidPlistContents,
+    InvalidYamlContents,
+    RecipeFormatException,
+    RecipeInputException,
+    RecipeLookupException,
+)
 from cloud_autopkg_runner.metadata_cache import (
     DownloadMetadata,
     RecipeCache,
@@ -101,7 +107,7 @@ class Recipe:
 
         try:
             self._path: Path = self._find_recipe(recipe_name)
-        except AutoPkgRunnerException as exc:
+        except RecipeLookupException as exc:
             logger.error(exc)
             raise
 
@@ -171,14 +177,12 @@ class Recipe:
             The recipe's NAME input variable as a string.
 
         Raises:
-            AutoPkgRunnerException: If the recipe does not contain a NAME input variable.
+            RecipeInputException: If the recipe does not contain a NAME input variable.
         """
         try:
             return self._contents["Input"]["NAME"]
-        except AttributeError:
-            raise AutoPkgRunnerException(
-                f"Failed to get recipe name from {self._path} contents."
-            )
+        except AttributeError as exc:
+            raise RecipeInputException(self._path) from exc
 
     @property
     def minimum_version(self) -> str:
@@ -300,7 +304,7 @@ class Recipe:
                 if recipe_path.exists():
                     return recipe_path
 
-        raise AutoPkgRunnerException(f"No recipe found matching {recipe_name}")
+        raise RecipeLookupException(recipe_name)
 
     def _get_contents(self) -> RecipeContents:
         """Read and parse the recipe file.
@@ -309,7 +313,7 @@ class Recipe:
             A dictionary containing the recipe's contents.
 
         Raises:
-            AutoPkgRunnerException: If the file is invalid or cannot be parsed.
+            InvalidFileContents: If the file is invalid or cannot be parsed.
         """
         file_contents = self._path.read_text()
 
@@ -327,14 +331,12 @@ class Recipe:
             A dictionary containing the recipe's contents.
 
         Raises:
-            AutoPkgRunnerException: If the PLIST file is invalid.
+            InvalidPlistContents: If the plist file is invalid.
         """
         try:
             return plistlib.loads(file_contents.encode())
         except plistlib.InvalidFileException as exc:
-            raise AutoPkgRunnerException(
-                f"Invalid file contents in {self._path}"
-            ) from exc
+            raise InvalidPlistContents(self._path) from exc
 
     def _get_contents_yaml(self, file_contents: str) -> RecipeContents:
         """Parse a recipe in YAML format.
@@ -346,14 +348,12 @@ class Recipe:
             A dictionary containing the recipe's contents.
 
         Raises:
-            AutoPkgRunnerException: If the YAML file is invalid.
+            InvalidYamlContents: If the yaml file is invalid.
         """
         try:
             return yaml.safe_load(file_contents)
         except yaml.YAMLError as exc:
-            raise AutoPkgRunnerException(
-                f"Invalid file contents in {self._path}"
-            ) from exc
+            raise InvalidYamlContents(self._path) from exc
 
     def _get_metadata(self, download_items: list[dict[str, str]]) -> RecipeCache:
         """Extracts metadata from downloaded files and returns a RecipeCache object.
@@ -404,13 +404,13 @@ class Recipe:
             A RecipeFormat enum value.
 
         Raises:
-            AutoPkgRunnerException: If the file extension is not recognized.
+            RecipeFormatException: If the file extension is not recognized.
         """
         if self._path.suffix == ".yaml":
             return RecipeFormat.YAML
         if self._path.suffix in [".plist", ".recipe"]:
             return RecipeFormat.PLIST
-        raise AutoPkgRunnerException(f"Invalid recipe format: {self._path.suffix}")
+        raise RecipeFormatException(self._path.suffix)
 
     async def run(self) -> ConsolidatedReport:
         """Runs the recipe and saves metadata.
