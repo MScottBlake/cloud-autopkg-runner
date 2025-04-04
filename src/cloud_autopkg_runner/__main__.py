@@ -25,7 +25,6 @@ from types import FrameType
 from typing import NoReturn
 
 from cloud_autopkg_runner import AppConfig, logger
-from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
 from cloud_autopkg_runner.exceptions import AutoPkgRunnerException
 from cloud_autopkg_runner.metadata_cache import create_dummy_files, load_metadata_cache
 from cloud_autopkg_runner.recipe import ConsolidatedReport, Recipe
@@ -115,9 +114,7 @@ def _parse_arguments() -> Namespace:
     return parser.parse_args()
 
 
-async def _process_recipe_list(
-    overrides_paths: list[Path], recipe_list: Iterable[str], working_dir: Path
-) -> None:
+async def _process_recipe_list(recipe_list: Iterable[str], working_dir: Path) -> None:
     """Process a list of recipe names to create Recipe objects and run them in parallel.
 
     Creates `Recipe` objects from a list of recipe names and then executes them
@@ -126,24 +123,17 @@ async def _process_recipe_list(
     if the recipe file is found.
 
     Args:
-        overrides_paths: A list of paths to AutoPkg recipe override directories.
-                         These directories are searched in order for the recipe files.
         recipe_list: An iterable of recipe names (strings).
         working_dir: The temporary directory where the recipes will be run.
-
-    Raises:
-        (Exceptions raised within `run_recipe` are caught and logged as warnings.
-        Exceptions during `Recipe` object creation are not explicitly handled.)
     """
     logger.debug("Processing recipes...")
 
     recipes: list[Recipe] = []
     for recipe_name in recipe_list:
-        for overrides_path in overrides_paths:
-            recipe_path = Path(overrides_path).expanduser() / recipe_name
-            if recipe_path.exists():
-                recipes.append(Recipe(recipe_path, working_dir))
-                break
+        try:
+            recipes.append(Recipe(recipe_name, working_dir))
+        except AutoPkgRunnerException:
+            continue
 
     recipe_output: dict[str, ConsolidatedReport] = {}
     for recipe in recipes:
@@ -192,14 +182,11 @@ async def _async_main() -> None:
     metadata_cache = load_metadata_cache(args.cache_file)
     create_dummy_files(recipe_list, metadata_cache)
 
-    autopkg_preferences = AutoPkgPrefs()
-    overrides_dir = autopkg_preferences["RECIPE_OVERRIDE_DIRS"]
-
     with tempfile.TemporaryDirectory(prefix="autopkg_") as temp_dir_str:
         temp_working_dir = Path(temp_dir_str)
         logger.debug(f"Temporary directory created: {temp_working_dir}")
 
-        await _process_recipe_list(overrides_dir, recipe_list, temp_working_dir)
+        await _process_recipe_list(recipe_list, temp_working_dir)
 
 
 def main() -> None:

@@ -22,6 +22,7 @@ from typing import Any, TypedDict
 import yaml
 
 from cloud_autopkg_runner import AppConfig, logger
+from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
 from cloud_autopkg_runner.exceptions import AutoPkgRunnerException
 from cloud_autopkg_runner.metadata_cache import (
     DownloadMetadata,
@@ -88,22 +89,39 @@ class Recipe:
         _result: RecipeReport object for storing the results of running the recipe.
     """
 
-    def __init__(self, recipe_path: Path, report_dir: Path | None = None) -> None:
+    def __init__(self, recipe_name: str, report_dir: Path | None = None) -> None:
         """Initialize a Recipe object.
 
         Args:
-            recipe_path: Path to the recipe file.
+            recipe_name: Path to the recipe file.
             report_dir: Path to the report directory. If None, a temporary
                 directory is created.
         """
-        if report_dir is None:
-            report_dir = Path(tempfile.mkdtemp(prefix="autopkg_"))
+        self._name: str = recipe_name
 
-        self._path: Path = recipe_path
+        try:
+            self._path: Path = self._find_recipe(recipe_name)
+        except AutoPkgRunnerException as exc:
+            logger.error(exc)
+            raise
+
         self._format: RecipeFormat = self.format()
         self._contents: RecipeContents = self._get_contents()
         self._trusted: TrustInfoVerificationState = TrustInfoVerificationState.UNTESTED
-        self._result: RecipeReport = RecipeReport(report_dir)
+
+        if report_dir is None:
+            report_dir = Path(tempfile.mkdtemp(prefix="autopkg_"))
+
+        report_path: Path = report_dir / Path(self.name).stem
+        counter = 1
+        original_report_path = report_path
+        while report_path.exists():
+            report_path = original_report_path.with_name(
+                f"{original_report_path.name}_{counter}"
+            )
+            counter += 1
+
+        self._result: RecipeReport = RecipeReport(report_path)
 
     @property
     def contents(self) -> RecipeContents:
@@ -218,7 +236,6 @@ class Recipe:
             "/usr/local/bin/autopkg",
             "run",
             self.name,
-            f"--override-dir={self._path.parent}",
             f"--report-plist={self._result.file_path()}",
         ]
 
@@ -254,6 +271,36 @@ class Recipe:
             return []
 
         return [item["download_path"] for item in download_items]
+
+    def _find_recipe(self, recipe_name: str) -> Path:
+        """Locates the recipe path.
+
+        Returns:
+            Path of a given recipe
+        """
+        autopkg_preferences = AutoPkgPrefs()
+        lookup_dirs: list[Path] = (
+            autopkg_preferences["RECIPE_OVERRIDE_DIRS"]
+            + autopkg_preferences["RECIPE_SEARCH_DIRS"]
+        )
+
+        if recipe_name.endswith((".recipe", ".recipe.plist", ".recipe.yaml")):
+            possible_filenames = [recipe_name]
+        else:
+            possible_filenames = [
+                recipe_name + ".recipe",
+                recipe_name + ".recipe.plist",
+                recipe_name + ".recipe.yaml",
+            ]
+
+        for lookup_path in lookup_dirs:
+            path = lookup_path.expanduser()
+            for filename in possible_filenames:
+                recipe_path = path / filename
+                if recipe_path.exists():
+                    return recipe_path
+
+        raise AutoPkgRunnerException(f"No recipe found matching {recipe_name}")
 
     def _get_contents(self) -> RecipeContents:
         """Read and parse the recipe file.
