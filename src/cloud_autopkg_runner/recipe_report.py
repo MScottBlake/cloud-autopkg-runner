@@ -173,7 +173,7 @@ class RecipeReport:
 
         # Pkgs could be built by many different processors, scan for them
         pkg_builds: list[dict[str, Any]] = []
-        for key in self.summary_results.keys():
+        for key in self.summary_results:
             if "pkg" in key:
                 pkg_builds.extend(self._get_items_list(key))
 

@@ -18,11 +18,11 @@ dev = [
 name = "cloud-autopkg-runner"
 version = "0.6.0"
 description = "Cloud AutoPkg Runner is a Python library designed to provide tools and utilities for managing [AutoPkg](https://github.com/autopkg/autopkg) recipes and workflows concurrently. It streamlines AutoPkg automations in CI/CD pipelines, offering enhanced performance and scalability."
-readme = {file = "README.md", content-type = "text/markdown"}
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{name = "Scott Blake", email = "mitchelsblake@gmail.com"}]
+authors = [{ name = "Scott Blake", email = "mitchelsblake@gmail.com" }]
 keywords = ["autopkg", "cloud", "automation", "recipes", "async"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -40,10 +40,7 @@ classifiers = [
     "Operating System :: MacOS :: MacOS X",
     "Typing :: Typed",
 ]
-dependencies = [
-    "pyyaml>=6.0.2",
-    "xattr>=1.1.4",
-]
+dependencies = ["pyyaml>=6.0.2", "xattr>=1.1.4"]
 
 [project.scripts]
 autopkg-run = "cloud_autopkg_runner.__main__:main"
@@ -86,7 +83,47 @@ include = ["pyproject.toml", "{src,tests}/**/*.py"]
 extend-exclude = [".venv"]
 
 [tool.ruff.lint]
-select = ["D", "E4", "E7", "E9", "F", "W"]
+select = [
+    "A",     # flake8-builtins
+    # "ANN",   # flake8-annotations
+    "ARG",   # flake8-unused-arguments
+    "ASYNC", # flake8-async
+    "B",     # flake8-bugbear
+    "BLE",   # flake8-bare-except
+    "C4",    # flake8-comprehensions
+    "C90",   # mccabe
+    "D",     # pydocstyle
+    "DOC",   # pydoclint
+    "DTZ",   # flake8-datetimez
+    "E",     # pycodestyle error
+    "F",     # Pyflakes
+    "FBT",   # flake8-boolean-trap
+    "FLY",   # flynt
+    "FIX",   # flake8-fixme
+    "G",     # flake8-logging-format
+    "I",     # isort
+    "LOG",   # flake8-logging
+    "N",     # pep8-naming
+    "PERF",  # Perflint
+    "PIE",   # flake8-pie
+    "PL",    # Pylint
+    "PT",    # flake8-pytest-style
+    "PTH",   # flake8-use-pathlib
+    "Q",     # flake8-quotes
+    "RET",   # flake8-return
+    "RSE",   # flake8-raise
+    "RUF",   # Ruff-specific rules
+    "S",     # flake8-bandit
+    "SIM",   # flake8-simplify
+    "SLF",   # flake8-self
+    "T20",   # flake8-print
+    "TC",    # flake8-type-checking
+    "TID",   # flake8-tidy-imports
+    "TRY",   # tryceratops
+    "UP",    # pyupgrade
+    "W",     # pycodestyle warning
+    "YTT",   # flake8-2020
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

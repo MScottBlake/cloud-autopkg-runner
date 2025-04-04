@@ -256,8 +256,8 @@ class Recipe:
     ) -> list[str]:
         """Extracts 'download_path' values from a list of dictionaries.
 
-        This function assumes that each dictionary in the input list has a structure like:
-        {'downloaded_items': [{'download_path': 'path_to_file'}]}
+        This function assumes that each dictionary in the input list has a structure
+        like: {'downloaded_items': [{'download_path': 'path_to_file'}]}
 
         Args:
             download_items: A list of dictionaries, where each dictionary is
@@ -267,9 +267,9 @@ class Recipe:
 
         Returns:
             A list of strings, where each string is the 'download_path' value from
-            the first dictionary in the "downloaded_items" list of each input dictionary.
-            Returns an empty list if the input is empty, any of the intermediate
-            keys are missing, or the "downloaded_items" list is empty.
+            the first dictionary in the "downloaded_items" list of each input
+            dictionary. Returns an empty list if the input is empty, any of the
+            intermediate keys are missing, or the "downloaded_items" list is empty.
         """
         if not download_items:
             return []
@@ -451,7 +451,8 @@ class Recipe:
             if not stderr:
                 stderr = "<Unknown Error>"
             logger.error(
-                f"An error occurred while running the check phase on {self.name}: {stderr}"
+                f"An error occurred while running the check phase, "
+                f"on {self.name}: {stderr}"
             )
 
         return self.compile_report()
@@ -516,7 +517,8 @@ class Recipe:
         Calls autopkg with the `verify-trust-info` command.
 
         Returns:
-            True if the trust info is trusted, False if it is untrusted, or UNTESTED if it hasn't been tested yet.
+            True if the trust info is trusted, False if it is untrusted, or UNTESTED if
+                it hasn't been tested yet.
         """
         if self._trusted == TrustInfoVerificationState.UNTESTED:
             logger.debug(f"Verifying trust info for {self.name}...")

@@ -96,7 +96,10 @@ def _parse_arguments() -> Namespace:
         "-r",
         "--recipe",
         action="append",
-        help="A recipe name. Can be specified multiple times. (--recipe Firefox.pkg.recipe --recipe GoogleChrome.pkg.recipe)",
+        help=(
+            "A recipe name. Can be specified multiple times. "
+            "(--recipe Firefox.pkg.recipe --recipe GoogleChrome.pkg.recipe)"
+        ),
     )
     parser.add_argument(
         "--recipe-list",
