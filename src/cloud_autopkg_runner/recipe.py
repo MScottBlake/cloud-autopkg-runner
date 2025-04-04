@@ -283,10 +283,9 @@ class Recipe:
             Path of a given recipe
         """
         autopkg_preferences = AutoPkgPrefs()
-        lookup_dirs: list[Path] = (
+        lookup_dirs: list[Path] = list(
             autopkg_preferences["RECIPE_OVERRIDE_DIRS"]
-            + autopkg_preferences["RECIPE_SEARCH_DIRS"]
-        )
+        ) + list(autopkg_preferences["RECIPE_SEARCH_DIRS"])
 
         if recipe_name.endswith((".recipe", ".recipe.plist", ".recipe.yaml")):
             possible_filenames = [recipe_name]
