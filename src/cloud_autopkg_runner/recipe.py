@@ -361,7 +361,7 @@ class Recipe:
         """
         if self._path.suffix == ".yaml":
             return RecipeFormat.YAML
-        elif self._path.suffix in [".plist", ".recipe"]:
+        if self._path.suffix in [".plist", ".recipe"]:
             return RecipeFormat.PLIST
         raise AutoPkgRunnerException(f"Invalid recipe format: {self._path.suffix}")
 
