@@ -104,7 +104,8 @@ import asyncio
 import json
 from pathlib import Path
 
-from cloud_autopkg_runner import create_dummy_files, load_metadata_cache, Recipe
+from cloud_autopkg_runner.metadata_cache import create_dummy_files, load_metadata_cache
+from cloud_autopkg_runner.recipe import Recipe
 
 async def main() -> None:
     metatada_cache_path = Path("/path/to/metadata_cache.json")
@@ -116,14 +117,15 @@ async def main() -> None:
     create_dummy_files(recipe_list, metadata_cache)
 
     for recipe_name in recipe_list:
+        print(f"Processing {recipe_name}")
         recipe = Recipe(recipe_name)
 
-        if not await recipe.verify_trust_info():
+        if await recipe.verify_trust_info():
             await recipe.run()
-            # Commit changes
+            # Code to Commit changes here
         else:
             await recipe.update_trust_info()
-            # Open a PR
+            # Code to Open a PR here
 
 
 if __name__ == "__main__":
