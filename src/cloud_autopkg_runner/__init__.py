@@ -18,39 +18,53 @@ import sys
 from pathlib import Path
 
 # Expose imports to the top-level of the package
-from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs as AutoPkgPrefs
-from cloud_autopkg_runner.exceptions import (
-    AutoPkgRunnerException as AutoPkgRunnerException,
-)
-from cloud_autopkg_runner.metadata_cache import DownloadMetadata as DownloadMetadata
-from cloud_autopkg_runner.metadata_cache import MetadataCache as MetadataCache
-from cloud_autopkg_runner.metadata_cache import RecipeCache as RecipeCache
-from cloud_autopkg_runner.metadata_cache import create_dummy_files as create_dummy_files
-from cloud_autopkg_runner.metadata_cache import get_file_metadata as get_file_metadata
+from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
+from cloud_autopkg_runner.exceptions import AutoPkgRunnerException
 from cloud_autopkg_runner.metadata_cache import (
-    load_metadata_cache as load_metadata_cache,
+    DownloadMetadata,
+    MetadataCache,
+    RecipeCache,
+    create_dummy_files,
+    get_file_metadata,
+    load_metadata_cache,
+    save_metadata_cache,
 )
-from cloud_autopkg_runner.metadata_cache import (
-    save_metadata_cache as save_metadata_cache,
-)
-from cloud_autopkg_runner.recipe import Recipe as Recipe
-from cloud_autopkg_runner.recipe import RecipeContents as RecipeContents
-from cloud_autopkg_runner.recipe import RecipeFormat as RecipeFormat
 from cloud_autopkg_runner.recipe import (
-    TrustInfoVerificationState as TrustInfoVerificationState,
-)
-from cloud_autopkg_runner.recipe_report import ConsolidatedReport as ConsolidatedReport
-from cloud_autopkg_runner.recipe_report import RecipeReport as RecipeReport
-from cloud_autopkg_runner.recipe_report import (
-    RecipeReportContents as RecipeReportContents,
+    Recipe,
+    RecipeContents,
+    RecipeFormat,
+    TrustInfoVerificationState,
 )
 from cloud_autopkg_runner.recipe_report import (
-    RecipeReportFailedItem as RecipeReportFailedItem,
+    ConsolidatedReport,
+    RecipeReport,
+    RecipeReportContents,
+    RecipeReportFailedItem,
+    RecipeReportSummaryResults,
 )
-from cloud_autopkg_runner.recipe_report import (
-    RecipeReportSummaryResults as RecipeReportSummaryResults,
-)
-from cloud_autopkg_runner.shell import run_cmd as run_cmd
+from cloud_autopkg_runner.shell import run_cmd
+
+__all__ = [
+    "AutoPkgPrefs",
+    "AutoPkgRunnerException",
+    "ConsolidatedReport",
+    "DownloadMetadata",
+    "MetadataCache",
+    "Recipe",
+    "RecipeCache",
+    "RecipeContents",
+    "RecipeFormat",
+    "RecipeReport",
+    "RecipeReportContents",
+    "RecipeReportFailedItem",
+    "RecipeReportSummaryResults",
+    "TrustInfoVerificationState",
+    "create_dummy_files",
+    "get_file_metadata",
+    "load_metadata_cache",
+    "run_cmd",
+    "save_metadata_cache",
+]
 
 # Create a logger instance
 logger: logging.Logger = logging.getLogger(__name__)
@@ -66,7 +80,6 @@ class AppConfig:
     and the metadata cache file path.
     """
 
-    _autopkg_prefs = {}
     _cache_file: Path = Path()
     _log_file: str | None = None
     _verbosity_level: int = 0
