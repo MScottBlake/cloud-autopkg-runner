@@ -14,7 +14,7 @@ Key classes:
 import plistlib
 import tempfile
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, StrEnum, auto
 from pathlib import Path
 from typing import Any, TypedDict
@@ -335,7 +335,10 @@ class Recipe:
                 }
             )
 
-        return {"timestamp": str(datetime.now()), "metadata": metadata_list}
+        return {
+            "timestamp": str(datetime.now(tz=timezone.utc)),
+            "metadata": metadata_list,
+        }
 
     def compile_report(self) -> ConsolidatedReport:
         """Compiles a consolidated report from the recipe report file.
