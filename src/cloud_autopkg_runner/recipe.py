@@ -13,15 +13,23 @@ Key classes:
 
 import plistlib
 import tempfile
-from datetime import datetime
+from collections.abc import Iterable
+from datetime import datetime, timezone
 from enum import Enum, StrEnum, auto
 from pathlib import Path
-from typing import Any, Iterable, Optional, TypedDict
+from typing import Any, TypedDict
 
 import yaml
 
 from cloud_autopkg_runner import AppConfig, logger
-from cloud_autopkg_runner.exceptions import AutoPkgRunnerException
+from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
+from cloud_autopkg_runner.exceptions import (
+    InvalidPlistContents,
+    InvalidYamlContents,
+    RecipeFormatException,
+    RecipeInputException,
+    RecipeLookupException,
+)
 from cloud_autopkg_runner.metadata_cache import (
     DownloadMetadata,
     RecipeCache,
@@ -49,11 +57,11 @@ class RecipeContents(TypedDict):
             in the recipe's processing workflow.
     """
 
-    Description: Optional[str]
+    Description: str | None
     Identifier: str
     Input: dict[str, Any]
-    MinimumVersion: Optional[str]
-    ParentRecipe: Optional[str]
+    MinimumVersion: str | None
+    ParentRecipe: str | None
     Process: Iterable[dict[str, Any]]
 
 
@@ -87,22 +95,39 @@ class Recipe:
         _result: RecipeReport object for storing the results of running the recipe.
     """
 
-    def __init__(self, recipe_path: Path, report_dir: Optional[Path] = None) -> None:
+    def __init__(self, recipe_name: str, report_dir: Path | None = None) -> None:
         """Initialize a Recipe object.
 
         Args:
-            recipe_path: Path to the recipe file.
+            recipe_name: Path to the recipe file.
             report_dir: Path to the report directory. If None, a temporary
                 directory is created.
         """
-        if report_dir is None:
-            report_dir = Path(tempfile.mkdtemp(prefix="autopkg_"))
+        self._name: str = recipe_name
 
-        self._path: Path = recipe_path
+        try:
+            self._path: Path = self._find_recipe(recipe_name)
+        except RecipeLookupException as exc:
+            logger.error(exc)
+            raise
+
         self._format: RecipeFormat = self.format()
         self._contents: RecipeContents = self._get_contents()
         self._trusted: TrustInfoVerificationState = TrustInfoVerificationState.UNTESTED
-        self._result: RecipeReport = RecipeReport(report_dir)
+
+        if report_dir is None:
+            report_dir = Path(tempfile.mkdtemp(prefix="autopkg_"))
+
+        report_path: Path = report_dir / Path(self.name).stem
+        counter = 1
+        original_report_path = report_path
+        while report_path.exists():
+            report_path = original_report_path.with_name(
+                f"{original_report_path.name}_{counter}"
+            )
+            counter += 1
+
+        self._result: RecipeReport = RecipeReport(report_path)
 
     @property
     def contents(self) -> RecipeContents:
@@ -152,14 +177,12 @@ class Recipe:
             The recipe's NAME input variable as a string.
 
         Raises:
-            AutoPkgRunnerException: If the recipe does not contain a NAME input variable.
+            RecipeInputException: If the recipe does not contain a NAME input variable.
         """
         try:
             return self._contents["Input"]["NAME"]
-        except AttributeError:
-            raise AutoPkgRunnerException(
-                f"Failed to get recipe name from {self._path} contents."
-            )
+        except AttributeError as exc:
+            raise RecipeInputException(self._path) from exc
 
     @property
     def minimum_version(self) -> str:
@@ -204,7 +227,7 @@ class Recipe:
         """
         return self._contents["Process"]
 
-    def _autopkg_run_cmd(self, check: bool = False) -> list[str]:
+    def _autopkg_run_cmd(self, *, check: bool = False) -> list[str]:
         """Constructs the command-line arguments for running AutoPkg.
 
         Args:
@@ -217,7 +240,6 @@ class Recipe:
             "/usr/local/bin/autopkg",
             "run",
             self.name,
-            f"--override-dir={self._path.parent}",
             f"--report-plist={self._result.file_path()}",
         ]
 
@@ -234,8 +256,8 @@ class Recipe:
     ) -> list[str]:
         """Extracts 'download_path' values from a list of dictionaries.
 
-        This function assumes that each dictionary in the input list has a structure like:
-        {'downloaded_items': [{'download_path': 'path_to_file'}]}
+        This function assumes that each dictionary in the input list has a structure
+        like: {'downloaded_items': [{'download_path': 'path_to_file'}]}
 
         Args:
             download_items: A list of dictionaries, where each dictionary is
@@ -245,14 +267,43 @@ class Recipe:
 
         Returns:
             A list of strings, where each string is the 'download_path' value from
-            the first dictionary in the "downloaded_items" list of each input dictionary.
-            Returns an empty list if the input is empty, any of the intermediate
-            keys are missing, or the "downloaded_items" list is empty.
+            the first dictionary in the "downloaded_items" list of each input
+            dictionary. Returns an empty list if the input is empty, any of the
+            intermediate keys are missing, or the "downloaded_items" list is empty.
         """
         if not download_items:
             return []
 
         return [item["download_path"] for item in download_items]
+
+    def _find_recipe(self, recipe_name: str) -> Path:
+        """Locates the recipe path.
+
+        Returns:
+            Path of a given recipe
+        """
+        autopkg_preferences = AutoPkgPrefs()
+        lookup_dirs: list[Path] = list(
+            autopkg_preferences["RECIPE_OVERRIDE_DIRS"]
+        ) + list(autopkg_preferences["RECIPE_SEARCH_DIRS"])
+
+        if recipe_name.endswith((".recipe", ".recipe.plist", ".recipe.yaml")):
+            possible_filenames = [recipe_name]
+        else:
+            possible_filenames = [
+                recipe_name + ".recipe",
+                recipe_name + ".recipe.plist",
+                recipe_name + ".recipe.yaml",
+            ]
+
+        for lookup_path in lookup_dirs:
+            path = lookup_path.expanduser()
+            for filename in possible_filenames:
+                recipe_path = path / filename
+                if recipe_path.exists():
+                    return recipe_path
+
+        raise RecipeLookupException(recipe_name)
 
     def _get_contents(self) -> RecipeContents:
         """Read and parse the recipe file.
@@ -261,7 +312,7 @@ class Recipe:
             A dictionary containing the recipe's contents.
 
         Raises:
-            AutoPkgRunnerException: If the file is invalid or cannot be parsed.
+            InvalidFileContents: If the file is invalid or cannot be parsed.
         """
         file_contents = self._path.read_text()
 
@@ -279,14 +330,12 @@ class Recipe:
             A dictionary containing the recipe's contents.
 
         Raises:
-            AutoPkgRunnerException: If the PLIST file is invalid.
+            InvalidPlistContents: If the plist file is invalid.
         """
         try:
             return plistlib.loads(file_contents.encode())
         except plistlib.InvalidFileException as exc:
-            raise AutoPkgRunnerException(
-                f"Invalid file contents in {self._path}"
-            ) from exc
+            raise InvalidPlistContents(self._path) from exc
 
     def _get_contents_yaml(self, file_contents: str) -> RecipeContents:
         """Parse a recipe in YAML format.
@@ -298,14 +347,12 @@ class Recipe:
             A dictionary containing the recipe's contents.
 
         Raises:
-            AutoPkgRunnerException: If the YAML file is invalid.
+            InvalidYamlContents: If the yaml file is invalid.
         """
         try:
             return yaml.safe_load(file_contents)
         except yaml.YAMLError as exc:
-            raise AutoPkgRunnerException(
-                f"Invalid file contents in {self._path}"
-            ) from exc
+            raise InvalidYamlContents(self._path) from exc
 
     def _get_metadata(self, download_items: list[dict[str, str]]) -> RecipeCache:
         """Extracts metadata from downloaded files and returns a RecipeCache object.
@@ -334,7 +381,10 @@ class Recipe:
                 }
             )
 
-        return {"timestamp": str(datetime.now()), "metadata": metadata_list}
+        return {
+            "timestamp": str(datetime.now(tz=timezone.utc)),
+            "metadata": metadata_list,
+        }
 
     def compile_report(self) -> ConsolidatedReport:
         """Compiles a consolidated report from the recipe report file.
@@ -353,13 +403,13 @@ class Recipe:
             A RecipeFormat enum value.
 
         Raises:
-            AutoPkgRunnerException: If the file extension is not recognized.
+            RecipeFormatException: If the file extension is not recognized.
         """
         if self._path.suffix == ".yaml":
             return RecipeFormat.YAML
-        elif self._path.suffix in [".plist", ".recipe"]:
+        if self._path.suffix in [".plist", ".recipe"]:
             return RecipeFormat.PLIST
-        raise AutoPkgRunnerException(f"Invalid recipe format: {self._path.suffix}")
+        raise RecipeFormatException(self._path.suffix)
 
     async def run(self) -> ConsolidatedReport:
         """Runs the recipe and saves metadata.
@@ -393,14 +443,15 @@ class Recipe:
         logger.debug(f"Performing Check Phase on {self.name}...")
 
         returncode, _stdout, stderr = await run_cmd(
-            self._autopkg_run_cmd(True), check=False
+            self._autopkg_run_cmd(check=True), check=False
         )
 
         if returncode != 0:
             if not stderr:
                 stderr = "<Unknown Error>"
             logger.error(
-                f"An error occurred while running the check phase on {self.name}: {stderr}"
+                f"An error occurred while running the check phase, "
+                f"on {self.name}: {stderr}"
             )
 
         return self.compile_report()
@@ -420,7 +471,7 @@ class Recipe:
         logger.debug(f"Performing AutoPkg Run on {self.name}...")
 
         returncode, _stdout, stderr = await run_cmd(
-            self._autopkg_run_cmd(False), check=False
+            self._autopkg_run_cmd(check=False), check=False
         )
 
         if returncode != 0:
@@ -465,7 +516,8 @@ class Recipe:
         Calls autopkg with the `verify-trust-info` command.
 
         Returns:
-            True if the trust info is trusted, False if it is untrusted, or UNTESTED if it hasn't been tested yet.
+            True if the trust info is trusted, False if it is untrusted, or UNTESTED if
+                it hasn't been tested yet.
         """
         if self._trusted == TrustInfoVerificationState.UNTESTED:
             logger.debug(f"Verifying trust info for {self.name}...")

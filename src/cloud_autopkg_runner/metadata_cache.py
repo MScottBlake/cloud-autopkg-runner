@@ -12,13 +12,14 @@ to avoid unnecessary downloads.
 """
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, TypeAlias, TypedDict, cast
+from typing import TypeAlias, TypedDict, cast
 
 import xattr  # pyright: ignore[reportMissingTypeStubs]
 
 from cloud_autopkg_runner import logger
-from cloud_autopkg_runner.exceptions import AutoPkgRunnerException
+from cloud_autopkg_runner.exceptions import InvalidJsonContents
 
 
 class DownloadMetadata(TypedDict, total=False):
@@ -70,12 +71,12 @@ def _set_file_size(file_path: Path, size: int) -> None:
         file_path: The path to the file.
         size: The desired size of the file in bytes.
     """
-    with open(file_path, "wb") as f:
+    with file_path.open("wb") as f:
         f.seek(int(size) - 1)
         f.write(b"\0")
 
 
-def create_dummy_files(recipe_list: Iterable[str], cache: MetadataCache):
+def create_dummy_files(recipe_list: Iterable[str], cache: MetadataCache) -> None:
     """Create dummy files based on metadata from the cache.
 
     For each recipe in the `recipe_list`, this function iterates through the
@@ -101,20 +102,20 @@ def create_dummy_files(recipe_list: Iterable[str], cache: MetadataCache):
         for metadata_cache in recipe_cache_data.get("metadata", []):
             if not metadata_cache.get("file_path"):
                 logger.warning(
-                    f"Skipping dummy file creation: Missing 'file_path' in {recipe_name} cache"
+                    "Skipping file creation: "
+                    f"Missing 'file_path' in {recipe_name} cache"
                 )
                 continue
             if not metadata_cache.get("file_size"):
                 logger.warning(
-                    f"Skipping dummy file creation: Missing 'file_size' in {recipe_name} cache"
+                    "Skipping file creation: "
+                    f"Missing 'file_size' in {recipe_name} cache"
                 )
                 continue
 
             file_path = Path(metadata_cache.get("file_path", ""))
             if file_path.exists():
-                logger.info(
-                    f"Skipping dummy file creation: {file_path} already exists."
-                )
+                logger.info(f"Skipping file creation: {file_path} already exists.")
                 continue
 
             # Create parent directory if needed
@@ -141,7 +142,6 @@ def create_dummy_files(recipe_list: Iterable[str], cache: MetadataCache):
                 )
 
     logger.debug("Dummy files created.")
-    return
 
 
 def get_file_metadata(file_path: Path, attr: str) -> str:
@@ -155,7 +155,7 @@ def get_file_metadata(file_path: Path, attr: str) -> str:
         The decoded string representation of the extended attribute metadata.
     """
     return cast(
-        bytes,
+        "bytes",
         xattr.getxattr(  # pyright: ignore[reportUnknownMemberType]
             file_path, attr
         ),
@@ -175,7 +175,7 @@ def load_metadata_cache(file_path: Path) -> MetadataCache:
         A `MetadataCache` dictionary containing the loaded metadata.
 
     Raises:
-        AutoPkgRunnerException: If the file contains invalid JSON.
+        InvalidJsonContents: If the file contains invalid JSON.
     """
     logger.debug(f"Loading metadata cache from {file_path}...")
 
@@ -188,7 +188,7 @@ def load_metadata_cache(file_path: Path) -> MetadataCache:
         metadata_cache = MetadataCache(json.loads(file_path.read_text()))
         logger.info(f"Metadata cache loaded from {file_path}.")
     except json.JSONDecodeError as exc:
-        raise AutoPkgRunnerException(f"Invalid file contents in {file_path}") from exc
+        raise InvalidJsonContents(file_path) from exc
 
     logger.debug(f"Metadata cache: {metadata_cache}")
     return metadata_cache

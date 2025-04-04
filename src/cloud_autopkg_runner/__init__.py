@@ -16,7 +16,55 @@ Key features include:
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
+
+# # Expose imports to the top-level of the package
+# from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
+# from cloud_autopkg_runner.exceptions import AutoPkgRunnerException
+# from cloud_autopkg_runner.metadata_cache import (
+#     DownloadMetadata,
+#     MetadataCache,
+#     RecipeCache,
+#     create_dummy_files,
+#     get_file_metadata,
+#     load_metadata_cache,
+#     save_metadata_cache,
+# )
+# from cloud_autopkg_runner.recipe import (
+#     Recipe,
+#     RecipeContents,
+#     RecipeFormat,
+#     TrustInfoVerificationState,
+# )
+# from cloud_autopkg_runner.recipe_report import (
+#     ConsolidatedReport,
+#     RecipeReport,
+#     RecipeReportContents,
+#     RecipeReportFailedItem,
+#     RecipeReportSummaryResults,
+# )
+# from cloud_autopkg_runner.shell import run_cmd
+
+# __all__ = [
+#     "AutoPkgPrefs",
+#     "AutoPkgRunnerException",
+#     "ConsolidatedReport",
+#     "DownloadMetadata",
+#     "MetadataCache",
+#     "Recipe",
+#     "RecipeCache",
+#     "RecipeContents",
+#     "RecipeFormat",
+#     "RecipeReport",
+#     "RecipeReportContents",
+#     "RecipeReportFailedItem",
+#     "RecipeReportSummaryResults",
+#     "TrustInfoVerificationState",
+#     "create_dummy_files",
+#     "get_file_metadata",
+#     "load_metadata_cache",
+#     "run_cmd",
+#     "save_metadata_cache",
+# ]
 
 # Create a logger instance
 logger: logging.Logger = logging.getLogger(__name__)
@@ -32,16 +80,15 @@ class AppConfig:
     and the metadata cache file path.
     """
 
-    _autopkg_prefs = {}
     _cache_file: Path = Path()
-    _log_file: Optional[str] = None
+    _log_file: str | None = None
     _verbosity_level: int = 0
 
     @classmethod
     def set_config(
         cls,
         verbosity_level: int,
-        log_file: Optional[str] = None,
+        log_file: str | None = None,
         cache_file: str = "metadata_cache.json",
     ) -> None:
         """Set the application configuration parameters.
@@ -103,7 +150,7 @@ class AppConfig:
         return cls._cache_file
 
     @classmethod
-    def log_file(cls) -> Optional[str]:
+    def log_file(cls) -> str | None:
         """Returns the path to the log file, if any.
 
         Returns:

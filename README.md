@@ -116,17 +116,16 @@ async def main() -> None:
 
     create_dummy_files(recipe_list, metadata_cache)
 
-    override_dir = Path("/path/to/autopkg/overrides")
-
     for recipe_name in recipe_list:
-        recipe = Recipe(override_dir / recipe_name)
+        print(f"Processing {recipe_name}")
+        recipe = Recipe(recipe_name)
 
-        if not await recipe.verify_trust_info():
+        if await recipe.verify_trust_info():
             await recipe.run()
-            # Commit changes
+            # Code to Commit changes here
         else:
             await recipe.update_trust_info()
-            # Open a PR
+            # Code to Open a PR here
 
 
 if __name__ == "__main__":

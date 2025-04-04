@@ -13,24 +13,29 @@ execute these tasks efficiently.
 """
 
 import asyncio
+import contextlib
 import json
 import os
 import signal
 import sys
 import tempfile
 from argparse import ArgumentParser, Namespace
+from collections.abc import Iterable
 from pathlib import Path
 from types import FrameType
-from typing import Iterable, NoReturn, Optional
+from typing import NoReturn
 
 from cloud_autopkg_runner import AppConfig, logger
-from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
-from cloud_autopkg_runner.exceptions import AutoPkgRunnerException
+from cloud_autopkg_runner.exceptions import (
+    InvalidFileContents,
+    InvalidJsonContents,
+    RecipeException,
+)
 from cloud_autopkg_runner.metadata_cache import create_dummy_files, load_metadata_cache
 from cloud_autopkg_runner.recipe import ConsolidatedReport, Recipe
 
 
-def generate_recipe_list(args: Namespace) -> set[str]:
+def _generate_recipe_list(args: Namespace) -> set[str]:
     """Combine the various inputs to generate a comprehensive list of recipes to run.
 
     Aggregates recipe names from a JSON file, command-line arguments, and the 'RECIPE'
@@ -45,8 +50,8 @@ def generate_recipe_list(args: Namespace) -> set[str]:
         A set of strings, where each string is a recipe name.
 
     Raises:
-        AutoPkgRunnerException: If the JSON file specified by 'args.recipe_list'
-            contains invalid JSON.
+        InvalidJsonContents: If the JSON file specified by 'args.recipe_list' contains
+            invalid JSON.
     """
     logger.debug("Generating recipe list...")
 
@@ -56,9 +61,7 @@ def generate_recipe_list(args: Namespace) -> set[str]:
         try:
             output.update(json.loads(Path(args.recipe_list).read_text()))
         except json.JSONDecodeError as exc:
-            raise AutoPkgRunnerException(
-                f"Invalid file contents in {args.recipe_list}"
-            ) from exc
+            raise InvalidJsonContents(args.recipe_list) from exc
 
     if args.recipe:
         output.update(args.recipe)
@@ -70,7 +73,7 @@ def generate_recipe_list(args: Namespace) -> set[str]:
     return output
 
 
-def parse_arguments() -> Namespace:
+def _parse_arguments() -> Namespace:
     """Parse command-line arguments using argparse.
 
     Defines the expected command-line arguments and converts them into a Namespace
@@ -93,7 +96,10 @@ def parse_arguments() -> Namespace:
         "-r",
         "--recipe",
         action="append",
-        help="A recipe name. Can be specified multiple times. (--recipe Firefox.pkg.recipe --recipe GoogleChrome.pkg.recipe)",
+        help=(
+            "A recipe name. Can be specified multiple times. "
+            "(--recipe Firefox.pkg.recipe --recipe GoogleChrome.pkg.recipe)"
+        ),
     )
     parser.add_argument(
         "--recipe-list",
@@ -114,9 +120,7 @@ def parse_arguments() -> Namespace:
     return parser.parse_args()
 
 
-async def process_recipe_list(
-    overrides_paths: list[Path], recipe_list: Iterable[str], working_dir: Path
-) -> None:
+async def _process_recipe_list(recipe_list: Iterable[str], working_dir: Path) -> None:
     """Process a list of recipe names to create Recipe objects and run them in parallel.
 
     Creates `Recipe` objects from a list of recipe names and then executes them
@@ -125,31 +129,22 @@ async def process_recipe_list(
     if the recipe file is found.
 
     Args:
-        overrides_paths: A list of paths to AutoPkg recipe override directories.
-                         These directories are searched in order for the recipe files.
         recipe_list: An iterable of recipe names (strings).
         working_dir: The temporary directory where the recipes will be run.
-
-    Raises:
-        (Exceptions raised within `run_recipe` are caught and logged as warnings.
-        Exceptions during `Recipe` object creation are not explicitly handled.)
     """
     logger.debug("Processing recipes...")
 
     recipes: list[Recipe] = []
     for recipe_name in recipe_list:
-        for overrides_path in overrides_paths:
-            recipe_path = Path(overrides_path).expanduser() / recipe_name
-            if recipe_path.exists():
-                recipes.append(Recipe(recipe_path, working_dir))
-                break
+        with contextlib.suppress(InvalidFileContents, RecipeException):
+            recipes.append(Recipe(recipe_name, working_dir))  # Skips failures
 
     recipe_output: dict[str, ConsolidatedReport] = {}
     for recipe in recipes:
         recipe_output[recipe.name] = await recipe.run()
 
 
-def signal_handler(sig: int, _frame: Optional[FrameType]) -> NoReturn:
+def _signal_handler(sig: int, _frame: FrameType | None) -> NoReturn:
     """Handles signals (e.g., Ctrl+C) for graceful exit.
 
     This function is registered with the `signal` module to catch signals
@@ -165,7 +160,7 @@ def signal_handler(sig: int, _frame: Optional[FrameType]) -> NoReturn:
     sys.exit(0)  # Trigger a normal exit
 
 
-async def async_main() -> None:
+async def _async_main() -> None:
     """Asynchronous entry point of the script.
 
     This function orchestrates the core logic of the script:
@@ -179,26 +174,23 @@ async def async_main() -> None:
     - Processes the recipe list using AutoPkg override directories,
       running each recipe asynchronously.
     """
-    args = parse_arguments()
+    args = _parse_arguments()
 
     AppConfig.set_config(
         verbosity_level=args.verbose, log_file=args.log_file, cache_file=args.cache_file
     )
     AppConfig.initialize_logger()
 
-    recipe_list = generate_recipe_list(args)
+    recipe_list = _generate_recipe_list(args)
 
     metadata_cache = load_metadata_cache(args.cache_file)
     create_dummy_files(recipe_list, metadata_cache)
-
-    autopkg_preferences = AutoPkgPrefs()
-    overrides_dir = autopkg_preferences["RECIPE_OVERRIDE_DIRS"]
 
     with tempfile.TemporaryDirectory(prefix="autopkg_") as temp_dir_str:
         temp_working_dir = Path(temp_dir_str)
         logger.debug(f"Temporary directory created: {temp_working_dir}")
 
-        await process_recipe_list(overrides_dir, recipe_list, temp_working_dir)
+        await _process_recipe_list(recipe_list, temp_working_dir)
 
 
 def main() -> None:
@@ -211,10 +203,10 @@ def main() -> None:
     executed when the script is invoked from the command line. It also sets
     up signal handlers for graceful exit.
     """
-    signal.signal(signal.SIGINT, signal_handler)  # Ctrl+C
-    signal.signal(signal.SIGTERM, signal_handler)  # `kill` command
+    signal.signal(signal.SIGINT, _signal_handler)  # Ctrl+C
+    signal.signal(signal.SIGTERM, _signal_handler)  # `kill` command
 
-    asyncio.run(async_main())
+    asyncio.run(_async_main())
 
 
 if __name__ == "__main__":
