@@ -104,8 +104,7 @@ import asyncio
 import json
 from pathlib import Path
 
-from cloud_autopkg_runner.metadata_cache import create_dummy_files, load_metadata_cache
-from cloud_autopkg_runner.recipe import Recipe
+from cloud_autopkg_runner import create_dummy_files, load_metadata_cache, Recipe
 
 async def main() -> None:
     metatada_cache_path = Path("/path/to/metadata_cache.json")
@@ -116,10 +115,8 @@ async def main() -> None:
 
     create_dummy_files(recipe_list, metadata_cache)
 
-    override_dir = Path("/path/to/autopkg/overrides")
-
     for recipe_name in recipe_list:
-        recipe = Recipe(override_dir / recipe_name)
+        recipe = Recipe(recipe_name)
 
         if not await recipe.verify_trust_info():
             await recipe.run()
