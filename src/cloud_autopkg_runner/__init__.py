@@ -16,7 +16,6 @@ Key features include:
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
 # Expose imports to the top-level of the package
 from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs as AutoPkgPrefs
@@ -69,14 +68,14 @@ class AppConfig:
 
     _autopkg_prefs = {}
     _cache_file: Path = Path()
-    _log_file: Optional[str] = None
+    _log_file: str | None = None
     _verbosity_level: int = 0
 
     @classmethod
     def set_config(
         cls,
         verbosity_level: int,
-        log_file: Optional[str] = None,
+        log_file: str | None = None,
         cache_file: str = "metadata_cache.json",
     ) -> None:
         """Set the application configuration parameters.
@@ -138,7 +137,7 @@ class AppConfig:
         return cls._cache_file
 
     @classmethod
-    def log_file(cls) -> Optional[str]:
+    def log_file(cls) -> str | None:
         """Returns the path to the log file, if any.
 
         Returns:

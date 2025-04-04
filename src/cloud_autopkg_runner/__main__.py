@@ -19,9 +19,10 @@ import signal
 import sys
 import tempfile
 from argparse import ArgumentParser, Namespace
+from collections.abc import Iterable
 from pathlib import Path
 from types import FrameType
-from typing import Iterable, NoReturn, Optional
+from typing import NoReturn
 
 from cloud_autopkg_runner import AppConfig, logger
 from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
@@ -149,7 +150,7 @@ async def _process_recipe_list(
         recipe_output[recipe.name] = await recipe.run()
 
 
-def _signal_handler(sig: int, _frame: Optional[FrameType]) -> NoReturn:
+def _signal_handler(sig: int, _frame: FrameType | None) -> NoReturn:
     """Handles signals (e.g., Ctrl+C) for graceful exit.
 
     This function is registered with the `signal` module to catch signals

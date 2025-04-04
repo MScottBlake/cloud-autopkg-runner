@@ -13,10 +13,11 @@ Key classes:
 
 import plistlib
 import tempfile
+from collections.abc import Iterable
 from datetime import datetime
 from enum import Enum, StrEnum, auto
 from pathlib import Path
-from typing import Any, Iterable, Optional, TypedDict
+from typing import Any, TypedDict
 
 import yaml
 
@@ -49,11 +50,11 @@ class RecipeContents(TypedDict):
             in the recipe's processing workflow.
     """
 
-    Description: Optional[str]
+    Description: str | None
     Identifier: str
     Input: dict[str, Any]
-    MinimumVersion: Optional[str]
-    ParentRecipe: Optional[str]
+    MinimumVersion: str | None
+    ParentRecipe: str | None
     Process: Iterable[dict[str, Any]]
 
 
@@ -87,7 +88,7 @@ class Recipe:
         _result: RecipeReport object for storing the results of running the recipe.
     """
 
-    def __init__(self, recipe_path: Path, report_dir: Optional[Path] = None) -> None:
+    def __init__(self, recipe_path: Path, report_dir: Path | None = None) -> None:
         """Initialize a Recipe object.
 
         Args:
