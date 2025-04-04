@@ -30,7 +30,7 @@ from cloud_autopkg_runner.metadata_cache import create_dummy_files, load_metadat
 from cloud_autopkg_runner.recipe import ConsolidatedReport, Recipe
 
 
-def generate_recipe_list(args: Namespace) -> set[str]:
+def _generate_recipe_list(args: Namespace) -> set[str]:
     """Combine the various inputs to generate a comprehensive list of recipes to run.
 
     Aggregates recipe names from a JSON file, command-line arguments, and the 'RECIPE'
@@ -70,7 +70,7 @@ def generate_recipe_list(args: Namespace) -> set[str]:
     return output
 
 
-def parse_arguments() -> Namespace:
+def _parse_arguments() -> Namespace:
     """Parse command-line arguments using argparse.
 
     Defines the expected command-line arguments and converts them into a Namespace
@@ -114,7 +114,7 @@ def parse_arguments() -> Namespace:
     return parser.parse_args()
 
 
-async def process_recipe_list(
+async def _process_recipe_list(
     overrides_paths: list[Path], recipe_list: Iterable[str], working_dir: Path
 ) -> None:
     """Process a list of recipe names to create Recipe objects and run them in parallel.
@@ -149,7 +149,7 @@ async def process_recipe_list(
         recipe_output[recipe.name] = await recipe.run()
 
 
-def signal_handler(sig: int, _frame: Optional[FrameType]) -> NoReturn:
+def _signal_handler(sig: int, _frame: Optional[FrameType]) -> NoReturn:
     """Handles signals (e.g., Ctrl+C) for graceful exit.
 
     This function is registered with the `signal` module to catch signals
@@ -165,7 +165,7 @@ def signal_handler(sig: int, _frame: Optional[FrameType]) -> NoReturn:
     sys.exit(0)  # Trigger a normal exit
 
 
-async def async_main() -> None:
+async def _async_main() -> None:
     """Asynchronous entry point of the script.
 
     This function orchestrates the core logic of the script:
@@ -179,14 +179,14 @@ async def async_main() -> None:
     - Processes the recipe list using AutoPkg override directories,
       running each recipe asynchronously.
     """
-    args = parse_arguments()
+    args = _parse_arguments()
 
     AppConfig.set_config(
         verbosity_level=args.verbose, log_file=args.log_file, cache_file=args.cache_file
     )
     AppConfig.initialize_logger()
 
-    recipe_list = generate_recipe_list(args)
+    recipe_list = _generate_recipe_list(args)
 
     metadata_cache = load_metadata_cache(args.cache_file)
     create_dummy_files(recipe_list, metadata_cache)
@@ -198,7 +198,7 @@ async def async_main() -> None:
         temp_working_dir = Path(temp_dir_str)
         logger.debug(f"Temporary directory created: {temp_working_dir}")
 
-        await process_recipe_list(overrides_dir, recipe_list, temp_working_dir)
+        await _process_recipe_list(overrides_dir, recipe_list, temp_working_dir)
 
 
 def main() -> None:
@@ -211,10 +211,10 @@ def main() -> None:
     executed when the script is invoked from the command line. It also sets
     up signal handlers for graceful exit.
     """
-    signal.signal(signal.SIGINT, signal_handler)  # Ctrl+C
-    signal.signal(signal.SIGTERM, signal_handler)  # `kill` command
+    signal.signal(signal.SIGINT, _signal_handler)  # Ctrl+C
+    signal.signal(signal.SIGTERM, _signal_handler)  # `kill` command
 
-    asyncio.run(async_main())
+    asyncio.run(_async_main())
 
 
 if __name__ == "__main__":
