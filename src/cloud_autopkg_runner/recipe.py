@@ -205,7 +205,7 @@ class Recipe:
         """
         return self._contents["Process"]
 
-    def _autopkg_run_cmd(self, check: bool = False) -> list[str]:
+    def _autopkg_run_cmd(self, *, check: bool = False) -> list[str]:
         """Constructs the command-line arguments for running AutoPkg.
 
         Args:
@@ -397,7 +397,7 @@ class Recipe:
         logger.debug(f"Performing Check Phase on {self.name}...")
 
         returncode, _stdout, stderr = await run_cmd(
-            self._autopkg_run_cmd(True), check=False
+            self._autopkg_run_cmd(check=True), check=False
         )
 
         if returncode != 0:
@@ -424,7 +424,7 @@ class Recipe:
         logger.debug(f"Performing AutoPkg Run on {self.name}...")
 
         returncode, _stdout, stderr = await run_cmd(
-            self._autopkg_run_cmd(False), check=False
+            self._autopkg_run_cmd(check=False), check=False
         )
 
         if returncode != 0:
