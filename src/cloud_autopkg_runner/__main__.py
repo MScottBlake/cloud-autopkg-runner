@@ -31,7 +31,8 @@ from cloud_autopkg_runner.exceptions import (
     InvalidJsonContents,
     RecipeException,
 )
-from cloud_autopkg_runner.metadata_cache import MetadataCacheManager, create_dummy_files
+from cloud_autopkg_runner.file_utils import create_dummy_files
+from cloud_autopkg_runner.metadata_cache import MetadataCacheManager
 from cloud_autopkg_runner.recipe import ConsolidatedReport, Recipe
 
 

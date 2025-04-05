@@ -31,12 +31,11 @@ from cloud_autopkg_runner.exceptions import (
     RecipeInputException,
     RecipeLookupException,
 )
+from cloud_autopkg_runner.file_utils import get_file_metadata, get_file_size
 from cloud_autopkg_runner.metadata_cache import (
     DownloadMetadata,
     MetadataCacheManager,
     RecipeCache,
-    get_file_metadata,
-    get_file_size,
 )
 from cloud_autopkg_runner.recipe_report import ConsolidatedReport, RecipeReport
 from cloud_autopkg_runner.shell import run_cmd
@@ -108,7 +107,7 @@ class Recipe:
         self._name: str = recipe_name
 
         try:
-            self._path: Path = self._find_recipe(recipe_name)
+            self._path: Path = self.find_recipe(recipe_name)
         except RecipeLookupException as exc:
             logger.error(exc)
             raise
@@ -230,6 +229,36 @@ class Recipe:
         """
         return self._contents["Process"]
 
+    @classmethod
+    def find_recipe(cls, recipe_name: str) -> Path:
+        """Locates the recipe path.
+
+        Returns:
+            Path of a given recipe
+        """
+        autopkg_preferences = AutoPkgPrefs()
+        lookup_dirs: list[Path] = list(
+            autopkg_preferences["RECIPE_OVERRIDE_DIRS"]
+        ) + list(autopkg_preferences["RECIPE_SEARCH_DIRS"])
+
+        if recipe_name.endswith((".recipe", ".recipe.plist", ".recipe.yaml")):
+            possible_filenames = [recipe_name]
+        else:
+            possible_filenames = [
+                recipe_name + ".recipe",
+                recipe_name + ".recipe.plist",
+                recipe_name + ".recipe.yaml",
+            ]
+
+        for lookup_path in lookup_dirs:
+            path = lookup_path.expanduser()
+            for filename in possible_filenames:
+                recipe_path = path / filename
+                if recipe_path.exists():
+                    return recipe_path
+
+        raise RecipeLookupException(recipe_name)
+
     def _autopkg_run_cmd(self, *, check: bool = False) -> list[str]:
         """Constructs the command-line arguments for running AutoPkg.
 
@@ -278,35 +307,6 @@ class Recipe:
             return []
 
         return [item["download_path"] for item in download_items]
-
-    def _find_recipe(self, recipe_name: str) -> Path:
-        """Locates the recipe path.
-
-        Returns:
-            Path of a given recipe
-        """
-        autopkg_preferences = AutoPkgPrefs()
-        lookup_dirs: list[Path] = list(
-            autopkg_preferences["RECIPE_OVERRIDE_DIRS"]
-        ) + list(autopkg_preferences["RECIPE_SEARCH_DIRS"])
-
-        if recipe_name.endswith((".recipe", ".recipe.plist", ".recipe.yaml")):
-            possible_filenames = [recipe_name]
-        else:
-            possible_filenames = [
-                recipe_name + ".recipe",
-                recipe_name + ".recipe.plist",
-                recipe_name + ".recipe.yaml",
-            ]
-
-        for lookup_path in lookup_dirs:
-            path = lookup_path.expanduser()
-            for filename in possible_filenames:
-                recipe_path = path / filename
-                if recipe_path.exists():
-                    return recipe_path
-
-        raise RecipeLookupException(recipe_name)
 
     def _get_contents(self) -> RecipeContents:
         """Read and parse the recipe file.
