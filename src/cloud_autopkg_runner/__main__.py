@@ -31,7 +31,8 @@ from cloud_autopkg_runner.exceptions import (
     InvalidJsonContents,
     RecipeException,
 )
-from cloud_autopkg_runner.metadata_cache import create_dummy_files, load_metadata_cache
+from cloud_autopkg_runner.file_utils import create_dummy_files
+from cloud_autopkg_runner.metadata_cache import MetadataCacheManager
 from cloud_autopkg_runner.recipe import ConsolidatedReport, Recipe
 
 
@@ -117,16 +118,23 @@ def _parse_arguments() -> Namespace:
         help="Path to the log file. If not specified, no file logging will occur.",
         type=Path,
     )
+    parser.add_argument(
+        "--max-concurrency",
+        help="Limit the number of concurrent tasks.",
+        default=10,
+        type=int,
+    )
     return parser.parse_args()
 
 
-async def _process_recipe_list(recipe_list: Iterable[str], working_dir: Path) -> None:
+async def _process_recipe_list(
+    recipe_list: Iterable[str], working_dir: Path
+) -> dict[str, ConsolidatedReport]:
     """Process a list of recipe names to create Recipe objects and run them in parallel.
 
     Creates `Recipe` objects from a list of recipe names and then executes them
-    concurrently using a `ThreadPoolExecutor`.  It searches for each recipe
-    in the specified override directories and creates a `Recipe` object
-    if the recipe file is found.
+    concurrently using asyncio.gather. It searches for each recipe in the specified
+    override directories and creates a `Recipe` object if the recipe file is found.
 
     Args:
         recipe_list: An iterable of recipe names (strings).
@@ -139,9 +147,13 @@ async def _process_recipe_list(recipe_list: Iterable[str], working_dir: Path) ->
         with contextlib.suppress(InvalidFileContents, RecipeException):
             recipes.append(Recipe(recipe_name, working_dir))  # Skips failures
 
-    recipe_output: dict[str, ConsolidatedReport] = {}
-    for recipe in recipes:
-        recipe_output[recipe.name] = await recipe.run()
+    async def run_limited(recipe: Recipe) -> tuple[str, ConsolidatedReport]:
+        async with asyncio.Semaphore(AppConfig.max_concurrency()):  # Limit concurrency
+            return recipe.name, await recipe.run()
+
+    results = await asyncio.gather(*[run_limited(recipe) for recipe in recipes])
+
+    return dict(results)
 
 
 def _signal_handler(sig: int, _frame: FrameType | None) -> NoReturn:
@@ -177,20 +189,23 @@ async def _async_main() -> None:
     args = _parse_arguments()
 
     AppConfig.set_config(
-        verbosity_level=args.verbose, log_file=args.log_file, cache_file=args.cache_file
+        verbosity_level=args.verbose,
+        log_file=args.log_file,
+        cache_file=args.cache_file,
+        max_concurrency=args.max_concurrency,
     )
     AppConfig.initialize_logger()
 
     recipe_list = _generate_recipe_list(args)
 
-    metadata_cache = load_metadata_cache(args.cache_file)
-    create_dummy_files(recipe_list, metadata_cache)
+    metadata_cache = await MetadataCacheManager.load(args.cache_file)
+    await create_dummy_files(recipe_list, metadata_cache)
 
     with tempfile.TemporaryDirectory(prefix="autopkg_") as temp_dir_str:
         temp_working_dir = Path(temp_dir_str)
         logger.debug(f"Temporary directory created: {temp_working_dir}")
 
-        await _process_recipe_list(recipe_list, temp_working_dir)
+        _results = await _process_recipe_list(recipe_list, temp_working_dir)
 
 
 def main() -> None:

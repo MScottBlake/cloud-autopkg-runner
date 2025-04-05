@@ -17,55 +17,6 @@ import logging
 import sys
 from pathlib import Path
 
-# # Expose imports to the top-level of the package
-# from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
-# from cloud_autopkg_runner.exceptions import AutoPkgRunnerException
-# from cloud_autopkg_runner.metadata_cache import (
-#     DownloadMetadata,
-#     MetadataCache,
-#     RecipeCache,
-#     create_dummy_files,
-#     get_file_metadata,
-#     load_metadata_cache,
-#     save_metadata_cache,
-# )
-# from cloud_autopkg_runner.recipe import (
-#     Recipe,
-#     RecipeContents,
-#     RecipeFormat,
-#     TrustInfoVerificationState,
-# )
-# from cloud_autopkg_runner.recipe_report import (
-#     ConsolidatedReport,
-#     RecipeReport,
-#     RecipeReportContents,
-#     RecipeReportFailedItem,
-#     RecipeReportSummaryResults,
-# )
-# from cloud_autopkg_runner.shell import run_cmd
-
-# __all__ = [
-#     "AutoPkgPrefs",
-#     "AutoPkgRunnerException",
-#     "ConsolidatedReport",
-#     "DownloadMetadata",
-#     "MetadataCache",
-#     "Recipe",
-#     "RecipeCache",
-#     "RecipeContents",
-#     "RecipeFormat",
-#     "RecipeReport",
-#     "RecipeReportContents",
-#     "RecipeReportFailedItem",
-#     "RecipeReportSummaryResults",
-#     "TrustInfoVerificationState",
-#     "create_dummy_files",
-#     "get_file_metadata",
-#     "load_metadata_cache",
-#     "run_cmd",
-#     "save_metadata_cache",
-# ]
-
 # Create a logger instance
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -82,12 +33,14 @@ class AppConfig:
 
     _cache_file: Path = Path()
     _log_file: str | None = None
+    _max_concurrency: int = 10
     _verbosity_level: int = 0
 
     @classmethod
     def set_config(
         cls,
         verbosity_level: int,
+        max_concurrency: int,
         log_file: str | None = None,
         cache_file: str = "metadata_cache.json",
     ) -> None:
@@ -99,6 +52,7 @@ class AppConfig:
 
         Args:
             verbosity_level: The integer verbosity level (0, 1, 2, etc.).
+            max_concurrency: The integer concurrency limit.
             log_file: Optional path to the log file. If specified, logging
                 output will be written to this file in addition to the console.
             cache_file: The path to the cache file.
@@ -106,6 +60,7 @@ class AppConfig:
         cls._verbosity_level = verbosity_level
         cls._log_file = log_file
         cls._cache_file = Path(cache_file)
+        cls._max_concurrency = max_concurrency
 
     @classmethod
     def initialize_logger(cls) -> None:
@@ -159,6 +114,15 @@ class AppConfig:
         return cls._log_file
 
     @classmethod
+    def max_concurrency(cls) -> int:
+        """Returns the maximum number of concurrent tasks.
+
+        Returns:
+            Returns the maximum number of concurrent tasks as an integer.
+        """
+        return cls._max_concurrency
+
+    @classmethod
     def verbosity_int(cls, delta: int = 0) -> int:
         """Returns the verbosity level.
 
@@ -195,3 +159,28 @@ class AppConfig:
         if level <= 0:
             return ""
         return "-" + "v" * level
+
+
+# Located here to prevent circular imports
+def list_possible_file_names(recipe_name: str) -> list[str]:
+    """Generate a list of possible AutoPkg recipe file names.
+
+    Given a recipe name, this function returns a list of possible file names
+    by appending common AutoPkg recipe file extensions. If the recipe name
+    already ends with a known extension, it returns a list containing only the
+    original recipe name.
+
+    Args:
+        recipe_name: The name of the AutoPkg recipe.
+
+    Returns:
+        A list of possible file names for the recipe.
+    """
+    if recipe_name.endswith((".recipe", ".recipe.plist", ".recipe.yaml")):
+        return [recipe_name]
+
+    return [
+        recipe_name + ".recipe",
+        recipe_name + ".recipe.plist",
+        recipe_name + ".recipe.yaml",
+    ]

@@ -11,6 +11,7 @@ Key classes:
   managing trust information.
 """
 
+import asyncio
 import plistlib
 import tempfile
 from collections.abc import Iterable
@@ -30,11 +31,11 @@ from cloud_autopkg_runner.exceptions import (
     RecipeInputException,
     RecipeLookupException,
 )
+from cloud_autopkg_runner.file_utils import get_file_metadata, get_file_size
 from cloud_autopkg_runner.metadata_cache import (
     DownloadMetadata,
+    MetadataCacheManager,
     RecipeCache,
-    get_file_metadata,
-    save_metadata_cache,
 )
 from cloud_autopkg_runner.recipe_report import ConsolidatedReport, RecipeReport
 from cloud_autopkg_runner.shell import run_cmd
@@ -99,14 +100,14 @@ class Recipe:
         """Initialize a Recipe object.
 
         Args:
-            recipe_name: Path to the recipe file.
+            recipe_name: Name of the recipe file.
             report_dir: Path to the report directory. If None, a temporary
                 directory is created.
         """
         self._name: str = recipe_name
 
         try:
-            self._path: Path = self._find_recipe(recipe_name)
+            self._path: Path = self.find_recipe(recipe_name)
         except RecipeLookupException as exc:
             logger.error(exc)
             raise
@@ -127,6 +128,7 @@ class Recipe:
             )
             counter += 1
 
+        report_path.parent.mkdir(parents=True, exist_ok=True)
         self._result: RecipeReport = RecipeReport(report_path)
 
     @property
@@ -227,6 +229,36 @@ class Recipe:
         """
         return self._contents["Process"]
 
+    @classmethod
+    def find_recipe(cls, recipe_name: str) -> Path:
+        """Locates the recipe path.
+
+        Returns:
+            Path of a given recipe
+        """
+        autopkg_preferences = AutoPkgPrefs()
+        lookup_dirs: list[Path] = list(
+            autopkg_preferences["RECIPE_OVERRIDE_DIRS"]
+        ) + list(autopkg_preferences["RECIPE_SEARCH_DIRS"])
+
+        if recipe_name.endswith((".recipe", ".recipe.plist", ".recipe.yaml")):
+            possible_filenames = [recipe_name]
+        else:
+            possible_filenames = [
+                recipe_name + ".recipe",
+                recipe_name + ".recipe.plist",
+                recipe_name + ".recipe.yaml",
+            ]
+
+        for lookup_path in lookup_dirs:
+            path = lookup_path.expanduser()
+            for filename in possible_filenames:
+                recipe_path = path / filename
+                if recipe_path.exists():
+                    return recipe_path
+
+        raise RecipeLookupException(recipe_name)
+
     def _autopkg_run_cmd(self, *, check: bool = False) -> list[str]:
         """Constructs the command-line arguments for running AutoPkg.
 
@@ -267,43 +299,14 @@ class Recipe:
 
         Returns:
             A list of strings, where each string is the 'download_path' value from
-            the first dictionary in the "downloaded_items" list of each input
-            dictionary. Returns an empty list if the input is empty, any of the
-            intermediate keys are missing, or the "downloaded_items" list is empty.
+            the "downloaded_items" list of each input dictionary. Returns an empty list
+            if the input is empty, any of the intermediate keys are missing, or the
+            "downloaded_items" list is empty.
         """
         if not download_items:
             return []
 
         return [item["download_path"] for item in download_items]
-
-    def _find_recipe(self, recipe_name: str) -> Path:
-        """Locates the recipe path.
-
-        Returns:
-            Path of a given recipe
-        """
-        autopkg_preferences = AutoPkgPrefs()
-        lookup_dirs: list[Path] = list(
-            autopkg_preferences["RECIPE_OVERRIDE_DIRS"]
-        ) + list(autopkg_preferences["RECIPE_SEARCH_DIRS"])
-
-        if recipe_name.endswith((".recipe", ".recipe.plist", ".recipe.yaml")):
-            possible_filenames = [recipe_name]
-        else:
-            possible_filenames = [
-                recipe_name + ".recipe",
-                recipe_name + ".recipe.plist",
-                recipe_name + ".recipe.yaml",
-            ]
-
-        for lookup_path in lookup_dirs:
-            path = lookup_path.expanduser()
-            for filename in possible_filenames:
-                recipe_path = path / filename
-                if recipe_path.exists():
-                    return recipe_path
-
-        raise RecipeLookupException(recipe_name)
 
     def _get_contents(self) -> RecipeContents:
         """Read and parse the recipe file.
@@ -354,36 +357,65 @@ class Recipe:
         except yaml.YAMLError as exc:
             raise InvalidYamlContents(self._path) from exc
 
-    def _get_metadata(self, download_items: list[dict[str, str]]) -> RecipeCache:
-        """Extracts metadata from downloaded files and returns a RecipeCache object.
+    async def _get_metadata(self, download_items: list[dict[str, str]]) -> RecipeCache:
+        """Retrieves metadata for a list of downloaded items.
+
+        This method iterates over a list of dictionaries, extracts the paths of
+        downloaded items, and then asynchronously retrieves metadata for each
+        item using `_get_metadata_for_item`. The collected metadata is then
+        returned in a `RecipeCache` dictionary, which includes a timestamp.
 
         Args:
-            download_items: A list of dictionaries representing downloaded items,
-                typically obtained from the AutoPkg report.
+            download_items: A list of dictionaries, where each dictionary
+                contains information about a downloaded item, including its path.
 
         Returns:
-            A RecipeCache object containing metadata about the downloaded files.
+            A RecipeCache dictionary containing a timestamp and a list of
+            DownloadMetadata dictionaries, one for each downloaded item.
         """
-        metadata_list: list[DownloadMetadata] = []
-
-        for downloaded_item in self._extract_download_paths(download_items):
-            downloaded_item_path = Path(downloaded_item)
-            metadata_list.append(
-                {
-                    "etag": get_file_metadata(
-                        downloaded_item_path, "com.github.autopkg.etag"
-                    ),
-                    "file_size": downloaded_item_path.stat().st_size,
-                    "last_modified": get_file_metadata(
-                        downloaded_item_path, "com.github.autopkg.last-modified"
-                    ),
-                    "file_path": downloaded_item,
-                }
-            )
-
+        metadata_list: list[DownloadMetadata] = await asyncio.gather(
+            *[
+                self._get_metadata_for_item(downloaded_item)
+                for downloaded_item in self._extract_download_paths(download_items)
+            ]
+        )
         return {
             "timestamp": str(datetime.now(tz=timezone.utc)),
             "metadata": metadata_list,
+        }
+
+    async def _get_metadata_for_item(self, downloaded_item: str) -> DownloadMetadata:
+        """Retrieves metadata for a single downloaded item.
+
+        This method takes the path to a downloaded item and asynchronously
+        retrieves its ETag, file size, and last modified date using
+        `get_file_metadata` and `get_file_size`. The collected metadata is then
+        returned in a `DownloadMetadata` dictionary.
+
+        Args:
+            downloaded_item: The path to the downloaded item.
+
+        Returns:
+            A DownloadMetadata dictionary containing the ETag, file size, last
+            modified date, and file path of the downloaded item.
+        """
+        downloaded_item_path = Path(downloaded_item)
+        etag_task = get_file_metadata(downloaded_item_path, "com.github.autopkg.etag")
+        file_size_task = get_file_size(downloaded_item_path)
+        last_modified_task = get_file_metadata(
+            downloaded_item_path, "com.github.autopkg.last-modified"
+        )
+
+        # Run the tasks concurrently and await all of them to finish
+        etag, file_size, last_modified = await asyncio.gather(
+            etag_task, file_size_task, last_modified_task
+        )
+
+        return {
+            "etag": etag,
+            "file_size": file_size,
+            "last_modified": last_modified,
+            "file_path": downloaded_item,
         }
 
     def compile_report(self) -> ConsolidatedReport:
@@ -424,8 +456,8 @@ class Recipe:
         """
         output = await self.run_check_phase()
         if output["downloaded_items"]:
-            metadata = self._get_metadata(output["downloaded_items"])
-            save_metadata_cache(AppConfig.cache_file(), self.name, metadata)
+            metadata = await self._get_metadata(output["downloaded_items"])
+            await MetadataCacheManager.save(AppConfig.cache_file(), self.name, metadata)
 
             return await self.run_full()
         return output
@@ -516,8 +548,8 @@ class Recipe:
         Calls autopkg with the `verify-trust-info` command.
 
         Returns:
-            True if the trust info is trusted, False if it is untrusted, or UNTESTED if
-                it hasn't been tested yet.
+            TrustInfoVerificationState.TRUSTED if the trust info is trusted,
+            TrustInfoVerificationState.FAILED if it is untrusted, or
         """
         if self._trusted == TrustInfoVerificationState.UNTESTED:
             logger.debug(f"Verifying trust info for {self.name}...")
