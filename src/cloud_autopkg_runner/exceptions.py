@@ -75,7 +75,7 @@ class RecipeInputException(RecipeException):
         Args:
             file_path: The path to the recipe file with the input issue.
         """
-        super().__init__(f"Failed to get recipe name from {file_path} contents.")
+        super().__init__(f"Invalid or missing input value in {file_path} contents.")
 
 
 class RecipeLookupException(RecipeException):

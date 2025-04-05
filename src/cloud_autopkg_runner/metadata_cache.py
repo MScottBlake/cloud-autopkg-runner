@@ -11,6 +11,7 @@ This information is used to create dummy files for testing purposes and
 to avoid unnecessary downloads.
 """
 
+import asyncio
 import json
 from collections.abc import Iterable
 from pathlib import Path
@@ -76,7 +77,7 @@ def _set_file_size(file_path: Path, size: int) -> None:
         f.write(b"\0")
 
 
-def create_dummy_files(recipe_list: Iterable[str], cache: MetadataCache) -> None:
+async def create_dummy_files(recipe_list: Iterable[str], cache: MetadataCache) -> None:
     """Create dummy files based on metadata from the cache.
 
     For each recipe in the `recipe_list`, this function iterates through the
@@ -93,6 +94,8 @@ def create_dummy_files(recipe_list: Iterable[str], cache: MetadataCache) -> None
         cache: The metadata cache dictionary.
     """
     logger.debug("Creating dummy files...")
+
+    tasks: list[asyncio.Task[None]] = []
 
     for recipe_name, recipe_cache_data in cache.items():
         if recipe_name not in recipe_list:
@@ -118,33 +121,44 @@ def create_dummy_files(recipe_list: Iterable[str], cache: MetadataCache) -> None
                 logger.info(f"Skipping file creation: {file_path} already exists.")
                 continue
 
-            # Create parent directory if needed
-            file_path.parent.mkdir(parents=True, exist_ok=True)
+            # Add the task to create the file, set its size, and set extended attributes
+            task = asyncio.create_task(
+                asyncio.to_thread(_create_and_set_attrs, file_path, metadata_cache)
+            )
+            tasks.append(task)
 
-            # Create file
-            file_path.touch()
-
-            # Set file size
-            _set_file_size(file_path, metadata_cache.get("file_size", 0))
-
-            # Set extended attributes
-            if metadata_cache.get("etag"):
-                xattr.setxattr(  # pyright: ignore[reportUnknownMemberType]
-                    file_path,
-                    "com.github.autopkg.etag",
-                    metadata_cache.get("etag", "").encode("utf-8"),
-                )
-            if metadata_cache.get("last_modified"):
-                xattr.setxattr(  # pyright: ignore[reportUnknownMemberType]
-                    file_path,
-                    "com.github.autopkg.last-modified",
-                    metadata_cache.get("last_modified", "").encode("utf-8"),
-                )
-
+    # Await all the tasks
+    await asyncio.gather(*tasks)
     logger.debug("Dummy files created.")
 
 
-def get_file_metadata(file_path: Path, attr: str) -> str:
+def _create_and_set_attrs(file_path: Path, metadata_cache: DownloadMetadata) -> None:
+    """Create the file, set its size, and set extended attributes."""
+    # Create parent directory if needed
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Create file
+    file_path.touch()
+
+    # Set file size
+    _set_file_size(file_path, metadata_cache.get("file_size", 0))
+
+    # Set extended attributes
+    if metadata_cache.get("etag"):
+        xattr.setxattr(  # pyright: ignore[reportUnknownMemberType]
+            file_path,
+            "com.github.autopkg.etag",
+            metadata_cache.get("etag", "").encode("utf-8"),
+        )
+    if metadata_cache.get("last_modified"):
+        xattr.setxattr(  # pyright: ignore[reportUnknownMemberType]
+            file_path,
+            "com.github.autopkg.last-modified",
+            metadata_cache.get("last_modified", "").encode("utf-8"),
+        )
+
+
+async def get_file_metadata(file_path: Path, attr: str) -> str:
     """Get extended file metadata.
 
     Args:
@@ -154,59 +168,112 @@ def get_file_metadata(file_path: Path, attr: str) -> str:
     Returns:
         The decoded string representation of the extended attribute metadata.
     """
-    return cast(
-        "bytes",
-        xattr.getxattr(  # pyright: ignore[reportUnknownMemberType]
-            file_path, attr
-        ),
-    ).decode()
+    return await asyncio.to_thread(
+        lambda: cast(
+            "bytes",
+            xattr.getxattr(  # pyright: ignore[reportUnknownMemberType]
+                file_path, attr
+            ),
+        ).decode()
+    )
 
 
-def load_metadata_cache(file_path: Path) -> MetadataCache:
-    """Load the metadata cache from a JSON file.
-
-    Reads the contents of the specified JSON file into a `MetadataCache` dictionary.
-    If the file does not exist, it is created with an empty JSON object.
+async def get_file_size(file_path: Path) -> int:
+    """Get the size of file.
 
     Args:
-        file_path: Path to the metadata cache JSON file.
+        file_path: The path to the file.
 
     Returns:
-        A `MetadataCache` dictionary containing the loaded metadata.
-
-    Raises:
-        InvalidJsonContents: If the file contains invalid JSON.
+        The file size in bytes, represented as an integer.
     """
-    logger.debug(f"Loading metadata cache from {file_path}...")
-
-    if not file_path.exists():
-        logger.warning(f"{file_path} does not exist. Creating...")
-        file_path.write_text("{}")
-        logger.info(f"{file_path} created.")
-
-    try:
-        metadata_cache = MetadataCache(json.loads(file_path.read_text()))
-        logger.info(f"Metadata cache loaded from {file_path}.")
-    except json.JSONDecodeError as exc:
-        raise InvalidJsonContents(file_path) from exc
-
-    logger.debug(f"Metadata cache: {metadata_cache}")
-    return metadata_cache
+    return await asyncio.to_thread(lambda: file_path.stat().st_size)
 
 
-def save_metadata_cache(
-    file_path: Path, recipe_name: str, metadata: RecipeCache
-) -> None:
-    """Save a recipes metadata to the cache.
+class MetadataCacheManager:
+    """Manages the metadata cache, loading from and saving to disk."""
 
-    Args:
-        file_path: The path to the metadata cache JSON file.
-        recipe_name: The name of the recipe the data is related to.
-        metadata: A `RecipeCache` dictionary to store in the file.
-    """
-    stored_metadata = load_metadata_cache(file_path)
+    _cache: MetadataCache | None = None
+    _lock = asyncio.Lock()
 
-    new_metadata = stored_metadata.copy()
-    new_metadata[recipe_name] = metadata
+    @classmethod
+    async def load(cls, file_path: Path) -> MetadataCache:
+        """Load the metadata cache from disk.
 
-    file_path.write_text(json.dumps(new_metadata, indent=2, sort_keys=True))
+        If the cache is not already loaded, this method loads it from the
+        specified file path.  It uses a lock to prevent concurrent loads.
+
+        Args:
+            file_path: The path to the file where the metadata cache is stored.
+
+        Returns:
+            The loaded metadata cache.
+        """
+        async with cls._lock:
+            if cls._cache is None:
+                logger.debug("Loading metadata cache for the first time...")
+                cls._cache = await asyncio.to_thread(cls._load_from_disk, file_path)
+            return cls._cache
+
+    @classmethod
+    async def save(
+        cls, file_path: Path, recipe_name: str, metadata: RecipeCache
+    ) -> None:
+        """Save metadata to the cache and persist it to disk.
+
+        This method updates the metadata cache with new recipe metadata and
+        then saves the entire cache to disk.  It uses a lock to ensure that
+        only one save operation occurs at a time.
+
+        Args:
+            file_path: The path to the file where the metadata cache is stored.
+            recipe_name: The name of the recipe to cache.
+            metadata: The metadata associated with the recipe.
+        """
+        async with cls._lock:
+            if cls._cache is None:
+                cls._cache = await asyncio.to_thread(cls._load_from_disk, file_path)
+
+            cls._cache = cls._cache.copy()
+            cls._cache[recipe_name] = metadata
+            await asyncio.to_thread(cls._save_to_disk, file_path, cls._cache)
+
+    @staticmethod
+    def _load_from_disk(file_path: Path) -> MetadataCache:
+        """Load metadata from disk.
+
+        This static method reads the metadata cache from the specified file.
+        If the file does not exist, it creates an empty JSON file.
+
+        Args:
+            file_path: The path to the file where the metadata cache is stored.
+
+        Returns:
+            The metadata cache loaded from disk.
+
+        Raises:
+            InvalidJsonContents: If the JSON contents of the file are invalid.
+        """
+        if not file_path.exists():
+            logger.warning(f"{file_path} does not exist. Creating...")
+            file_path.write_text("{}")
+            logger.info(f"{file_path} created.")
+
+        try:
+            return MetadataCache(json.loads(file_path.read_text()))
+        except json.JSONDecodeError as exc:
+            raise InvalidJsonContents(file_path) from exc
+
+    @staticmethod
+    def _save_to_disk(file_path: Path, metadata_cache: MetadataCache) -> None:
+        """Save metadata to disk.
+
+        This static method writes the metadata cache to the specified file
+        as a JSON string.
+
+        Args:
+            file_path: The path to the file where the metadata cache is stored.
+            metadata_cache: The metadata cache to be saved.
+        """
+        file_path.write_text(json.dumps(metadata_cache, indent=2, sort_keys=True))
+        logger.info(f"Metadata cache saved to {file_path}.")
