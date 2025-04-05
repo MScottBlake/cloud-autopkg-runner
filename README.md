@@ -104,17 +104,17 @@ import asyncio
 import json
 from pathlib import Path
 
-from cloud_autopkg_runner.metadata_cache import create_dummy_files, load_metadata_cache
+from cloud_autopkg_runner.metadata_cache import MetadataCacheManager, create_dummy_files
 from cloud_autopkg_runner.recipe import Recipe
 
 async def main() -> None:
     metatada_cache_path = Path("/path/to/metadata_cache.json")
-    metadata_cache = load_metadata_cache(metatada_cache_path)
+    metadata_cache = await MetadataCacheManager.load(metatada_cache_path)
 
     recipe_list_path = Path("/path/to/recipe_list.json")
     recipe_list = json.loads(recipe_list_path.read_text())
 
-    create_dummy_files(recipe_list, metadata_cache)
+    await create_dummy_files(recipe_list, metadata_cache)
 
     for recipe_name in recipe_list:
         print(f"Processing {recipe_name}")

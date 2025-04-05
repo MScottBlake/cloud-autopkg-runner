@@ -78,7 +78,9 @@ class RecipeReport:
     """Represents the report generated after running a recipe.
 
     This class provides a way to store and access information about the
-    results of running an AutoPkg recipe.
+    results of running an AutoPkg recipe. It encapsulates the path to the
+    report file, the parsed contents of the report, and a flag indicating
+    whether the report has been successfully parsed.
 
     Attributes:
         _report_file_path: Path to the report file.
@@ -142,7 +144,9 @@ class RecipeReport:
         """Parses the recipe report from the plist file and stores the results.
 
         Raises:
-            AutoPkgRunnerException: If the plist file is invalid or cannot be parsed.
+            InvalidPlistContents: If the plist file is invalid or cannot be parsed.
+            FileNotFoundError: If the report file does not exist.
+            OSError: If an I/O error occurs while reading the file.
         """
         try:
             self._contents: RecipeReportContents = plistlib.loads(
