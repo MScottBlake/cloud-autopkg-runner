@@ -102,12 +102,17 @@ You can also use `cloud-autopkg-runner` as a Python library in your own scripts.
 ```python
 import asyncio
 import json
+import logging
 from pathlib import Path
 
-from cloud_autopkg_runner.metadata_cache import MetadataCacheManager, create_dummy_files
+from cloud_autopkg_runner.file_utils import create_dummy_files
+from cloud_autopkg_runner.metadata_cache import MetadataCacheManager
 from cloud_autopkg_runner.recipe import Recipe
 
+
 async def main() -> None:
+    logger = logging.getLogger(__name__)
+
     metatada_cache_path = Path("/path/to/metadata_cache.json")
     metadata_cache = await MetadataCacheManager.load(metatada_cache_path)
 
@@ -117,7 +122,7 @@ async def main() -> None:
     await create_dummy_files(recipe_list, metadata_cache)
 
     for recipe_name in recipe_list:
-        print(f"Processing {recipe_name}")
+        logger.info("Processing %s", recipe_name)
         recipe = Recipe(recipe_name)
 
         if await recipe.verify_trust_info():
