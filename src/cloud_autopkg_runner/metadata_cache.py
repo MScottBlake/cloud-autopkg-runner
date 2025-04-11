@@ -64,6 +64,16 @@ class MetadataCacheManager:
     _lock = asyncio.Lock()
 
     @classmethod
+    async def clear_cache(cls) -> None:
+        """Clear the in-memory metadata cache.
+
+        This class method resets the in-memory metadata cache to `None`,
+        forcing a reload from disk on the next access.
+        """
+        async with cls._lock:
+            cls._cache = None
+
+    @classmethod
     async def load(cls, file_path: Path) -> MetadataCache:
         """Load the metadata cache from disk.
 
