@@ -94,20 +94,36 @@ class AutoPkgPrefs:
         if "MUNKI_REPO" in prefs:
             prefs["MUNKI_REPO"] = Path(prefs["MUNKI_REPO"]).expanduser()
 
-        # Force into lists to reduce branching logic
-        if isinstance(prefs["RECIPE_SEARCH_DIRS"], str):
-            prefs["RECIPE_SEARCH_DIRS"] = [prefs["RECIPE_SEARCH_DIRS"]]
-        if isinstance(prefs["RECIPE_OVERRIDE_DIRS"], str):
-            prefs["RECIPE_OVERRIDE_DIRS"] = [prefs["RECIPE_OVERRIDE_DIRS"]]
-
-        prefs["RECIPE_SEARCH_DIRS"] = (
-            Path(x).expanduser() for x in prefs["RECIPE_SEARCH_DIRS"]
-        )
-        prefs["RECIPE_OVERRIDE_DIRS"] = (
-            Path(x).expanduser() for x in prefs["RECIPE_OVERRIDE_DIRS"]
-        )
+        if "RECIPE_SEARCH_DIRS" in prefs:
+            prefs["RECIPE_SEARCH_DIRS"] = self._convert_to_list_of_paths(
+                prefs["RECIPE_SEARCH_DIRS"]
+            )
+        if "RECIPE_OVERRIDE_DIRS" in prefs:
+            prefs["RECIPE_OVERRIDE_DIRS"] = self._convert_to_list_of_paths(
+                prefs["RECIPE_OVERRIDE_DIRS"]
+            )
 
         self._prefs.update(prefs)
+
+    def _convert_to_list_of_paths(self, value: str | list[str]) -> list[Path]:
+        """Converts a string or a list of strings to a list of Path objects.
+
+        If the input is a string, it is treated as a single path and converted
+        into a list containing that path. If the input is already a list of
+        strings, each string is converted into a Path object. All paths are
+        expanded to include the user's home directory.
+
+        Args:
+            value: A string representing a single path or a list of strings
+                representing multiple paths.
+
+        Returns:
+            A list of Path objects, where each Path object represents a path
+            from the input.
+        """
+        if isinstance(value, str):
+            value = [value]
+        return [Path(x).expanduser() for x in value]
 
     @overload
     def __getitem__(self, key: Literal["CACHE_DIR", "RECIPE_REPO_DIR"]) -> Path: ...
