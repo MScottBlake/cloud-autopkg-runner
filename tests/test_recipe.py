@@ -1,10 +1,10 @@
 import plistlib
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cloud_autopkg_runner import AppConfig
+from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
 from cloud_autopkg_runner.exceptions import RecipeInputException, RecipeLookupException
 from cloud_autopkg_runner.recipe import Recipe, RecipeContents, RecipeFormat
 
@@ -14,7 +14,16 @@ def create_dummy_file(path: Path, content: str) -> None:
     path.write_text(content)
 
 
-def test_recipe_init_yaml(tmp_path: Path) -> None:
+@pytest.fixture
+def mock_autopkg_prefs(tmp_path: Path) -> MagicMock:
+    """Fixture to create a mock AutoPkgPrefs object with search/override dirs."""
+    mock_prefs = MagicMock(spec=AutoPkgPrefs)
+    mock_prefs.recipe_override_dirs = [tmp_path]
+    mock_prefs.recipe_search_dirs = [tmp_path]
+    return mock_prefs
+
+
+def test_recipe_init_yaml(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
     """Test initializing a Recipe object from a YAML file."""
     yaml_content = """
     Description: Test recipe
@@ -23,29 +32,23 @@ def test_recipe_init_yaml(tmp_path: Path) -> None:
         NAME: TestRecipe
     Process: []
     """
-    cache_file = str(tmp_path / "cache_file.json")
     recipe_file = tmp_path / "Test.recipe.yaml"
     create_dummy_file(recipe_file, yaml_content)
+    report_dir = tmp_path / "report_dir"
+    report_dir.mkdir()
 
-    # Initialize AppConfig before creating AutoPkgPrefs
-    AppConfig.set_config(
-        verbosity_level=0, log_file=None, cache_file=cache_file, max_concurrency=10
-    )
-    with patch("cloud_autopkg_runner.recipe.AutoPkgPrefs") as mock_autopkg_prefs:
-        mock_prefs = mock_autopkg_prefs.return_value
-        mock_prefs.recipe_override_dirs = [tmp_path]
-        mock_prefs.recipe_search_dirs = [tmp_path]
-
-        report_dir = tmp_path / "report_dir"
-        report_dir.mkdir()
+    with patch(
+        "cloud_autopkg_runner.recipe.AutoPkgPrefs", return_value=mock_autopkg_prefs
+    ):
         recipe = Recipe("Test.recipe.yaml", report_dir)
+
     assert recipe.identifier == "com.example.test"
     assert recipe.input_name == "TestRecipe"
     assert recipe.format() == RecipeFormat.YAML
     assert recipe._result.file_path().parent == report_dir
 
 
-def test_recipe_init_plist(tmp_path: Path) -> None:
+def test_recipe_init_plist(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
     """Test initializing a Recipe object from a plist file."""
     plist_content: RecipeContents = {
         "Description": "Test recipe",
@@ -55,18 +58,12 @@ def test_recipe_init_plist(tmp_path: Path) -> None:
         "MinimumVersion": "",
         "ParentRecipe": "",
     }
-    cache_file = str(tmp_path / "cache_file.json")
     recipe_file = tmp_path / "Test.recipe.plist"
     recipe_file.write_bytes(plistlib.dumps(plist_content))
 
-    AppConfig.set_config(
-        verbosity_level=0, log_file=None, cache_file=cache_file, max_concurrency=10
-    )
-    with patch("cloud_autopkg_runner.recipe.AutoPkgPrefs") as mock_autopkg_prefs:
-        mock_prefs = mock_autopkg_prefs.return_value
-        mock_prefs.recipe_override_dirs = [tmp_path]
-        mock_prefs.recipe_search_dirs = [tmp_path]
-
+    with patch(
+        "cloud_autopkg_runner.recipe.AutoPkgPrefs", return_value=mock_autopkg_prefs
+    ):
         report_dir = tmp_path / "report_dir"
         report_dir.mkdir()
         recipe = Recipe("Test.recipe.plist", report_dir)
@@ -87,7 +84,7 @@ def test_recipe_invalid_format(tmp_path: Path) -> None:
         Recipe("Test.recipe.invalid", report_dir)
 
 
-def test_recipe_missing_name(tmp_path: Path) -> None:
+def test_recipe_missing_name(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
     """Test initializing a Recipe object with missing NAME input."""
     yaml_content = """
     Description: Test recipe
@@ -100,18 +97,15 @@ def test_recipe_missing_name(tmp_path: Path) -> None:
     report_dir = tmp_path / "report_dir"
     report_dir.mkdir()
 
-    with patch("cloud_autopkg_runner.recipe.AutoPkgPrefs") as mock_autopkg_prefs:
-        mock_prefs = mock_autopkg_prefs.return_value
-        mock_prefs.recipe_override_dirs = [tmp_path]
-        mock_prefs.recipe_search_dirs = [tmp_path]
-
+    with patch(
+        "cloud_autopkg_runner.recipe.AutoPkgPrefs", return_value=mock_autopkg_prefs
+    ):
         recipe = Recipe("Test.recipe.yaml", report_dir)
-
         with pytest.raises(RecipeInputException):
             _ = recipe.input_name
 
 
-def test_recipe_properties(tmp_path: Path) -> None:
+def test_recipe_properties(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
     """Tests the various property accessors of the Recipe class."""
     yaml_content = """
     Description: Test recipe
@@ -122,20 +116,14 @@ def test_recipe_properties(tmp_path: Path) -> None:
     MinimumVersion: 2.0
     ParentRecipe: ParentRecipe.recipe
     """
-    cache_file = str(tmp_path / "cache_file.json")
     recipe_file = tmp_path / "Test.recipe.yaml"
     create_dummy_file(recipe_file, yaml_content)
+    report_dir = tmp_path / "report_dir"
+    report_dir.mkdir()
 
-    # Initialize AppConfig before creating AutoPkgPrefs
-    AppConfig.set_config(
-        verbosity_level=0, log_file=None, cache_file=cache_file, max_concurrency=10
-    )
-    with patch("cloud_autopkg_runner.recipe.AutoPkgPrefs") as mock_autopkg_prefs:
-        mock_prefs = mock_autopkg_prefs.return_value
-        mock_prefs.recipe_override_dirs = [tmp_path]
-        mock_prefs.recipe_search_dirs = [tmp_path]
-        report_dir = tmp_path / "report_dir"
-        report_dir.mkdir()
+    with patch(
+        "cloud_autopkg_runner.recipe.AutoPkgPrefs", return_value=mock_autopkg_prefs
+    ):
         recipe = Recipe("Test.recipe.yaml", report_dir)
 
     assert recipe.contents["Description"] == "Test recipe"
