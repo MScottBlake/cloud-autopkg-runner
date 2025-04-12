@@ -64,11 +64,21 @@ class MetadataCacheManager:
     _lock = asyncio.Lock()
 
     @classmethod
+    async def clear_cache(cls) -> None:
+        """Clear the in-memory metadata cache.
+
+        This class method resets the in-memory metadata cache to `None`,
+        forcing a reload from disk on the next access.
+        """
+        async with cls._lock:
+            cls._cache = None
+
+    @classmethod
     async def load(cls, file_path: Path) -> MetadataCache:
         """Load the metadata cache from disk.
 
         If the cache is not already loaded, this method loads it from the
-        specified file path.  It uses a lock to prevent concurrent loads.
+        specified file path. It uses a lock to prevent concurrent loads.
 
         Args:
             file_path: The path to the file where the metadata cache is stored.
@@ -89,7 +99,7 @@ class MetadataCacheManager:
         """Save metadata to the cache and persist it to disk.
 
         This method updates the metadata cache with new recipe metadata and
-        then saves the entire cache to disk.  It uses a lock to ensure that
+        then saves the entire cache to disk. It uses a lock to ensure that
         only one save operation occurs at a time.
 
         Args:

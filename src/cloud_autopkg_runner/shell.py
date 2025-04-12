@@ -29,7 +29,7 @@ def _normalize_cmd(cmd: str | list[str]) -> list[str]:
         ShellCommandException: If the command string is invalid and cannot be
             parsed by `shlex.split()`.
     """
-    if not isinstance(cmd, str):
+    if isinstance(cmd, list):
         return cmd
 
     try:
@@ -186,7 +186,7 @@ async def run_cmd(
             - Any other unexpected exception occurs during command execution.
     """
     cmd_list = _normalize_cmd(cmd)
-    cmd_str = " ".join(cmd)
+    cmd_str = " ".join(cmd_list)
 
     logger.debug(f"Running command: {cmd_str}")
     if cwd:

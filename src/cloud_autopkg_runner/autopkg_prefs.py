@@ -6,7 +6,7 @@ from a plist file (typically `~/Library/Preferences/com.github.autopkg.plist`).
 
 The `AutoPkgPrefs` class supports type-safe access to well-known AutoPkg
 preference keys, while also allowing access to arbitrary preferences
-defined in the plist file.  It handles the conversion of preference
+defined in the plist file. It handles the conversion of preference
 values to the appropriate Python types (e.g., strings to Paths).
 
 Key preferences managed include:
@@ -19,13 +19,15 @@ Key preferences managed include:
 
 import plistlib
 from pathlib import Path
-from typing import Any, Literal, TypeVar, overload
+from typing import Any
 
-from cloud_autopkg_runner.exceptions import AutoPkgRunnerException, InvalidPlistContents
+from cloud_autopkg_runner.exceptions import (
+    InvalidPlistContents,
+    PreferenceFileNotFoundError,
+    PreferenceKeyNotFoundError,
+)
 
-T = TypeVar("T")
-
-# Overload key sources:
+# Known Preference sources:
 # - https://github.com/autopkg/autopkg/wiki/Preferences
 # - https://github.com/grahampugh/jamf-upload/wiki/JamfUploader-AutoPkg-Processors
 # - https://github.com/autopkg/lrz-recipes/blob/main/README.md
@@ -41,7 +43,7 @@ class AutoPkgPrefs:
     """Manages AutoPkg preferences loaded from a plist file.
 
     Provides methods for accessing known AutoPkg preferences and arbitrary
-    preferences defined in the plist file.  Handles type conversions
+    preferences defined in the plist file. Handles type conversions
     for known preference keys.
     """
 
@@ -82,7 +84,7 @@ class AutoPkgPrefs:
         try:
             prefs: dict[str, Any] = plistlib.loads(plist_path.read_bytes())
         except FileNotFoundError as exc:
-            raise AutoPkgRunnerException(f"Plist file not found: {plist_path}") from exc  # noqa: TRY003
+            raise PreferenceFileNotFoundError(plist_path) from exc
         except plistlib.InvalidFileException as exc:
             raise InvalidPlistContents(plist_path) from exc
 
@@ -94,177 +96,60 @@ class AutoPkgPrefs:
         if "MUNKI_REPO" in prefs:
             prefs["MUNKI_REPO"] = Path(prefs["MUNKI_REPO"]).expanduser()
 
-        # Force into lists to reduce branching logic
-        if isinstance(prefs["RECIPE_SEARCH_DIRS"], str):
-            prefs["RECIPE_SEARCH_DIRS"] = [prefs["RECIPE_SEARCH_DIRS"]]
-        if isinstance(prefs["RECIPE_OVERRIDE_DIRS"], str):
-            prefs["RECIPE_OVERRIDE_DIRS"] = [prefs["RECIPE_OVERRIDE_DIRS"]]
-
-        prefs["RECIPE_SEARCH_DIRS"] = (
-            Path(x).expanduser() for x in prefs["RECIPE_SEARCH_DIRS"]
-        )
-        prefs["RECIPE_OVERRIDE_DIRS"] = (
-            Path(x).expanduser() for x in prefs["RECIPE_OVERRIDE_DIRS"]
-        )
+        if "RECIPE_SEARCH_DIRS" in prefs:
+            prefs["RECIPE_SEARCH_DIRS"] = self._convert_to_list_of_paths(
+                prefs["RECIPE_SEARCH_DIRS"]
+            )
+        if "RECIPE_OVERRIDE_DIRS" in prefs:
+            prefs["RECIPE_OVERRIDE_DIRS"] = self._convert_to_list_of_paths(
+                prefs["RECIPE_OVERRIDE_DIRS"]
+            )
 
         self._prefs.update(prefs)
 
-    @overload
-    def __getitem__(self, key: Literal["CACHE_DIR", "RECIPE_REPO_DIR"]) -> Path: ...
+    def _convert_to_list_of_paths(self, value: str | list[str]) -> list[Path]:
+        """Converts a string or a list of strings to a list of Path objects.
 
-    @overload
-    def __getitem__(self, key: Literal["MUNKI_REPO"]) -> Path | None: ...
-
-    @overload
-    def __getitem__(
-        self, key: Literal["RECIPE_SEARCH_DIRS", "RECIPE_OVERRIDE_DIRS"]
-    ) -> list[Path]: ...
-
-    @overload
-    def __getitem__(
-        self,
-        key: Literal[
-            "GITHUB_TOKEN",
-            "SMB_URL",
-            "SMB_USERNAME",
-            "SMB_PASSWORD",
-            "PATCH_URL",
-            "PATCH_TOKEN",
-            "TITLE_URL",
-            "TITLE_USER",
-            "TITLE_PASS",
-            "JC_API",
-            "JC_ORG",
-            "FW_SERVER_HOST",
-            "FW_SERVER_PORT",
-            "FW_ADMIN_USER",
-            "FW_ADMIN_PASSWORD",
-            "BES_ROOT_SERVER",
-            "BES_USERNAME",
-            "BES_PASSWORD",
-            "CLIENT_ID",
-            "CLIENT_SECRET",
-            "TENANT_ID",
-            "VIRUSTOTAL_API_KEY",
-        ],
-    ) -> str | None: ...
-
-    @overload
-    def __getitem__(
-        self,
-        key: Literal[
-            "FAIL_RECIPES_WITHOUT_TRUST_INFO", "STOP_IF_NO_JSS_UPLOAD", "CLOUD_DP"
-        ],
-    ) -> bool | None: ...
-
-    @overload
-    def __getitem__(
-        self, key: Literal["SMB_SHARES"]
-    ) -> list[dict[str, str]] | None: ...
-
-    # All other keys
-    @overload
-    def __getitem__(self, key: str) -> Any: ...
-
-    def __getitem__(self, key: str) -> Any:
-        """Retrieves a preference value by key.
-
-        This method first checks if the key exists in the known preferences.
+        If the input is a string, it is treated as a single path and converted
+        into a list containing that path. If the input is already a list of
+        strings, each string is converted into a Path object. All paths are
+        expanded to include the user's home directory.
 
         Args:
-            key: The name of the preference to retrieve.
+            value: A string representing a single path or a list of strings
+                representing multiple paths.
 
         Returns:
-            The value of the preference.
-
-        Raises:
-            KeyError: If the key is not found in the preferences.
+            A list of Path objects, where each Path object represents a path
+            from the input.
         """
-        if key in self._prefs:
-            return self._prefs[key]
-        raise KeyError(f"No key matching '{key}' in {__name__}")  # noqa: TRY003
+        if isinstance(value, str):
+            value = [value]
+        return [Path(x).expanduser() for x in value]
 
-    def __setitem__(self, key: str, value: Any) -> None:
-        """Sets a preference value by key.
+    def __getattr__(self, name: str) -> object:
+        """Retrieves a preference value by attribute name.
+
+        This method allows accessing preferences as attributes of the
+        AutoPkgPrefs object.
 
         Args:
-            key: The name of the preference to set.
-            value: The value to set for the preference.
+            name: The name of the attribute to retrieve.
+
+        Returns:
+            The value of the preference, if found.
+
+        Raises:
+            PreferenceKeyNotFoundError: If the attribute name does not
+                correspond to a preference.
         """
-        self._prefs[key] = value
+        try:
+            return self._prefs[name]
+        except KeyError as exc:
+            raise PreferenceKeyNotFoundError(name) from exc
 
-    @overload
-    def get(
-        self,
-        key: Literal["CACHE_DIR", "RECIPE_REPO_DIR"],
-        default: object = None,
-    ) -> Path: ...
-
-    @overload
-    def get(
-        self,
-        key: Literal["MUNKI_REPO"],
-        default: object = None,
-    ) -> Path | None: ...
-
-    @overload
-    def get(
-        self,
-        key: Literal["RECIPE_SEARCH_DIRS", "RECIPE_OVERRIDE_DIRS"],
-        default: object = None,
-    ) -> list[Path]: ...
-
-    @overload
-    def get(
-        self,
-        key: Literal[
-            "GITHUB_TOKEN",
-            "SMB_URL",
-            "SMB_USERNAME",
-            "SMB_PASSWORD",
-            "PATCH_URL",
-            "PATCH_TOKEN",
-            "TITLE_URL",
-            "TITLE_USER",
-            "TITLE_PASS",
-            "JC_API",
-            "JC_ORG",
-            "FW_SERVER_HOST",
-            "FW_SERVER_PORT",
-            "FW_ADMIN_USER",
-            "FW_ADMIN_PASSWORD",
-            "BES_ROOT_SERVER",
-            "BES_USERNAME",
-            "BES_PASSWORD",
-            "CLIENT_ID",
-            "CLIENT_SECRET",
-            "TENANT_ID",
-            "VIRUSTOTAL_API_KEY",
-        ],
-        default: object = None,
-    ) -> str | None: ...
-
-    @overload
-    def get(
-        self,
-        key: Literal[
-            "FAIL_RECIPES_WITHOUT_TRUST_INFO", "STOP_IF_NO_JSS_UPLOAD", "CLOUD_DP"
-        ],
-        default: object = None,
-    ) -> bool | None: ...
-
-    @overload
-    def get(self, key: Literal["SMB_SHARES"]) -> list[dict[str, str]] | None: ...
-
-    # All other keys
-    @overload
-    def get(self, key: str, default: T = None) -> Any | T: ...
-
-    def get(self, key: str, default: T = None) -> Any | T:
-        """Retrieves a preference value by key with a default.
-
-        This method first checks if the key exists in the known preferences.
-        If the key is not found, it returns the specified default value.
+    def get(self, key: str, default: object = None) -> object:
+        """Return the preference value for `key`, or `default` if not set.
 
         Args:
             key: The name of the preference to retrieve.
@@ -273,7 +158,159 @@ class AutoPkgPrefs:
         Returns:
             The value of the preference, or the default value if the key is not found.
         """
-        try:
-            return self.__getitem__(key)
-        except KeyError:
-            return default
+        return self._prefs.get(key, default)
+
+    @property
+    def cache_dir(self) -> Path:
+        """Gets the cache directory path."""
+        return self._prefs["CACHE_DIR"]
+
+    @property
+    def recipe_repo_dir(self) -> Path:
+        """Gets the recipe repository directory path."""
+        return self._prefs["RECIPE_REPO_DIR"]
+
+    @property
+    def munki_repo(self) -> Path | None:
+        """Gets the Munki repository path, if set."""
+        return self._prefs.get("MUNKI_REPO")
+
+    @property
+    def recipe_search_dirs(self) -> list[Path]:
+        """Gets the list of recipe search directories."""
+        return self._prefs["RECIPE_SEARCH_DIRS"]
+
+    @property
+    def recipe_override_dirs(self) -> list[Path]:
+        """Gets the list of recipe override directories."""
+        return self._prefs["RECIPE_OVERRIDE_DIRS"]
+
+    @property
+    def github_token(self) -> str | None:
+        """Gets the GitHub token, if set."""
+        return self._prefs.get("GITHUB_TOKEN")
+
+    @property
+    def smb_url(self) -> str | None:
+        """Gets the SMB URL, if set."""
+        return self._prefs.get("SMB_URL")
+
+    @property
+    def smb_username(self) -> str | None:
+        """Gets the SMB username, if set."""
+        return self._prefs.get("SMB_USERNAME")
+
+    @property
+    def smb_password(self) -> str | None:
+        """Gets the SMB password, if set."""
+        return self._prefs.get("SMB_PASSWORD")
+
+    @property
+    def patch_url(self) -> str | None:
+        """Gets the PATCH URL, if set."""
+        return self._prefs.get("PATCH_URL")
+
+    @property
+    def patch_token(self) -> str | None:
+        """Gets the PATCH token, if set."""
+        return self._prefs.get("PATCH_TOKEN")
+
+    @property
+    def title_url(self) -> str | None:
+        """Gets the TITLE URL, if set."""
+        return self._prefs.get("TITLE_URL")
+
+    @property
+    def title_user(self) -> str | None:
+        """Gets the TITLE username, if set."""
+        return self._prefs.get("TITLE_USER")
+
+    @property
+    def title_pass(self) -> str | None:
+        """Gets the TITLE password, if set."""
+        return self._prefs.get("TITLE_PASS")
+
+    @property
+    def jc_api(self) -> str | None:
+        """Gets the JumpCloud API URL, if set."""
+        return self._prefs.get("JC_API")
+
+    @property
+    def jc_org(self) -> str | None:
+        """Gets the JumpCloud organization ID, if set."""
+        return self._prefs.get("JC_ORG")
+
+    @property
+    def fw_server_host(self) -> str | None:
+        """Gets the FileWave server host, if set."""
+        return self._prefs.get("FW_SERVER_HOST")
+
+    @property
+    def fw_server_port(self) -> str | None:
+        """Gets the FileWave server port, if set."""
+        return self._prefs.get("FW_SERVER_PORT")
+
+    @property
+    def fw_admin_user(self) -> str | None:
+        """Gets the FileWave admin username, if set."""
+        return self._prefs.get("FW_ADMIN_USER")
+
+    @property
+    def fw_admin_password(self) -> str | None:
+        """Gets the FileWave admin password, if set."""
+        return self._prefs.get("FW_ADMIN_PASSWORD")
+
+    @property
+    def bes_root_server(self) -> str | None:
+        """Gets the BigFix root server, if set."""
+        return self._prefs.get("BES_ROOT_SERVER")
+
+    @property
+    def bes_username(self) -> str | None:
+        """Gets the BigFix username, if set."""
+        return self._prefs.get("BES_USERNAME")
+
+    @property
+    def bes_password(self) -> str | None:
+        """Gets the BigFix password, if set."""
+        return self._prefs.get("BES_PASSWORD")
+
+    @property
+    def client_id(self) -> str | None:
+        """Gets the Intune client ID, if set."""
+        return self._prefs.get("CLIENT_ID")
+
+    @property
+    def client_secret(self) -> str | None:
+        """Gets the Intune client secret, if set."""
+        return self._prefs.get("CLIENT_SECRET")
+
+    @property
+    def tenant_id(self) -> str | None:
+        """Gets the Intune tenant ID, if set."""
+        return self._prefs.get("TENANT_ID")
+
+    @property
+    def virustotal_api_key(self) -> str | None:
+        """Gets the VirusTotal API key, if set."""
+        return self._prefs.get("VIRUSTOTAL_API_KEY")
+
+    @property
+    def fail_recipes_without_trust_info(self) -> bool | None:
+        """Gets the flag indicating whether to fail recipes without trust info."""
+        return self._prefs.get("FAIL_RECIPES_WITHOUT_TRUST_INFO")
+
+    @property
+    def stop_if_no_jss_upload(self) -> bool | None:
+        """Gets the flag indicating whether to stop if no JSS upload occurs."""
+        return self._prefs.get("STOP_IF_NO_JSS_UPLOAD")
+
+    @property
+    def cloud_dp(self) -> bool | None:
+        """Gets the cloud distribution point setting."""
+        return self._prefs.get("CLOUD_DP")
+
+    @property
+    def smb_shares(self) -> list[dict[str, str]] | None:
+        """Gets the SMB shares configuration, if set."""
+        return self._prefs.get("SMB_SHARES")

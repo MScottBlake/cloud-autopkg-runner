@@ -31,7 +31,7 @@ def _set_file_size(file_path: Path, size: int) -> None:
 
     Effectively replicates the behavior of `mkfile -n` on macOS. This function
     does not actually write `size` bytes of data, but rather sets the file's
-    metadata to indicate that it is `size` bytes long.  This is used to
+    metadata to indicate that it is `size` bytes long. This is used to
     quickly create dummy files for testing.
 
     Args:

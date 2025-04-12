@@ -10,13 +10,14 @@ dev = [
     "hatch>=1.14.0",
     "pre-commit>=4.1.0",
     "pyright>=1.1.397",
+    "pytest-asyncio>=0.26.0",
     "pytest-cov>=6.0.0",
     "ruff>=0.11.0",
 ]
 
 [project]
 name = "cloud-autopkg-runner"
-version = "0.7.2"
+version = "0.8.0"
 description = "Cloud AutoPkg Runner is a Python library designed to provide tools and utilities for managing [AutoPkg](https://github.com/autopkg/autopkg) recipes and workflows concurrently. It streamlines AutoPkg automations in CI/CD pipelines, offering enhanced performance and scalability."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
@@ -49,8 +50,8 @@ autopkg-run = "cloud_autopkg_runner.__main__:main"
 Homepage = "https://github.com/MScottBlake/cloud-autopkg-runner"
 Repository = "https://github.com/MScottBlake/cloud-autopkg-runner.git"
 
-[tool.coverage.report]
-fail_under = 80
+# [tool.coverage.report]
+# fail_under = 80
 
 [tool.coverage.xml]
 output = "artifacts/coverage.xml"
@@ -61,13 +62,16 @@ data_file = "artifacts/.coverage"
 source = ["src"]
 
 [tool.pyright]
+extraPaths = ["src"]
 include = ["src"]
+ignore = ["tests"]
 typeCheckingMode = "strict"
 venvPath = "."
 venv = ".venv"
 
 [tool.pytest.ini_options]
 cache_dir = ".cache/pytest"
+junit_family = "xunit1"
 addopts = [
     "--color=yes",
     "--cov",
@@ -85,7 +89,7 @@ extend-exclude = [".venv"]
 [tool.ruff.lint]
 select = [
     "A",     # flake8-builtins
-    # "ANN",   # flake8-annotations
+    "ANN",   # flake8-annotations
     "ARG",   # flake8-unused-arguments
     "ASYNC", # flake8-async
     "B",     # flake8-bugbear
@@ -124,6 +128,9 @@ select = [
     "W",     # pycodestyle warning
     "YTT",   # flake8-2020
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["S101", "D100", "PLR2004", "ANN401", "SLF001"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

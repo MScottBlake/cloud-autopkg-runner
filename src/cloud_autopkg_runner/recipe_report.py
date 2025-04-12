@@ -162,7 +162,7 @@ class RecipeReport:
 
         Combines information from various sections of the recipe report into a
         single, structured data object. This includes information about failed
-        items, downloaded files, built packages, and Munki imports.  This function
+        items, downloaded files, built packages, and Munki imports. This function
         requires the report to already be parsed with `refresh_contents`.
 
         Returns:
