@@ -53,6 +53,39 @@ class InvalidYamlContents(InvalidFileContents):
     """
 
 
+# AutoPkgPrefs
+class PreferenceFileNotFoundError(AutoPkgRunnerException):
+    """Raised when the AutoPkg preferences file is not found.
+
+    This exception indicates that the specified AutoPkg preferences file
+    does not exist at the expected location.
+    """
+
+    def __init__(self, file_path: Path) -> None:
+        """Initializes PreferenceFileNotFoundError with the missing file path.
+
+        Args:
+            file_path: The path to the preferences file that was not found.
+        """
+        super().__init__(f"Plist file not found: {file_path}")
+
+
+class PreferenceKeyNotFoundError(AutoPkgRunnerException):
+    """Raised when a requested preference key is missing.
+
+    This exception indicates that the requested preference key does not
+    exist in the loaded AutoPkg preferences.
+    """
+
+    def __init__(self, attribute: str) -> None:
+        """Initializes PreferenceKeyNotFoundError with the missing attribute name.
+
+        Args:
+            attribute: The name of the attribute that was not found.
+        """
+        super().__init__(f"AutoPkgPrefs has no attribute '{attribute}'")
+
+
 # Recipe
 class RecipeException(AutoPkgRunnerException):
     """Base exception class for handling recipe issues.
