@@ -121,7 +121,7 @@ def test_autopkgprefs_getattr_known_key(tmp_path: Path) -> None:
         "CACHE_DIR": str(cache_dir),
         "CLOUD_DP": False,
         "FAIL_RECIPES_WITHOUT_TRUST_INFO": True,
-        "FW_ADMIN_PASSWORD": mock_username,
+        "FW_ADMIN_PASSWORD": mock_password,
         "FW_ADMIN_USER": mock_username,
         "GITHUB_TOKEN": mock_token,
         "JC_API": mock_api_key,
