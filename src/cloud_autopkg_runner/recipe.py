@@ -183,7 +183,7 @@ class Recipe:
         """
         try:
             return self._contents["Input"]["NAME"]
-        except AttributeError as exc:
+        except KeyError as exc:
             raise RecipeInputException(self._path) from exc
 
     @property
