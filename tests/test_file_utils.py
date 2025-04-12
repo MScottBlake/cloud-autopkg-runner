@@ -22,14 +22,14 @@ def mock_xattr() -> Any:
 
 
 @pytest.fixture
-def metadata_cache(temp_path: Path) -> MetadataCache:
+def metadata_cache(tmp_path: Path) -> MetadataCache:
     """Fixture for a sample metadata cache."""
     return {
         "Recipe1": {
             "timestamp": "foo",
             "metadata": [
                 {
-                    "file_path": f"{temp_path}/path/to/file1.dmg",
+                    "file_path": f"{tmp_path}/path/to/file1.dmg",
                     "file_size": 1024,
                     "etag": "test_etag",
                     "last_modified": "test_last_modified",
@@ -40,7 +40,7 @@ def metadata_cache(temp_path: Path) -> MetadataCache:
             "timestamp": "foo",
             "metadata": [
                 {
-                    "file_path": f"{temp_path}/path/to/file2.pkg",
+                    "file_path": f"{tmp_path}/path/to/file2.pkg",
                     "file_size": 2048,
                     "etag": "another_etag",
                     "last_modified": "another_last_modified",
@@ -52,12 +52,12 @@ def metadata_cache(temp_path: Path) -> MetadataCache:
 
 @pytest.mark.asyncio
 async def test_create_dummy_files(
-    temp_path: Path, metadata_cache: MetadataCache
+    tmp_path: Path, metadata_cache: MetadataCache
 ) -> None:
     """Test creating dummy files based on metadata."""
     recipe_list = ["Recipe1", "Recipe2"]
-    file_path1 = temp_path / "path/to/file1.dmg"
-    file_path2 = temp_path / "path/to/file2.pkg"
+    file_path1 = tmp_path / "path/to/file1.dmg"
+    file_path2 = tmp_path / "path/to/file2.pkg"
 
     # Patch list_possible_file_names to return the recipes in metadata_cache
     with patch(
@@ -74,11 +74,11 @@ async def test_create_dummy_files(
 
 @pytest.mark.asyncio
 async def test_create_dummy_files_skips_existing(
-    temp_path: Path, metadata_cache: MetadataCache
+    tmp_path: Path, metadata_cache: MetadataCache
 ) -> None:
     """Test skipping creation of existing dummy files."""
     recipe_list = ["Recipe1"]
-    file_path = temp_path / "path/to/file1.dmg"
+    file_path = tmp_path / "path/to/file1.dmg"
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.touch()
 
@@ -94,9 +94,9 @@ async def test_create_dummy_files_skips_existing(
 
 
 @pytest.mark.asyncio
-async def test_get_file_metadata(temp_path: Path, mock_xattr: Any) -> None:  # type: ignore[type-arg]
+async def test_get_file_metadata(tmp_path: Path, mock_xattr: Any) -> None:  # type: ignore[type-arg]
     """Test getting file metadata."""
-    file_path = temp_path / "test_file.txt"
+    file_path = tmp_path / "test_file.txt"
     file_path.touch()
     mock_xattr.getxattr.return_value = b"test_value"
 
@@ -107,9 +107,9 @@ async def test_get_file_metadata(temp_path: Path, mock_xattr: Any) -> None:  # t
 
 
 @pytest.mark.asyncio
-async def test_get_file_size(temp_path: Path) -> None:
+async def test_get_file_size(tmp_path: Path) -> None:
     """Test getting file size."""
-    file_path = temp_path / "test_file.txt"
+    file_path = tmp_path / "test_file.txt"
     file_path.write_bytes(b"test_content")
 
     result = await get_file_size(file_path)
