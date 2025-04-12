@@ -78,7 +78,7 @@ class MetadataCacheManager:
         """Load the metadata cache from disk.
 
         If the cache is not already loaded, this method loads it from the
-        specified file path.  It uses a lock to prevent concurrent loads.
+        specified file path. It uses a lock to prevent concurrent loads.
 
         Args:
             file_path: The path to the file where the metadata cache is stored.
@@ -99,7 +99,7 @@ class MetadataCacheManager:
         """Save metadata to the cache and persist it to disk.
 
         This method updates the metadata cache with new recipe metadata and
-        then saves the entire cache to disk.  It uses a lock to ensure that
+        then saves the entire cache to disk. It uses a lock to ensure that
         only one save operation occurs at a time.
 
         Args:

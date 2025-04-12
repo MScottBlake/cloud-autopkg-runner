@@ -6,7 +6,7 @@ from a plist file (typically `~/Library/Preferences/com.github.autopkg.plist`).
 
 The `AutoPkgPrefs` class supports type-safe access to well-known AutoPkg
 preference keys, while also allowing access to arbitrary preferences
-defined in the plist file.  It handles the conversion of preference
+defined in the plist file. It handles the conversion of preference
 values to the appropriate Python types (e.g., strings to Paths).
 
 Key preferences managed include:
@@ -41,7 +41,7 @@ class AutoPkgPrefs:
     """Manages AutoPkg preferences loaded from a plist file.
 
     Provides methods for accessing known AutoPkg preferences and arbitrary
-    preferences defined in the plist file.  Handles type conversions
+    preferences defined in the plist file. Handles type conversions
     for known preference keys.
     """
 

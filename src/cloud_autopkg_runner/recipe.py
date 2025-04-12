@@ -145,7 +145,7 @@ class Recipe:
         """Returns the recipe's description.
 
         Returns:
-            The recipe's description as a string.  Returns an empty string
+            The recipe's description as a string. Returns an empty string
             if the recipe does not have a description.
         """
         if self._contents["Description"] is None:
@@ -191,7 +191,7 @@ class Recipe:
         """Returns the recipe's minimum version.
 
         Returns:
-            The recipe's minimum version as a string.  Returns an empty string
+            The recipe's minimum version as a string. Returns an empty string
             if the recipe does not have a minimum version specified.
         """
         if self._contents["MinimumVersion"] is None:
@@ -212,7 +212,7 @@ class Recipe:
         """Returns the recipe's parent recipe identifier.
 
         Returns:
-            The recipe's parent recipe identifier as a string.  Returns an empty
+            The recipe's parent recipe identifier as a string. Returns an empty
             string if the recipe does not have a parent recipe.
         """
         if self._contents["ParentRecipe"] is None:

@@ -166,7 +166,7 @@ def _signal_handler(sig: int, _frame: FrameType | None) -> NoReturn:
 
     Args:
         sig: The signal number (an integer).
-        _frame:  Unused frame object.  Required by signal.signal().
+        _frame:  Unused frame object. Required by signal.signal().
     """
     logger.error(f"Signal {sig} received. Exiting...")
     sys.exit(0)  # Trigger a normal exit
