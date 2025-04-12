@@ -71,6 +71,7 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 cache_dir = ".cache/pytest"
+junit_family = "xunit1"
 addopts = [
     "--color=yes",
     "--cov",
