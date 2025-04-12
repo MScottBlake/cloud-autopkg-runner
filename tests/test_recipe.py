@@ -11,6 +11,7 @@ from cloud_autopkg_runner.recipe import Recipe, RecipeContents, RecipeFormat
 
 def create_dummy_file(path: Path, content: str) -> None:
     """Creates a dummy file for testing."""
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
 
 
