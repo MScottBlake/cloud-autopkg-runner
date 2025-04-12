@@ -74,14 +74,19 @@ def test_recipe_init_plist(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> Non
         assert recipe._result.file_path().parent == report_dir
 
 
-def test_recipe_invalid_format(tmp_path: Path) -> None:
+def test_recipe_invalid_format(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
     """Test initializing a Recipe object with an invalid file format."""
     recipe_file = tmp_path / "Test.recipe.invalid"
     create_dummy_file(recipe_file, "invalid content")
     report_dir = tmp_path / "report_dir"
     report_dir.mkdir()
 
-    with pytest.raises(RecipeLookupException):
+    with (
+        patch(
+            "cloud_autopkg_runner.recipe.AutoPkgPrefs", return_value=mock_autopkg_prefs
+        ),
+        pytest.raises(RecipeLookupException),
+    ):
         Recipe("Test.recipe.invalid", report_dir)
 
 
