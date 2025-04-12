@@ -55,7 +55,7 @@ jobs:
       - run: uv run pyright .
 
   unit_tests:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     needs: [lock_file]
     steps:
       - uses: actions/checkout@v4
