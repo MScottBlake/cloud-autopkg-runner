@@ -42,6 +42,7 @@ def test_recipe_init_yaml(tmp_path: Path) -> None:
     assert recipe.identifier == "com.example.test"
     assert recipe.input_name == "TestRecipe"
     assert recipe.format() == RecipeFormat.YAML
+    assert recipe._result.file_path().parent == report_dir
 
 
 def test_recipe_init_plist(tmp_path: Path) -> None:
@@ -72,6 +73,7 @@ def test_recipe_init_plist(tmp_path: Path) -> None:
         assert recipe.identifier == "com.example.test"
         assert recipe.input_name == "TestRecipe"
         assert recipe.format() == RecipeFormat.PLIST
+        assert recipe._result.file_path().parent == report_dir
 
 
 def test_recipe_invalid_format(tmp_path: Path) -> None:
