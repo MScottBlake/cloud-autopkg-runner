@@ -17,7 +17,7 @@ dev = [
 
 [project]
 name = "cloud-autopkg-runner"
-version = "0.9.1"
+version = "0.9.2"
 description = "Cloud AutoPkg Runner is a Python library designed to provide tools and utilities for managing [AutoPkg](https://github.com/autopkg/autopkg) recipes and workflows concurrently. It streamlines AutoPkg automations in CI/CD pipelines, offering enhanced performance and scalability."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
