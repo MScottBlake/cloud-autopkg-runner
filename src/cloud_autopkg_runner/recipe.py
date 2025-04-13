@@ -13,7 +13,6 @@ Key classes:
 
 import asyncio
 import plistlib
-import tempfile
 from collections.abc import Iterable
 from datetime import datetime, timezone
 from enum import Enum, StrEnum, auto
@@ -101,8 +100,8 @@ class Recipe:
 
         Args:
             recipe_name: Name of the recipe file.
-            report_dir: Path to the report directory. If None, a temporary
-                directory is created.
+            report_dir: Path to the report directory. If None, a the value returned
+                from `AppConfig.report_dir()` is used.
         """
         self._name: str = recipe_name
 
@@ -116,15 +115,16 @@ class Recipe:
         self._contents: RecipeContents = self._get_contents()
         self._trusted: TrustInfoVerificationState = TrustInfoVerificationState.UNTESTED
 
+        now_str = datetime.now(tz=timezone.utc).strftime("%y%m%d_%H%M")
         if report_dir is None:
-            report_dir = Path(tempfile.mkdtemp(prefix="autopkg_"))
+            report_dir = AppConfig.report_dir()
+        report_path: Path = report_dir / f"report_{now_str}_{self.name}.plist"
 
-        report_path: Path = report_dir / Path(self.name).stem
         counter = 1
         original_report_path = report_path
         while report_path.exists():
-            report_path = original_report_path.with_name(
-                f"{original_report_path.name}_{counter}"
+            report_path = original_report_path.with_stem(
+                f"{original_report_path.stem}_{counter}"
             )
             counter += 1
 

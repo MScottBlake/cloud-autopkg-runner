@@ -18,7 +18,6 @@ import json
 import os
 import signal
 import sys
-import tempfile
 from argparse import ArgumentParser, Namespace
 from collections.abc import Iterable
 from pathlib import Path
@@ -119,6 +118,15 @@ def _parse_arguments() -> Namespace:
         type=Path,
     )
     parser.add_argument(
+        "--report-dir",
+        help=(
+            "Path to the directory used for storing AutoPkg recipe reports. "
+            "Defaults to the current directory."
+        ),
+        default="",
+        type=Path,
+    )
+    parser.add_argument(
         "--max-concurrency",
         help="Limit the number of concurrent tasks.",
         default=10,
@@ -128,7 +136,7 @@ def _parse_arguments() -> Namespace:
 
 
 async def _process_recipe_list(
-    recipe_list: Iterable[str], working_dir: Path
+    recipe_list: Iterable[str],
 ) -> dict[str, ConsolidatedReport]:
     """Process a list of recipe names to create Recipe objects and run them in parallel.
 
@@ -138,14 +146,15 @@ async def _process_recipe_list(
 
     Args:
         recipe_list: An iterable of recipe names (strings).
-        working_dir: The temporary directory where the recipes will be run.
     """
     logger.debug("Processing recipes...")
+
+    report_dir = AppConfig.report_dir()
 
     recipes: list[Recipe] = []
     for recipe_name in recipe_list:
         with contextlib.suppress(InvalidFileContents, RecipeException):
-            recipes.append(Recipe(recipe_name, working_dir))  # Skips failures
+            recipes.append(Recipe(recipe_name, report_dir))  # Skips failures
 
     async def run_limited(recipe: Recipe) -> tuple[str, ConsolidatedReport]:
         async with asyncio.Semaphore(AppConfig.max_concurrency()):  # Limit concurrency
@@ -189,10 +198,11 @@ async def _async_main() -> None:
     args = _parse_arguments()
 
     AppConfig.set_config(
-        verbosity_level=args.verbose,
-        log_file=args.log_file,
         cache_file=args.cache_file,
+        log_file=args.log_file,
         max_concurrency=args.max_concurrency,
+        report_dir=args.report_dir,
+        verbosity_level=args.verbose,
     )
     AppConfig.initialize_logger()
 
@@ -201,11 +211,7 @@ async def _async_main() -> None:
     metadata_cache = await MetadataCacheManager.load(args.cache_file)
     await create_dummy_files(recipe_list, metadata_cache)
 
-    with tempfile.TemporaryDirectory(prefix="autopkg_") as temp_dir_str:
-        temp_working_dir = Path(temp_dir_str)
-        logger.debug(f"Temporary directory created: {temp_working_dir}")
-
-        _results = await _process_recipe_list(recipe_list, temp_working_dir)
+    _results = await _process_recipe_list(recipe_list)
 
 
 def main() -> None:

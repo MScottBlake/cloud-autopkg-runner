@@ -31,18 +31,21 @@ class AppConfig:
     and the metadata cache file path.
     """
 
-    _cache_file: Path = Path()
-    _log_file: str | None = None
+    _cache_file: Path = Path("metadata_cache.json")
+    _log_file: Path | None = None
     _max_concurrency: int = 10
+    _report_dir: Path = Path("recipe_reports")
     _verbosity_level: int = 0
 
     @classmethod
     def set_config(
         cls,
-        verbosity_level: int,
-        max_concurrency: int,
-        log_file: str | None = None,
-        cache_file: str = "metadata_cache.json",
+        *,
+        max_concurrency: int | None = None,
+        verbosity_level: int | None = None,
+        cache_file: Path | None = None,
+        report_dir: Path | None = None,
+        log_file: Path | None = None,
     ) -> None:
         """Set the application configuration parameters.
 
@@ -56,11 +59,23 @@ class AppConfig:
             log_file: Optional path to the log file. If specified, logging
                 output will be written to this file in addition to the console.
             cache_file: The path to the cache file.
+            report_dir: The path to the directory used for storing AutoPkg recipe
+                recipts and recipe reports.
         """
-        cls._verbosity_level = verbosity_level
-        cls._log_file = log_file
-        cls._cache_file = Path(cache_file)
-        cls._max_concurrency = max_concurrency
+        if verbosity_level is not None:
+            cls._verbosity_level = verbosity_level
+
+        if log_file is not None:
+            cls._log_file = log_file
+
+        if cache_file is not None:
+            cls._cache_file = cache_file
+
+        if max_concurrency is not None:
+            cls._max_concurrency = max_concurrency
+
+        if report_dir is not None:
+            cls._report_dir = report_dir
 
     @classmethod
     def initialize_logger(cls) -> None:
@@ -105,13 +120,23 @@ class AppConfig:
         return cls._cache_file
 
     @classmethod
-    def log_file(cls) -> str | None:
+    def log_file(cls) -> Path | None:
         """Returns the path to the log file, if any.
 
         Returns:
-            The path to the log file as a string, or None if no log file is configured.
+            The path to the log file as a `pathlib.Path`, or None if no log file is
+            configured.
         """
         return cls._log_file
+
+    @classmethod
+    def report_dir(cls) -> Path:
+        """Returns the directory path for recipe reports.
+
+        Returns:
+            The path to the report directory as a `pathlib.Path`.
+        """
+        return cls._report_dir
 
     @classmethod
     def max_concurrency(cls) -> int:
@@ -134,7 +159,10 @@ class AppConfig:
         Returns:
             The integer verbosity level, adjusted by the delta.
         """
-        return cls._verbosity_level + delta
+        level = cls._verbosity_level + delta
+        if level <= 0:
+            return 0
+        return level
 
     @classmethod
     def verbosity_str(cls, delta: int = 0) -> str:
