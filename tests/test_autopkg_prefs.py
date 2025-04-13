@@ -19,11 +19,22 @@ def create_dummy_plist(content: dict[str, Any], path: Path) -> None:
     path.write_bytes(plistlib.dumps(content))
 
 
-def test_autopkgprefs_init_default_plist() -> None:
+def test_autopkgprefs_init_default_plist(tmp_path: Path) -> None:
     """Test initializing AutoPkgPrefs with no plist file parameter."""
     prefs_file = Path("~/Library/Preferences/com.github.autopkg.plist").expanduser()
     if not prefs_file.exists():
-        prefs_file.touch()
+        cache_dir = tmp_path / "cache"
+        override_dirs = [str(tmp_path / "overrides")]
+        munki_repo = tmp_path / "munki"
+
+        plist_content = {
+            "CACHE_DIR": str(cache_dir),
+            "RECIPE_OVERRIDE_DIRS": override_dirs,
+            "RECIPE_SEARCH_DIRS": override_dirs,
+            "RECIPE_REPO_DIR": str(tmp_path),
+            "MUNKI_REPO": str(munki_repo),
+        }
+        create_dummy_plist(plist_content, prefs_file)
 
     AutoPkgPrefs()
     assert AutoPkgPrefs().recipe_override_dirs != []
