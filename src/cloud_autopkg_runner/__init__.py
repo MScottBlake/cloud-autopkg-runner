@@ -159,7 +159,10 @@ class AppConfig:
         Returns:
             The integer verbosity level, adjusted by the delta.
         """
-        return cls._verbosity_level + delta
+        level = cls._verbosity_level + delta
+        if level <= 0:
+            return 0
+        return level
 
     @classmethod
     def verbosity_str(cls, delta: int = 0) -> str:
