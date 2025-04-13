@@ -19,6 +19,17 @@ def create_dummy_plist(content: dict[str, Any], path: Path) -> None:
     path.write_bytes(plistlib.dumps(content))
 
 
+def test_autopkgprefs_init_default_plist() -> None:
+    """Test initializing AutoPkgPrefs with no plist file parameter."""
+    prefs_file = Path("~/Library/Preferences/com.github.autopkg.plist").expanduser()
+    if not prefs_file.exists():
+        prefs_file.touch()
+
+    AutoPkgPrefs()
+    assert AutoPkgPrefs().recipe_override_dirs != []
+    assert AutoPkgPrefs().recipe_search_dirs != []
+
+
 def test_init_with_existing_plist(tmp_path: Path) -> None:
     """Test initializing AutoPkgPrefs with an existing plist file."""
     cache_dir = tmp_path / "cache"
