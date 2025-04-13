@@ -5,7 +5,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
-from cloud_autopkg_runner.exceptions import RecipeInputException, RecipeLookupException
+from cloud_autopkg_runner.exceptions import (
+    RecipeFormatException,
+    RecipeInputException,
+    RecipeLookupException,
+)
 from cloud_autopkg_runner.recipe import Recipe, RecipeContents, RecipeFormat
 
 
@@ -76,7 +80,35 @@ def test_recipe_init_plist(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> Non
 
 def test_recipe_invalid_format(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
     """Test initializing a Recipe object with an invalid file format."""
+    plist_content: RecipeContents = {
+        "Description": "Test recipe",
+        "Identifier": "com.example.test",
+        "Input": {"NAME": "TestRecipe"},
+        "Process": [],
+        "MinimumVersion": "",
+        "ParentRecipe": "",
+    }
     recipe_file = tmp_path / "Test.recipe.invalid"
+    recipe_file.write_bytes(plistlib.dumps(plist_content))
+
+    report_dir = tmp_path / "report_dir"
+    report_dir.mkdir()
+
+    with (
+        patch(
+            "cloud_autopkg_runner.recipe.AutoPkgPrefs", return_value=mock_autopkg_prefs
+        ),
+        patch(
+            "cloud_autopkg_runner.recipe.Recipe.find_recipe", return_value=recipe_file
+        ),
+        pytest.raises(RecipeFormatException),
+    ):
+        Recipe("Test.recipe.invalid", report_dir)
+
+
+def test_recipe_invalid_content(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
+    """Test initializing a Recipe object with an invalid file format."""
+    recipe_file = tmp_path / "Test.recipe"
     create_dummy_file(recipe_file, "invalid content")
     report_dir = tmp_path / "report_dir"
     report_dir.mkdir()
