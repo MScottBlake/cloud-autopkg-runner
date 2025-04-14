@@ -71,11 +71,6 @@ jobs:
         run: uv sync
       - name: Run tests with pytest
         run: uv run --python ${{ matrix.python-version }} pytest
-      - name: Combine coverage reports
-        if: ${{ always() }}
-        run: |
-          uv run coverage combine
-          uv run coverage xml
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1

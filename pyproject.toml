@@ -75,6 +75,7 @@ junit_family = "xunit1"
 addopts = [
     "--color=yes",
     "--cov",
+    "--cov-append",
     "--cov-report=term-missing",
     "--cov-report=xml",
     "--junit-xml=artifacts/test_results.xml",
