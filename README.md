@@ -4,6 +4,8 @@
 [![PyPI Version](https://img.shields.io/pypi/v/cloud-autopkg-runner)](https://pypi.org/project/cloud-autopkg-runner/)
 [![codecov](https://codecov.io/gh/MScottBlake/cloud-autopkg-runner/graph/badge.svg?token=V61UNG93JE)](https://codecov.io/gh/MScottBlake/cloud-autopkg-runner)
 
+![AutoPkgRunner](docs/AutoPkgRunner.png)
+
 ## Description
 
 Cloud AutoPkg Runner is a Python library designed to provide tools and utilities for managing [AutoPkg](https://github.com/autopkg/autopkg) recipes and workflows concurrently. It streamlines AutoPkg automation in CI/CD pipelines, offering enhanced performance and scalability.
