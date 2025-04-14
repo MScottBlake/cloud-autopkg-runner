@@ -71,16 +71,15 @@ async def _run_and_capture(
     )
 
     try:
-        async with asyncio.timeout(timeout):
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                proc.communicate(), timeout=timeout
-            )
-            stdout = stdout_bytes.decode("utf-8", errors="replace")
-            stderr = stderr_bytes.decode("utf-8", errors="replace")
+        stdout_bytes, stderr_bytes = await asyncio.wait_for(
+            proc.communicate(), timeout=timeout
+        )
+        stdout = stdout_bytes.decode("utf-8", errors="replace")
+        stderr = stderr_bytes.decode("utf-8", errors="replace")
 
-            logger.debug(f"Command output:\n{stdout}\n{stderr}")
+        logger.debug(f"Command output:\n{stdout}\n{stderr}")
 
-    except TimeoutError:
+    except (asyncio.TimeoutError, TimeoutError):
         logger.warning(f"Command timed out: {' '.join(cmd)}")
         if proc.returncode is None:  # Process still running
             with contextlib.suppress(ProcessLookupError):
@@ -120,9 +119,8 @@ async def _run_without_capture(
     proc = await asyncio.create_subprocess_exec(*cmd, cwd=cwd)
 
     try:
-        async with asyncio.timeout(timeout):
-            await asyncio.wait_for(proc.wait(), timeout=timeout)
-    except TimeoutError:
+        await asyncio.wait_for(proc.wait(), timeout=timeout)
+    except (asyncio.TimeoutError, TimeoutError):
         logger.warning(f"Command timed out: {' '.join(cmd)}")
         if proc.returncode is None:  # Process still running
             with contextlib.suppress(ProcessLookupError):

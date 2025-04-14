@@ -15,7 +15,7 @@ import asyncio
 import plistlib
 from collections.abc import Iterable
 from datetime import datetime, timezone
-from enum import Enum, StrEnum, auto
+from enum import Enum, auto
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -65,7 +65,7 @@ class RecipeContents(TypedDict):
     Process: Iterable[dict[str, Any]]
 
 
-class RecipeFormat(StrEnum):
+class RecipeFormat(Enum):
     """Enumerates the supported recipe file formats.
 
     This enum defines the possible file formats for AutoPkg recipes,
