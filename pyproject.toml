@@ -2,9 +2,6 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.hatch.version]
-path = "src/cloud_autopkg_runner/__about__.py"
-
 [dependency-groups]
 dev = [
     "hatch>=1.14.0",
@@ -17,16 +14,16 @@ dev = [
 
 [project]
 name = "cloud-autopkg-runner"
-version = "0.9.6"
-description = "Cloud AutoPkg Runner is a Python library designed to provide tools and utilities for managing [AutoPkg](https://github.com/autopkg/autopkg) recipes and workflows concurrently. It streamlines AutoPkg automations in CI/CD pipelines, offering enhanced performance and scalability."
+version = "0.9.7"
+description = "A Python library designed to level-up your AutoPkg automations with a focus on CI/CD performance."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Scott Blake", email = "mitchelsblake@gmail.com" }]
-keywords = ["autopkg", "cloud", "automation", "recipes", "async"]
+keywords = ["autopkg"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
@@ -45,6 +42,11 @@ dependencies = ["pyyaml>=6.0.2", "xattr>=1.1.4"]
 
 [project.scripts]
 autopkg-run = "cloud_autopkg_runner.__main__:main"
+autopkg_run = "cloud_autopkg_runner.__main__:main"
+autopkg-runner = "cloud_autopkg_runner.__main__:main"
+autopkg_runner = "cloud_autopkg_runner.__main__:main"
+cloud-autopkg-runner = "cloud_autopkg_runner.__main__:main"
+cloud_autopkg_runner = "cloud_autopkg_runner.__main__:main"
 
 [project.urls]
 Homepage = "https://github.com/MScottBlake/cloud-autopkg-runner"
