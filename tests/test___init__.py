@@ -90,21 +90,6 @@ def test_appconfig_set_config_multiple() -> None:
     assert AppConfig.verbosity_str() == "-v"
 
 
-def test_appconfig_initializes_logger() -> None:
-    """Test logging initialization."""
-    AppConfig.initialize_logger()
-    assert AppConfig.log_file() is None
-
-
-def test_appconfig_initializes_logger_with_file(tmp_path: Path) -> None:
-    """Test logging initialization."""
-    AppConfig._log_file = tmp_path / "test.log"
-    AppConfig.initialize_logger()
-
-    assert AppConfig.log_file() is not None
-    assert AppConfig.log_file().exists()
-
-
 @pytest.mark.parametrize(
     ("recipe_name", "expected_names"),
     [

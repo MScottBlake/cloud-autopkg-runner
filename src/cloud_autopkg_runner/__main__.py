@@ -24,13 +24,14 @@ from pathlib import Path
 from types import FrameType
 from typing import NoReturn
 
-from cloud_autopkg_runner import AppConfig, logger
+from cloud_autopkg_runner import AppConfig
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
     InvalidJsonContents,
     RecipeException,
 )
 from cloud_autopkg_runner.file_utils import create_dummy_files
+from cloud_autopkg_runner.logging_config import get_logger, initialize_logger
 from cloud_autopkg_runner.metadata_cache import MetadataCacheManager
 from cloud_autopkg_runner.recipe import ConsolidatedReport, Recipe
 
@@ -53,6 +54,7 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
         InvalidJsonContents: If the JSON file specified by 'args.recipe_list' contains
             invalid JSON.
     """
+    logger = get_logger(__name__)
     logger.debug("Generating recipe list...")
 
     output: set[str] = set()
@@ -69,7 +71,7 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
     if os.getenv("RECIPE"):
         output.add(os.getenv("RECIPE", ""))
 
-    logger.debug(f"Recipe list generated: {output}")
+    logger.debug("Recipe list generated: %s", output)
     return output
 
 
@@ -147,6 +149,7 @@ async def _process_recipe_list(
     Args:
         recipe_list: An iterable of recipe names (strings).
     """
+    logger = get_logger(__name__)
     logger.debug("Processing recipes...")
 
     report_dir = AppConfig.report_dir()
@@ -177,7 +180,8 @@ def _signal_handler(sig: int, _frame: FrameType | None) -> NoReturn:
         sig: The signal number (an integer).
         _frame:  Unused frame object. Required by signal.signal().
     """
-    logger.error(f"Signal {sig} received. Exiting...")
+    logger = get_logger(__name__)
+    logger.error("Signal %s received. Exiting...", sig)
     sys.exit(0)  # Trigger a normal exit
 
 
@@ -196,6 +200,7 @@ async def _async_main() -> None:
       running each recipe asynchronously.
     """
     args = _parse_arguments()
+    initialize_logger(args.verbose, args.log_file)
 
     AppConfig.set_config(
         cache_file=args.cache_file,
@@ -204,7 +209,6 @@ async def _async_main() -> None:
         report_dir=args.report_dir,
         verbosity_level=args.verbose,
     )
-    AppConfig.initialize_logger()
 
     recipe_list = _generate_recipe_list(args)
 

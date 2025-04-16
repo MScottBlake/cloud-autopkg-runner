@@ -9,8 +9,8 @@ import asyncio
 import contextlib
 import shlex
 
-from cloud_autopkg_runner import logger
 from cloud_autopkg_runner.exceptions import ShellCommandException
+from cloud_autopkg_runner.logging_config import get_logger
 
 
 def _normalize_cmd(cmd: str | list[str]) -> list[str]:
@@ -61,6 +61,7 @@ async def _run_and_capture(
             - stdout (str): The standard output of the command.
             - stderr (str): The standard error of the command.
     """
+    logger = get_logger(__name__)
     returncode: int = -1
 
     proc = await asyncio.create_subprocess_exec(
@@ -77,10 +78,10 @@ async def _run_and_capture(
         stdout = stdout_bytes.decode("utf-8", errors="replace")
         stderr = stderr_bytes.decode("utf-8", errors="replace")
 
-        logger.debug(f"Command output:\n{stdout}\n{stderr}")
+        logger.debug("Command output:\n%s\n%s", stdout, stderr)
 
     except (asyncio.TimeoutError, TimeoutError):
-        logger.warning(f"Command timed out: {' '.join(cmd)}")
+        logger.warning("Command timed out: %s", " ".join(cmd))
         if proc.returncode is None:  # Process still running
             with contextlib.suppress(ProcessLookupError):
                 proc.kill()
@@ -114,6 +115,7 @@ async def _run_without_capture(
             - stdout (str): An empty string ("").
             - stderr (str): An empty string ("").
     """
+    logger = get_logger(__name__)
     returncode: int = -1
 
     proc = await asyncio.create_subprocess_exec(*cmd, cwd=cwd)
@@ -121,7 +123,7 @@ async def _run_without_capture(
     try:
         await asyncio.wait_for(proc.wait(), timeout=timeout)
     except (asyncio.TimeoutError, TimeoutError):
-        logger.warning(f"Command timed out: {' '.join(cmd)}")
+        logger.warning("Command timed out: %s", " ".join(cmd))
         if proc.returncode is None:  # Process still running
             with contextlib.suppress(ProcessLookupError):
                 proc.kill()
@@ -183,12 +185,13 @@ async def run_cmd(
             - An `OSError` occurs during subprocess creation.
             - Any other unexpected exception occurs during command execution.
     """
+    logger = get_logger(__name__)
     cmd_list = _normalize_cmd(cmd)
     cmd_str = " ".join(cmd_list)
 
-    logger.debug(f"Running command: {cmd_str}")
+    logger.debug("Running command: %s", cmd_str)
     if cwd:
-        logger.debug(f"  in directory: {cwd}")
+        logger.debug("  in directory: %s", cwd)
 
     try:
         if capture_output:
@@ -211,10 +214,10 @@ async def run_cmd(
         ) from exc
 
     if check and returncode != 0:
-        logger.error(f"Command failed: {cmd_str}")
-        logger.error(f"  Exit code: {returncode}")
-        logger.error(f"  Stdout: {stdout}")
-        logger.error(f"  Stderr: {stderr}")
+        logger.error("Command failed: %s", cmd_str)
+        logger.error("  Exit code: %s", returncode)
+        logger.error("  Stdout: %s", stdout)
+        logger.error("  Stderr: %s", stderr)
         raise ShellCommandException(  # noqa: TRY003
             f"Command failed with exit code {returncode}: {cmd_str}"
         )

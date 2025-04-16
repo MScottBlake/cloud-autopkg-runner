@@ -21,7 +21,7 @@ from typing import Any, TypedDict
 
 import yaml
 
-from cloud_autopkg_runner import AppConfig, logger
+from cloud_autopkg_runner import AppConfig
 from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
 from cloud_autopkg_runner.exceptions import (
     InvalidPlistContents,
@@ -31,6 +31,7 @@ from cloud_autopkg_runner.exceptions import (
     RecipeLookupException,
 )
 from cloud_autopkg_runner.file_utils import get_file_metadata, get_file_size
+from cloud_autopkg_runner.logging_config import get_logger
 from cloud_autopkg_runner.metadata_cache import (
     DownloadMetadata,
     MetadataCacheManager,
@@ -107,8 +108,9 @@ class Recipe:
 
         try:
             self._path: Path = self.find_recipe(recipe_name)
-        except RecipeLookupException as exc:
-            logger.error(exc)
+        except RecipeLookupException:
+            logger = get_logger(__name__)
+            logger.exception("Failed to find recipe: %s", recipe_name)
             raise
 
         self._format: RecipeFormat = self.format()
@@ -473,7 +475,8 @@ class Recipe:
         Returns:
             A ConsolidatedReport object containing the results of the check phase.
         """
-        logger.debug(f"Performing Check Phase on {self.name}...")
+        logger = get_logger(__name__)
+        logger.debug("Performing Check Phase on %s...", self.name)
 
         returncode, _stdout, stderr = await run_cmd(
             self._autopkg_run_cmd(check=True), check=False
@@ -483,8 +486,9 @@ class Recipe:
             if not stderr:
                 stderr = "<Unknown Error>"
             logger.error(
-                f"An error occurred while running the check phase, "
-                f"on {self.name}: {stderr}"
+                "An error occurred while running the check phase, on %s: %s",
+                self.name,
+                stderr,
             )
 
         return self.compile_report()
@@ -501,7 +505,8 @@ class Recipe:
         Returns:
             A ConsolidatedReport object containing the results of the full recipe run.
         """
-        logger.debug(f"Performing AutoPkg Run on {self.name}...")
+        logger = get_logger(__name__)
+        logger.debug("Performing AutoPkg Run on %s...", self.name)
 
         returncode, _stdout, stderr = await run_cmd(
             self._autopkg_run_cmd(check=False), check=False
@@ -510,7 +515,7 @@ class Recipe:
         if returncode != 0:
             if not stderr:
                 stderr = "<Unknown Error>"
-            logger.error(f"An error occurred while running {self.name}: {stderr}")
+            logger.error("An error occurred while running %s: %s", self.name, stderr)
 
         return self.compile_report()
 
@@ -522,7 +527,8 @@ class Recipe:
         Returns:
             True if the trust info was successfully updated, False otherwise.
         """
-        logger.debug(f"Updating trust info for {self.name}...")
+        logger = get_logger(__name__)
+        logger.debug("Updating trust info for %s...", self.name)
 
         cmd = [
             "/usr/local/bin/autopkg",
@@ -537,10 +543,10 @@ class Recipe:
         self._trusted = TrustInfoVerificationState.UNTESTED
 
         if returncode == 0:
-            logger.info(f"Trust info update for {self.name} successful.")
+            logger.info("Trust info update for %s successful.", self.name)
             return True
 
-        logger.warning(f"Trust info update for {self.name} failed.")
+        logger.warning("Trust info update for %s failed.", self.name)
         return False
 
     async def verify_trust_info(self) -> bool:
@@ -552,8 +558,10 @@ class Recipe:
             TrustInfoVerificationState.TRUSTED if the trust info is trusted,
             TrustInfoVerificationState.FAILED if it is untrusted, or
         """
+        logger = get_logger(__name__)
+
         if self._trusted == TrustInfoVerificationState.UNTESTED:
-            logger.debug(f"Verifying trust info for {self.name}...")
+            logger.debug("Verifying trust info for %s...", self.name)
 
             cmd = [
                 "/usr/local/bin/autopkg",
@@ -568,10 +576,10 @@ class Recipe:
             returncode, _stdout, _stderr = await run_cmd(cmd, check=False)
 
             if returncode == 0:
-                logger.info(f"Trust info verification for {self.name} successful.")
+                logger.info("Trust info verification for %s successful.", self.name)
                 self._trusted = TrustInfoVerificationState.TRUSTED
             else:
-                logger.warning(f"Trust info verification for {self.name} failed.")
+                logger.warning("Trust info verification for %s failed.", self.name)
                 self._trusted = TrustInfoVerificationState.FAILED
 
         return self._trusted.value
