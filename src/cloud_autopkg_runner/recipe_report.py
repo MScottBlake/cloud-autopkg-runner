@@ -170,7 +170,7 @@ class RecipeReport:
             built, any failures, and Munki imports.
         """
         logger = get_logger(__name__)
-        logger.debug(f"Parsing the report at {self.file_path()}...")
+        logger.debug("Parsing the report at %s...", self.file_path())
 
         if not self._parsed:
             logger.info("Reading the contents of the report...")

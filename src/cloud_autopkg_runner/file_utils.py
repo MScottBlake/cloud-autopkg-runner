@@ -73,24 +73,24 @@ async def create_dummy_files(recipe_list: Iterable[str], cache: MetadataCache) -
         if recipe_name not in possible_names:
             continue
 
-        logger.info(f"Creating dummy files for {recipe_name}...")
+        logger.info("Creating dummy files for %s...", recipe_name)
         for metadata_cache in recipe_cache_data.get("metadata", []):
             if not metadata_cache.get("file_path"):
                 logger.warning(
-                    "Skipping file creation: "
-                    f"Missing 'file_path' in {recipe_name} cache"
+                    "Skipping file creation: Missing 'file_path' in %s cache",
+                    recipe_name,
                 )
                 continue
             if not metadata_cache.get("file_size"):
                 logger.warning(
-                    "Skipping file creation: "
-                    f"Missing 'file_size' in {recipe_name} cache"
+                    "Skipping file creation: Missing 'file_size' in %s cache",
+                    recipe_name,
                 )
                 continue
 
             file_path = Path(metadata_cache.get("file_path", ""))
             if file_path.exists():
-                logger.info(f"Skipping file creation: {file_path} already exists.")
+                logger.info("Skipping file creation: %s already exists.", file_path)
                 continue
 
             # Add the task to create the file, set its size, and set extended attributes

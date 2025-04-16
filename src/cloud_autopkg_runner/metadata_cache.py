@@ -134,9 +134,9 @@ class MetadataCacheManager:
         """
         if not file_path.exists():
             logger = get_logger(__name__)
-            logger.warning(f"{file_path} does not exist. Creating...")
+            logger.warning("%s does not exist. Creating...", file_path)
             file_path.write_text("{}")
-            logger.info(f"{file_path} created.")
+            logger.info("%s created.", file_path)
 
         try:
             return MetadataCache(json.loads(file_path.read_text()))
@@ -156,4 +156,4 @@ class MetadataCacheManager:
         """
         logger = get_logger(__name__)
         file_path.write_text(json.dumps(metadata_cache, indent=2, sort_keys=True))
-        logger.info(f"Metadata cache saved to {file_path}.")
+        logger.info("Metadata cache saved to %s.", file_path)

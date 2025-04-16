@@ -71,7 +71,7 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
     if os.getenv("RECIPE"):
         output.add(os.getenv("RECIPE", ""))
 
-    logger.debug(f"Recipe list generated: {output}")
+    logger.debug("Recipe list generated: %s", output)
     return output
 
 
@@ -181,7 +181,7 @@ def _signal_handler(sig: int, _frame: FrameType | None) -> NoReturn:
         _frame:  Unused frame object. Required by signal.signal().
     """
     logger = get_logger(__name__)
-    logger.error(f"Signal {sig} received. Exiting...")
+    logger.error("Signal %s received. Exiting...", sig)
     sys.exit(0)  # Trigger a normal exit
 
 
