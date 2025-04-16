@@ -16,8 +16,8 @@ import json
 from pathlib import Path
 from typing import TypeAlias, TypedDict
 
-from cloud_autopkg_runner import logger
 from cloud_autopkg_runner.exceptions import InvalidJsonContents
+from cloud_autopkg_runner.logging_config import get_logger
 
 
 class DownloadMetadata(TypedDict, total=False):
@@ -88,6 +88,7 @@ class MetadataCacheManager:
         """
         async with cls._lock:
             if cls._cache is None:
+                logger = get_logger(__name__)
                 logger.debug("Loading metadata cache for the first time...")
                 cls._cache = await asyncio.to_thread(cls._load_from_disk, file_path)
             return cls._cache
@@ -132,6 +133,7 @@ class MetadataCacheManager:
             InvalidJsonContents: If the JSON contents of the file are invalid.
         """
         if not file_path.exists():
+            logger = get_logger(__name__)
             logger.warning(f"{file_path} does not exist. Creating...")
             file_path.write_text("{}")
             logger.info(f"{file_path} created.")
@@ -152,5 +154,6 @@ class MetadataCacheManager:
             file_path: The path to the file where the metadata cache is stored.
             metadata_cache: The metadata cache to be saved.
         """
+        logger = get_logger(__name__)
         file_path.write_text(json.dumps(metadata_cache, indent=2, sort_keys=True))
         logger.info(f"Metadata cache saved to {file_path}.")

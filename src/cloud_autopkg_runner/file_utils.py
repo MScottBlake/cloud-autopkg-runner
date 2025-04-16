@@ -22,7 +22,8 @@ from typing import cast
 
 import xattr  # pyright: ignore[reportMissingTypeStubs]
 
-from cloud_autopkg_runner import list_possible_file_names, logger
+from cloud_autopkg_runner import list_possible_file_names
+from cloud_autopkg_runner.logging_config import get_logger
 from cloud_autopkg_runner.metadata_cache import DownloadMetadata, MetadataCache
 
 
@@ -59,6 +60,7 @@ async def create_dummy_files(recipe_list: Iterable[str], cache: MetadataCache) -
         recipe_list: An iterable of recipe names to process.
         cache: The metadata cache dictionary.
     """
+    logger = get_logger(__name__)
     logger.debug("Creating dummy files...")
 
     tasks: list[asyncio.Task[None]] = []

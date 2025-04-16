@@ -24,14 +24,14 @@ from pathlib import Path
 from types import FrameType
 from typing import NoReturn
 
-from cloud_autopkg_runner import AppConfig, logger
+from cloud_autopkg_runner import AppConfig
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
     InvalidJsonContents,
     RecipeException,
 )
 from cloud_autopkg_runner.file_utils import create_dummy_files
-from cloud_autopkg_runner.logging_config import initialize_logger
+from cloud_autopkg_runner.logging_config import get_logger, initialize_logger
 from cloud_autopkg_runner.metadata_cache import MetadataCacheManager
 from cloud_autopkg_runner.recipe import ConsolidatedReport, Recipe
 
@@ -54,6 +54,7 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
         InvalidJsonContents: If the JSON file specified by 'args.recipe_list' contains
             invalid JSON.
     """
+    logger = get_logger(__name__)
     logger.debug("Generating recipe list...")
 
     output: set[str] = set()
@@ -148,6 +149,7 @@ async def _process_recipe_list(
     Args:
         recipe_list: An iterable of recipe names (strings).
     """
+    logger = get_logger(__name__)
     logger.debug("Processing recipes...")
 
     report_dir = AppConfig.report_dir()
@@ -178,6 +180,7 @@ def _signal_handler(sig: int, _frame: FrameType | None) -> NoReturn:
         sig: The signal number (an integer).
         _frame:  Unused frame object. Required by signal.signal().
     """
+    logger = get_logger(__name__)
     logger.error(f"Signal {sig} received. Exiting...")
     sys.exit(0)  # Trigger a normal exit
 

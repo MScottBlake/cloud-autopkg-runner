@@ -21,7 +21,7 @@ from typing import Any, TypedDict
 
 import yaml
 
-from cloud_autopkg_runner import AppConfig, logger
+from cloud_autopkg_runner import AppConfig
 from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
 from cloud_autopkg_runner.exceptions import (
     InvalidPlistContents,
@@ -31,6 +31,7 @@ from cloud_autopkg_runner.exceptions import (
     RecipeLookupException,
 )
 from cloud_autopkg_runner.file_utils import get_file_metadata, get_file_size
+from cloud_autopkg_runner.logging_config import get_logger
 from cloud_autopkg_runner.metadata_cache import (
     DownloadMetadata,
     MetadataCacheManager,
@@ -108,6 +109,7 @@ class Recipe:
         try:
             self._path: Path = self.find_recipe(recipe_name)
         except RecipeLookupException as exc:
+            logger = get_logger(__name__)
             logger.error(exc)
             raise
 
@@ -473,6 +475,7 @@ class Recipe:
         Returns:
             A ConsolidatedReport object containing the results of the check phase.
         """
+        logger = get_logger(__name__)
         logger.debug(f"Performing Check Phase on {self.name}...")
 
         returncode, _stdout, stderr = await run_cmd(
@@ -501,6 +504,7 @@ class Recipe:
         Returns:
             A ConsolidatedReport object containing the results of the full recipe run.
         """
+        logger = get_logger(__name__)
         logger.debug(f"Performing AutoPkg Run on {self.name}...")
 
         returncode, _stdout, stderr = await run_cmd(
@@ -522,6 +526,7 @@ class Recipe:
         Returns:
             True if the trust info was successfully updated, False otherwise.
         """
+        logger = get_logger(__name__)
         logger.debug(f"Updating trust info for {self.name}...")
 
         cmd = [
@@ -552,6 +557,7 @@ class Recipe:
             TrustInfoVerificationState.TRUSTED if the trust info is trusted,
             TrustInfoVerificationState.FAILED if it is untrusted, or
         """
+
         if self._trusted == TrustInfoVerificationState.UNTESTED:
             logger.debug(f"Verifying trust info for {self.name}...")
 

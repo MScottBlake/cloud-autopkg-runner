@@ -13,11 +13,7 @@ Key features include:
 - Metadata caching to reduce redundant downloads.
 """
 
-import logging
 from pathlib import Path
-
-# Create a logger instance
-logger: logging.Logger = logging.getLogger(__name__)
 
 
 class AppConfig:
