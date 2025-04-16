@@ -14,7 +14,6 @@ Key features include:
 """
 
 import logging
-import sys
 from pathlib import Path
 
 # Create a logger instance
@@ -25,8 +24,7 @@ class AppConfig:
     """Manages application-wide configuration settings.
 
     This class uses class variables to store configuration data and
-    class methods to manage and access that data. It handles
-    the initialization of the logging system and provides access
+    class methods to manage and access that data. It provides access
     to configuration parameters such as verbosity level, log file path,
     and the metadata cache file path.
     """
@@ -76,43 +74,6 @@ class AppConfig:
 
         if report_dir is not None:
             cls._report_dir = report_dir
-
-    @classmethod
-    def initialize_logger(cls) -> None:
-        """Initialize the logging system.
-
-        Configures the root logger with a console handler and an optional
-        file handler. The console handler's log level is determined by the
-        current verbosity level, while the file handler (if enabled) logs at
-        the DEBUG level. The logging is initialized using values in the class.
-
-        The logging formatters include the module name, log level, and message,
-        with the file handler also including a timestamp.
-        """
-        log_levels = [logging.WARNING, logging.INFO, logging.DEBUG]
-        level = log_levels[min(cls._verbosity_level, len(log_levels) - 1)]
-
-        logger.setLevel(logging.DEBUG)
-
-        # Console handler
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(level)
-        console_formatter = logging.Formatter(
-            "%(module)-20s %(levelname)-8s %(message)s"
-        )
-        console_handler.setFormatter(console_formatter)
-        logger.addHandler(console_handler)
-
-        # File handler (optional)
-        if cls._log_file:
-            file_handler = logging.FileHandler(cls._log_file, mode="w")
-            file_handler.setLevel(logging.DEBUG)
-            file_formatter = logging.Formatter(
-                "%(asctime)s %(module)-20s %(levelname)-8s %(message)s",
-                datefmt="%m-%d %H:%M",
-            )
-            file_handler.setFormatter(file_formatter)
-            logger.addHandler(file_handler)
 
     @classmethod
     def cache_file(cls) -> Path:

@@ -31,6 +31,7 @@ from cloud_autopkg_runner.exceptions import (
     RecipeException,
 )
 from cloud_autopkg_runner.file_utils import create_dummy_files
+from cloud_autopkg_runner.logging_config import initialize_logger
 from cloud_autopkg_runner.metadata_cache import MetadataCacheManager
 from cloud_autopkg_runner.recipe import ConsolidatedReport, Recipe
 
@@ -196,6 +197,7 @@ async def _async_main() -> None:
       running each recipe asynchronously.
     """
     args = _parse_arguments()
+    initialize_logger(args.verbose, args.log_file)
 
     AppConfig.set_config(
         cache_file=args.cache_file,
@@ -204,7 +206,6 @@ async def _async_main() -> None:
         report_dir=args.report_dir,
         verbosity_level=args.verbose,
     )
-    AppConfig.initialize_logger()
 
     recipe_list = _generate_recipe_list(args)
 
