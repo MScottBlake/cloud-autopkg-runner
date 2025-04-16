@@ -27,7 +27,7 @@ def initialize_logger(verbosity_level: int, log_file: str | None = None) -> None
     Args:
         verbosity_level: An integer representing the verbosity level.  Maps to
             logging levels as follows:
-            0: WARNING, 1: INFO, 2: DEBUG (and higher).
+            0: ERROR, 1: WARNING, 2: INFO, 3: DEBUG (and higher).
         log_file: Optional path to a log file. If specified, logging output
             will be written to this file in addition to the console. If None,
             no file logging will occur.
@@ -35,7 +35,14 @@ def initialize_logger(verbosity_level: int, log_file: str | None = None) -> None
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
 
-    log_levels: list[int] = [logging.WARNING, logging.INFO, logging.DEBUG]
+    logger.handlers.clear()
+
+    log_levels: list[int] = [
+        logging.ERROR,
+        logging.WARNING,
+        logging.INFO,
+        logging.DEBUG,
+    ]
     level: int = log_levels[min(verbosity_level, len(log_levels) - 1)]
 
     # Console handler
