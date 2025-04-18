@@ -22,7 +22,7 @@ from typing import cast
 
 import xattr  # pyright: ignore[reportMissingTypeStubs]
 
-from cloud_autopkg_runner import list_possible_file_names
+from cloud_autopkg_runner.common_utils import list_possible_file_names
 from cloud_autopkg_runner.logging_config import get_logger
 from cloud_autopkg_runner.metadata_cache import DownloadMetadata, MetadataCache
 
