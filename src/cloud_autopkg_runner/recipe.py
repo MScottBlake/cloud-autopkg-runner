@@ -21,7 +21,7 @@ from typing import Any, TypedDict
 
 import yaml
 
-from cloud_autopkg_runner import AppConfig
+from cloud_autopkg_runner import settings
 from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
 from cloud_autopkg_runner.exceptions import (
     InvalidPlistContents,
@@ -102,7 +102,7 @@ class Recipe:
         Args:
             recipe_name: Name of the recipe file.
             report_dir: Path to the report directory. If None, a the value returned
-                from `AppConfig.report_dir()` is used.
+                from `settings.report_dir` is used.
         """
         self._name: str = recipe_name
 
@@ -119,7 +119,7 @@ class Recipe:
 
         now_str = datetime.now(tz=timezone.utc).strftime("%y%m%d_%H%M")
         if report_dir is None:
-            report_dir = AppConfig.report_dir()
+            report_dir = settings.report_dir
         report_path: Path = report_dir / f"report_{now_str}_{self.name}.plist"
 
         counter = 1
@@ -278,8 +278,8 @@ class Recipe:
             f"--report-plist={self._result.file_path()}",
         ]
 
-        if AppConfig.verbosity_int(-1) > 0:
-            cmd.append(AppConfig.verbosity_str(-1))
+        if settings.verbosity_int(-1) > 0:
+            cmd.append(settings.verbosity_str(-1))
 
         if check:
             cmd.append("--check")
@@ -460,7 +460,7 @@ class Recipe:
         output = await self.run_check_phase()
         if output["downloaded_items"]:
             metadata = await self._get_metadata(output["downloaded_items"])
-            await MetadataCacheManager.save(AppConfig.cache_file(), self.name, metadata)
+            await MetadataCacheManager.save(settings.cache_file, self.name, metadata)
 
             return await self.run_full()
         return output
@@ -570,8 +570,8 @@ class Recipe:
                 f"--override-dir={self._path.parent}",
             ]
 
-            if AppConfig.verbosity_int() > 0:
-                cmd.append(AppConfig.verbosity_str())
+            if settings.verbosity_int() > 0:
+                cmd.append(settings.verbosity_str())
 
             returncode, _stdout, _stderr = await run_cmd(cmd, check=False)
 

@@ -24,7 +24,7 @@ from pathlib import Path
 from types import FrameType
 from typing import NoReturn
 
-from cloud_autopkg_runner import AppConfig
+from cloud_autopkg_runner import settings
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
     InvalidJsonContents,
@@ -152,15 +152,13 @@ async def _process_recipe_list(
     logger = get_logger(__name__)
     logger.debug("Processing recipes...")
 
-    report_dir = AppConfig.report_dir()
-
     recipes: list[Recipe] = []
     for recipe_name in recipe_list:
         with contextlib.suppress(InvalidFileContents, RecipeException):
-            recipes.append(Recipe(recipe_name, report_dir))  # Skips failures
+            recipes.append(Recipe(recipe_name, settings.report_dir))  # Skips failures
 
     async def run_limited(recipe: Recipe) -> tuple[str, ConsolidatedReport]:
-        async with asyncio.Semaphore(AppConfig.max_concurrency()):  # Limit concurrency
+        async with asyncio.Semaphore(settings.max_concurrency):  # Limit concurrency
             return recipe.name, await recipe.run()
 
     results = await asyncio.gather(*[run_limited(recipe) for recipe in recipes])
@@ -202,13 +200,11 @@ async def _async_main() -> None:
     args = _parse_arguments()
     initialize_logger(args.verbose, args.log_file)
 
-    AppConfig.set_config(
-        cache_file=args.cache_file,
-        log_file=args.log_file,
-        max_concurrency=args.max_concurrency,
-        report_dir=args.report_dir,
-        verbosity_level=args.verbose,
-    )
+    settings.cache_file = args.cache_file
+    settings.log_file = args.log_file
+    settings.max_concurrency = args.max_concurrency
+    settings.report_dir = args.report_dir
+    settings.verbosity_level = args.verbose
 
     recipe_list = _generate_recipe_list(args)
 
