@@ -144,6 +144,23 @@ class RecipeFormatException(RecipeException):
         super().__init__(f"Invalid recipe format: {recipe_extension}")
 
 
+# Settings
+class SettingsValidationError(AutoPkgRunnerException):
+    """Exception class for handling validation errors in Settings.
+
+    This exception is raised when a Setting value does not validate successfully.
+    """
+
+    def __init__(self, field_name: str, validation_error: str) -> None:
+        """Initializes SettingsValidationError with the invalid file extension.
+
+        Args:
+            field_name: The name of the invalid Setting.
+            validation_error: The message explaining the failure.
+        """
+        super().__init__(f"Invalid value for '{field_name}': {validation_error}")
+
+
 # Shell Command
 class ShellCommandException(AutoPkgRunnerException):
     """Base exception class for handling issues with shell commands.

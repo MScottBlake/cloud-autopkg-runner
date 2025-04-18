@@ -135,6 +135,7 @@ class MetadataCacheManager:
         if not file_path.exists():
             logger = get_logger(__name__)
             logger.warning("%s does not exist. Creating...", file_path)
+            file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_text("{}")
             logger.info("%s created.", file_path)
 
