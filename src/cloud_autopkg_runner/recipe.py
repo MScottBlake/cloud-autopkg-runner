@@ -256,9 +256,9 @@ class Recipe:
         for lookup_path in lookup_dirs:
             path = lookup_path.expanduser()
             for filename in possible_filenames:
-                recipe_path = path / filename
-                if recipe_path.exists():
-                    return recipe_path
+                for recipe_path in path.rglob(filename):
+                    if recipe_path.exists():
+                        return recipe_path
 
         raise RecipeLookupException(recipe_name)
 
