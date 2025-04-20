@@ -1,5 +1,6 @@
 """Provides utilities for locating AutoPkg recipes within specified directories."""
 
+import asyncio
 from pathlib import Path
 
 from cloud_autopkg_runner import AutoPkgPrefs
@@ -95,8 +96,9 @@ class RecipeFinder:
         Returns:
             The Path to the recipe if a direct match is found, otherwise None.
         """
+        expanded_directory = directory.expanduser()
         for filename in filenames:
-            direct_path = directory.expanduser() / filename
+            direct_path = expanded_directory / filename
             if direct_path.exists():
                 self.logger.info("Found recipe at: %s", direct_path)
                 return direct_path
@@ -114,9 +116,10 @@ class RecipeFinder:
         Returns:
             The Path to the recipe if found recursively, otherwise None.
         """
+        expanded_directory = directory.expanduser()
         for filename in filenames:
             if match := self._find_recursively(
-                directory.expanduser(), filename, self.max_recursion_depth
+                expanded_directory, filename, self.max_recursion_depth
             ):
                 self.logger.info("Found recipe via recursive search at: %s", match)
                 return match
@@ -141,18 +144,20 @@ class RecipeFinder:
             the specified depth.
         """
         try:
-            for path in root.rglob("*"):
+            # Use asyncio.to_thread since this is a potentially long-running operation
+            paths = asyncio.run(asyncio.to_thread(list, root.rglob(target_filename)))
+
+            for path in paths:
                 if not path.is_file():
                     continue
 
-                if path.name != target_filename:
+                if not self._path_within_depth(root, path, max_depth):
+                    self.logger.debug("Skipping %s (depth > %s)", path, max_depth)
                     continue
 
-                if self._path_within_depth(root, path, max_depth):
-                    self.logger.debug("Found candidate: %s", path)
-                    return path
+                self.logger.debug("Found candidate: %s", path)
+                return path
 
-                self.logger.debug("Skipping %s (depth > %s)", path, max_depth)
         except OSError as e:
             self.logger.warning("OSError during recursive search in %s: %s", root, e)
         return None
