@@ -52,8 +52,8 @@ cloud_autopkg_runner = "cloud_autopkg_runner.__main__:main"
 Homepage = "https://github.com/MScottBlake/cloud-autopkg-runner"
 Repository = "https://github.com/MScottBlake/cloud-autopkg-runner.git"
 
-# [tool.coverage.report]
-# fail_under = 80
+[tool.coverage.report]
+fail_under = 80
 
 [tool.coverage.xml]
 output = "artifacts/coverage.xml"
