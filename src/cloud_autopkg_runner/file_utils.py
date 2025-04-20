@@ -22,9 +22,9 @@ from typing import cast
 
 import xattr  # pyright: ignore[reportMissingTypeStubs]
 
-from cloud_autopkg_runner.common_utils import list_possible_file_names
 from cloud_autopkg_runner.logging_config import get_logger
 from cloud_autopkg_runner.metadata_cache import DownloadMetadata, MetadataCache
+from cloud_autopkg_runner.recipe_finder import RecipeFinder
 
 
 def _set_file_size(file_path: Path, size: int) -> None:
@@ -67,7 +67,7 @@ async def create_dummy_files(recipe_list: Iterable[str], cache: MetadataCache) -
 
     possible_names: set[str] = set()
     for recipe_name in recipe_list:
-        possible_names.update(list_possible_file_names(recipe_name))
+        possible_names.update(RecipeFinder().possible_file_names(recipe_name))
 
     for recipe_name, recipe_cache_data in cache.items():
         if recipe_name not in possible_names:

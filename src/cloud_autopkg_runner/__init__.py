@@ -13,8 +13,10 @@ Key features include:
 - Metadata caching to reduce redundant downloads.
 """
 
+from .autopkg_prefs import AutoPkgPrefs
 from .settings import settings
 
 __all__ = [
+    "AutoPkgPrefs",
     "settings",
 ]
