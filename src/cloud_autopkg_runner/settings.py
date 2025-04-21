@@ -1,22 +1,21 @@
 """Application settings module (Singleton Pattern with Properties).
 
-This module defines the `Settings` class, which implements a Singleton pattern
+This module defines the `SettingsImpl` class, which implements a Singleton pattern
 to ensure only one instance of application settings is created. It provides
 a type-safe and centralized way to manage application-wide configuration
 parameters such as file paths, verbosity level, and concurrency limits.
 
-The `Settings` class uses properties and custom setters to control access
+The `SettingsImpl` class uses properties and custom setters to control access
 to and modification of the settings, including validation where appropriate.
 
 Classes:
-    Settings: Manages application settings using properties and custom setters.
+    SettingsImpl: Manages application settings using properties and custom setters.
 
 Exceptions:
     SettingsValidationError: Raised when a setting fails validation.
 """
 
 from pathlib import Path
-from typing import Any
 
 from cloud_autopkg_runner.exceptions import SettingsValidationError
 
@@ -28,62 +27,43 @@ class SettingsImpl:
     access and validation for setting application configurations.
 
     Attributes:
-        _instance: The singleton instance of the Settings class.
+        _instance: The singleton instance of the SettingsImpl class.
     """
 
     _instance: "SettingsImpl | None" = None
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> "SettingsImpl":  # noqa: ANN401
+    def __new__(cls) -> "SettingsImpl":
         """Create a new instance of Settings if one doesn't exist.
 
         This `__new__` method implements the Singleton pattern, ensuring
-        that only one instance of the `Settings` class is ever created.
+        that only one instance of the `SettingsImpl` class is ever created.
         If an instance already exists, it is returned; otherwise, a new
         instance is created and stored for future use.
 
-        Args:
-            *args: Arbitrary positional arguments.
-            **kwargs: Arbitrary keyword arguments.
-
         Returns:
-            The Settings instance.
+            The SettingsImpl instance.
         """
         if not cls._instance:
-            cls._instance = super().__new__(cls, *args, **kwargs)
+            cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(
-        self,
-        *,
-        cache_file: Path = Path("metadata_cache.json"),
-        log_file: Path | None = None,
-        max_concurrency: int = 10,
-        report_dir: Path = Path("recipe_reports"),
-        verbosity_level: int = 0,
-    ) -> None:
+    def __init__(self) -> None:
         """Initialize the application settings.
 
         Sets the default values for the application settings. This method
         is called only once due to the Singleton pattern implemented in
         `__new__`.
-
-        Args:
-            cache_file: Path to the metadata cache file. Defaults to
-                `metadata_cache.json`.
-            log_file: Path to the log file, or None if no log file is
-                configured. Defaults to None.
-            max_concurrency: Maximum number of concurrent tasks. Defaults to 10.
-            report_dir: Path to the directory for recipe reports. Defaults to
-                `recipe_reports`.
-            verbosity_level: Verbosity level (0, 1, 2, etc.). Defaults to 0.
         """
-        if not hasattr(self, "_initialized"):  # Prevent re-initialization
-            self._cache_file = cache_file
-            self._log_file = log_file
-            self._max_concurrency = max_concurrency
-            self._report_dir = report_dir
-            self._verbosity_level = verbosity_level
-            self._initialized = True
+        if not hasattr(self, "_initialized"):
+            self._cache_file: Path = Path("metadata_cache.json")
+            self._log_file: Path | None = None
+            self._max_concurrency: int = 10
+            self._post_processors: list[str] = []
+            self._pre_processors: list[str] = []
+            self._report_dir: Path = Path("recipe_reports")
+            self._verbosity_level: int = 0
+
+            self._initialized = True  # Prevent re-initialization
 
     @property
     def cache_file(self) -> Path:
@@ -147,6 +127,54 @@ class SettingsImpl:
         """
         self._validate_integer_is_positive("max_concurrency", value)
         self._max_concurrency = value
+
+    @property
+    def post_processors(self) -> list[str]:
+        """Get the list of post-processors.
+
+        Returns:
+            The list of post-processors.
+        """
+        return self._post_processors
+
+    @post_processors.setter
+    def post_processors(self, value: str | list[str]) -> None:
+        """Set the post-processor list.
+
+        Args:
+            value: The new list of post-processors (either a string or a
+                list of strings).
+        """
+        if not value:
+            self._post_processors = []
+        elif isinstance(value, str):
+            self._post_processors = [value]
+        else:
+            self._post_processors = value
+
+    @property
+    def pre_processors(self) -> list[str]:
+        """Get the list of pre-processors.
+
+        Returns:
+            The list of pre-processors, or None if no pre-processor is configured.
+        """
+        return self._pre_processors
+
+    @pre_processors.setter
+    def pre_processors(self, value: str | list[str]) -> None:
+        """Set the pre-processor list.
+
+        Args:
+            value: The new list of pre-processors (either a string or a
+                list of strings).
+        """
+        if not value:
+            self._pre_processors = []
+        elif isinstance(value, str):
+            self._pre_processors = [value]
+        else:
+            self._pre_processors = value
 
     @property
     def report_dir(self) -> Path:
@@ -229,13 +257,15 @@ class SettingsImpl:
             return ""
         return "-" + "v" * level
 
-    def _convert_to_path(self, value: str | Path) -> Path:
+    @staticmethod
+    def _convert_to_path(value: str | Path) -> Path:
         """Convert to `pathlib.Path`."""
         if isinstance(value, str):
             return Path(value)
         return value
 
-    def _validate_integer_is_positive(self, field_name: str, value: int) -> None:
+    @staticmethod
+    def _validate_integer_is_positive(field_name: str, value: int) -> None:
         """Validates that an integer value is positive (greater than 0).
 
         This method checks if the provided integer value is strictly positive.
@@ -253,7 +283,8 @@ class SettingsImpl:
         if value < 1:
             raise SettingsValidationError(field_name, "Must be a positive integer")
 
-    def _validate_integer_is_not_negative(self, field_name: str, value: int) -> None:
+    @staticmethod
+    def _validate_integer_is_not_negative(field_name: str, value: int) -> None:
         """Validates that an integer value is not negative (greater than or equal to 0).
 
         This method checks if the provided integer value is non-negative.
@@ -271,5 +302,5 @@ class SettingsImpl:
             raise SettingsValidationError(field_name, "Must not be negative")
 
 
-# Create a module-level instance of Settings
+# Create a module-level instance of SettingsImpl
 settings = SettingsImpl()

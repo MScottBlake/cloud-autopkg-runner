@@ -112,6 +112,10 @@ def test_parse_arguments() -> None:
         "test_cache.json",
         "--log-file",
         "test_log.txt",
+        "--post-processor",
+        "PostProcessor1",
+        "--pre-processor",
+        "PreProcessor1",
         "--report-dir",
         "test_reports",
         "--max-concurrency",
@@ -125,6 +129,8 @@ def test_parse_arguments() -> None:
     assert args.recipe_list == Path("recipes.json")
     assert args.cache_file == Path("test_cache.json")
     assert args.log_file == Path("test_log.txt")
+    assert args.post_processor == ["PostProcessor1"]
+    assert args.pre_processor == ["PreProcessor1"]
     assert args.report_dir == Path("test_reports")
     assert args.max_concurrency == 15
 
@@ -140,6 +146,8 @@ def test_parse_arguments_diff_syntax() -> None:
         "--recipe-list=recipes.json",
         "--cache-file=test_cache.json",
         "--log-file=test_log.txt",
+        "--post-processor=PostProcessor1",
+        "--pre-processor=PreProcessor1",
         "--report-dir=test_reports",
         "--max-concurrency=15",
     ]
@@ -151,6 +159,8 @@ def test_parse_arguments_diff_syntax() -> None:
     assert args.recipe_list == Path("recipes.json")
     assert args.cache_file == Path("test_cache.json")
     assert args.log_file == Path("test_log.txt")
+    assert args.post_processor == ["PostProcessor1"]
+    assert args.pre_processor == ["PreProcessor1"]
     assert args.report_dir == Path("test_reports")
     assert args.max_concurrency == 15
 

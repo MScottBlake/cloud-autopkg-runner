@@ -21,6 +21,8 @@ def test_attribute_access() -> None:
     assert isinstance(settings.cache_file, Path)
     assert isinstance(settings.log_file, Path | None)
     assert isinstance(settings.max_concurrency, int)
+    assert isinstance(settings.post_processors, list)
+    assert isinstance(settings.pre_processors, list)
     assert isinstance(settings.report_dir, Path)
     assert isinstance(settings.verbosity_level, int)
 
@@ -140,3 +142,39 @@ def test_convert_to_path() -> None:
     test_path = Path("/test/path")
     assert settings._convert_to_path("/test/path") == test_path
     assert settings._convert_to_path(test_path) == test_path
+
+
+@pytest.mark.parametrize(
+    ("input_value", "expected_output"),
+    [
+        ("PreProcessor1", ["PreProcessor1"]),
+        ("com.example.test/PreProcessorName", ["com.example.test/PreProcessorName"]),
+        (["PreProcessor2", "PreProcessor3"], ["PreProcessor2", "PreProcessor3"]),
+        (None, []),
+        ("", []),
+    ],
+)
+def test_pre_processors_setter(
+    input_value: str | list[str], expected_output: list[str]
+) -> None:
+    """Test setting the pre_processors attribute with various inputs."""
+    settings.pre_processors = input_value
+    assert settings.pre_processors == expected_output
+
+
+@pytest.mark.parametrize(
+    ("input_value", "expected_output"),
+    [
+        ("PostProcessor1", ["PostProcessor1"]),
+        ("com.example.test/PostProcessorName", ["com.example.test/PostProcessorName"]),
+        (["PostProcessor2", "PostProcessor3"], ["PostProcessor2", "PostProcessor3"]),
+        (None, []),
+        ("", []),
+    ],
+)
+def test_post_processors_setter(
+    input_value: str | list[str], expected_output: list[str]
+) -> None:
+    """Test setting the post_processors attribute with various inputs."""
+    settings.post_processors = input_value
+    assert settings.post_processors == expected_output

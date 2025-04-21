@@ -94,7 +94,7 @@ async def test_create_dummy_files_skips_existing(
 
 
 @pytest.mark.asyncio
-async def test_get_file_metadata(tmp_path: Path, mock_xattr: Any) -> None:  # type: ignore[type-arg]
+async def test_get_file_metadata(tmp_path: Path, mock_xattr: Any) -> None:
     """Test getting file metadata."""
     file_path = tmp_path / "test_file.txt"
     file_path.touch()
