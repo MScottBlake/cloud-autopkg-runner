@@ -16,7 +16,6 @@ Exceptions:
 """
 
 from pathlib import Path
-from typing import Any
 
 from cloud_autopkg_runner.exceptions import SettingsValidationError
 
@@ -33,7 +32,7 @@ class SettingsImpl:
 
     _instance: "SettingsImpl | None" = None
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> "SettingsImpl":  # noqa: ANN401
+    def __new__(cls) -> "SettingsImpl":
         """Create a new instance of Settings if one doesn't exist.
 
         This `__new__` method implements the Singleton pattern, ensuring
@@ -41,49 +40,30 @@ class SettingsImpl:
         If an instance already exists, it is returned; otherwise, a new
         instance is created and stored for future use.
 
-        Args:
-            *args: Arbitrary positional arguments.
-            **kwargs: Arbitrary keyword arguments.
-
         Returns:
             The Settings instance.
         """
         if not cls._instance:
-            cls._instance = super().__new__(cls, *args, **kwargs)
+            cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(
-        self,
-        *,
-        cache_file: Path = Path("metadata_cache.json"),
-        log_file: Path | None = None,
-        max_concurrency: int = 10,
-        report_dir: Path = Path("recipe_reports"),
-        verbosity_level: int = 0,
-    ) -> None:
+    def __init__(self) -> None:
         """Initialize the application settings.
 
         Sets the default values for the application settings. This method
         is called only once due to the Singleton pattern implemented in
         `__new__`.
-
-        Args:
-            cache_file: Path to the metadata cache file. Defaults to
-                `metadata_cache.json`.
-            log_file: Path to the log file, or None if no log file is
-                configured. Defaults to None.
-            max_concurrency: Maximum number of concurrent tasks. Defaults to 10.
-            report_dir: Path to the directory for recipe reports. Defaults to
-                `recipe_reports`.
-            verbosity_level: Verbosity level (0, 1, 2, etc.). Defaults to 0.
         """
-        if not hasattr(self, "_initialized"):  # Prevent re-initialization
-            self._cache_file = cache_file
-            self._log_file = log_file
-            self._max_concurrency = max_concurrency
-            self._report_dir = report_dir
-            self._verbosity_level = verbosity_level
-            self._initialized = True
+        if not hasattr(self, "_initialized"):
+            self._cache_file: Path = Path("metadata_cache.json")
+            self._log_file: Path | None = None
+            self._max_concurrency: int = 10
+            self._post_processor: Path | None = None
+            self._pre_processor: Path | None = None
+            self._report_dir: Path = Path("recipe_reports")
+            self._verbosity_level: int = 0
+
+            self._initialized = True  # Prevent re-initialization
 
     @property
     def cache_file(self) -> Path:
