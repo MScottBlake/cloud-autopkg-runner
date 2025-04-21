@@ -247,6 +247,9 @@ class Recipe:
             f"--report-plist={self._result.file_path()}",
         ]
 
+        cmd.extend([f"--preprocessor={item}" for item in settings.pre_processors])
+        cmd.extend([f"--postprocessor={item}" for item in settings.post_processors])
+
         if settings.verbosity_int(-1) > 0:
             cmd.append(settings.verbosity_str(-1))
 

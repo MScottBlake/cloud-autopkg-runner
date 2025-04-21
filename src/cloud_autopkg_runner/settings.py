@@ -58,8 +58,8 @@ class SettingsImpl:
             self._cache_file: Path = Path("metadata_cache.json")
             self._log_file: Path | None = None
             self._max_concurrency: int = 10
-            self._post_processor: Path | None = None
-            self._pre_processor: Path | None = None
+            self._post_processors: list[str] = []
+            self._pre_processors: list[str] = []
             self._report_dir: Path = Path("recipe_reports")
             self._verbosity_level: int = 0
 
@@ -127,6 +127,54 @@ class SettingsImpl:
         """
         self._validate_integer_is_positive("max_concurrency", value)
         self._max_concurrency = value
+
+    @property
+    def post_processors(self) -> list[str]:
+        """Get the list of post-processors.
+
+        Returns:
+            The list of post-processors.
+        """
+        return self._post_processors
+
+    @post_processors.setter
+    def post_processors(self, value: str | list[str]) -> None:
+        """Set the post-processor list.
+
+        Args:
+            value: The new list of post-processors (either a string or a
+                list of strings).
+        """
+        if not value:
+            self._post_processors = []
+        elif isinstance(value, str):
+            self._post_processors = [value]
+        else:
+            self._post_processors = value
+
+    @property
+    def pre_processors(self) -> list[str]:
+        """Get the list of pre-processors.
+
+        Returns:
+            The list of pre-processors, or None if no pre-processor is configured.
+        """
+        return self._pre_processors
+
+    @pre_processors.setter
+    def pre_processors(self, value: str | list[str]) -> None:
+        """Set the pre-processor list.
+
+        Args:
+            value: The new list of pre-processors (either a string or a
+                list of strings).
+        """
+        if not value:
+            self._pre_processors = []
+        elif isinstance(value, str):
+            self._pre_processors = [value]
+        else:
+            self._pre_processors = value
 
     @property
     def report_dir(self) -> Path:

@@ -160,6 +160,24 @@ def _parse_arguments() -> Namespace:
         type=Path,
     )
     parser.add_argument(
+        "--post-processor",
+        action="append",
+        help=(
+            "Specify a post-processor to run after the main AutoPkg recipe."
+            "Can be specified multiple times."
+        ),
+        type=str,
+    )
+    parser.add_argument(
+        "--pre-processor",
+        action="append",
+        help=(
+            "Specify a pre-processor to run before the main AutoPkg recipe. "
+            "Can be specified multiple times."
+        ),
+        type=str,
+    )
+    parser.add_argument(
         "--report-dir",
         help="Path to the directory used for storing AutoPkg recipe reports.",
         default="",

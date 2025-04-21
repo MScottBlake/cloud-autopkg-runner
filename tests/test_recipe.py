@@ -179,3 +179,111 @@ def test_recipe_properties(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> Non
     assert recipe.name == "Test.recipe.yaml"
     assert recipe.parent_recipe == "ParentRecipe.recipe"
     assert recipe.process == []
+
+
+def test_autopkg_run_cmd_basic(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
+    """Test basic command construction with no verbosity or processors."""
+    yaml_content = """
+    Description: Dummy
+    Identifier: com.example.dummy
+    Input:
+        NAME: DummyRecipe
+    Process: []
+    """
+    recipe_file = tmp_path / "Dummy.recipe.yaml"
+    create_dummy_file(recipe_file, yaml_content)
+    report_dir = tmp_path / "report"
+    report_dir.mkdir()
+
+    with (
+        patch(
+            "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
+            return_value=mock_autopkg_prefs,
+        ),
+        patch("cloud_autopkg_runner.recipe.settings") as mock_settings,
+    ):
+        mock_settings.pre_processors = []
+        mock_settings.post_processors = []
+        mock_settings.verbosity_int.return_value = 0
+        mock_settings.verbosity_str.return_value = ""
+
+        recipe = Recipe("Dummy.recipe.yaml", report_dir)
+        cmd = recipe._autopkg_run_cmd()
+
+        assert cmd[:3] == ["/usr/local/bin/autopkg", "run", recipe.name]
+        assert any(arg.startswith("--report-plist=") for arg in cmd)
+        assert "--check" not in cmd
+
+
+def test_autopkg_run_cmd_with_check(
+    tmp_path: Path, mock_autopkg_prefs: MagicMock
+) -> None:
+    """Test command includes --check when requested."""
+    yaml_content = """
+    Description: Dummy
+    Identifier: com.example.dummy
+    Input:
+        NAME: DummyRecipe
+    Process: []
+    """
+    recipe_file = tmp_path / "Dummy.recipe.yaml"
+    create_dummy_file(recipe_file, yaml_content)
+    report_dir = tmp_path / "report"
+    report_dir.mkdir()
+
+    with (
+        patch(
+            "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
+            return_value=mock_autopkg_prefs,
+        ),
+        patch("cloud_autopkg_runner.recipe.settings") as mock_settings,
+    ):
+        mock_settings.pre_processors = []
+        mock_settings.post_processors = []
+        mock_settings.verbosity_int.return_value = 0
+        mock_settings.verbosity_str.return_value = ""
+
+        recipe = Recipe("Dummy.recipe.yaml", report_dir)
+        cmd = recipe._autopkg_run_cmd(check=True)
+
+        assert "--check" in cmd
+
+
+def test_autopkg_run_cmd_with_processors_and_verbosity(
+    tmp_path: Path, mock_autopkg_prefs: MagicMock
+) -> None:
+    """Test command with pre/post processors and verbosity."""
+    yaml_content = """
+    Description: Dummy
+    Identifier: com.example.dummy
+    Input:
+        NAME: DummyRecipe
+    Process: []
+    """
+    recipe_file = tmp_path / "Dummy.recipe.yaml"
+    create_dummy_file(recipe_file, yaml_content)
+    report_dir = tmp_path / "report"
+    report_dir.mkdir()
+
+    with (
+        patch(
+            "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
+            return_value=mock_autopkg_prefs,
+        ),
+        patch("cloud_autopkg_runner.recipe.settings") as mock_settings,
+    ):
+        mock_settings.pre_processors = ["PreA", "com.example.test/PreProcessorB"]
+        mock_settings.post_processors = ["PostA"]
+        mock_settings.verbosity_int.return_value = 1
+        mock_settings.verbosity_str.return_value = "-v"
+
+        recipe = Recipe("Dummy.recipe.yaml", report_dir)
+        cmd = recipe._autopkg_run_cmd()
+
+        assert "--preprocessor=PreA" in cmd
+        assert "--preprocessor=com.example.test/PreProcessorB" in cmd
+        assert cmd.index("--preprocessor=PreA") < cmd.index(
+            "--preprocessor=com.example.test/PreProcessorB"
+        )
+        assert "--postprocessor=PostA" in cmd
+        assert "-v" in cmd
