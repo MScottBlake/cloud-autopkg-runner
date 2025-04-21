@@ -1,15 +1,15 @@
 """Application settings module (Singleton Pattern with Properties).
 
-This module defines the `Settings` class, which implements a Singleton pattern
+This module defines the `SettingsImpl` class, which implements a Singleton pattern
 to ensure only one instance of application settings is created. It provides
 a type-safe and centralized way to manage application-wide configuration
 parameters such as file paths, verbosity level, and concurrency limits.
 
-The `Settings` class uses properties and custom setters to control access
+The `SettingsImpl` class uses properties and custom setters to control access
 to and modification of the settings, including validation where appropriate.
 
 Classes:
-    Settings: Manages application settings using properties and custom setters.
+    SettingsImpl: Manages application settings using properties and custom setters.
 
 Exceptions:
     SettingsValidationError: Raised when a setting fails validation.
@@ -27,7 +27,7 @@ class SettingsImpl:
     access and validation for setting application configurations.
 
     Attributes:
-        _instance: The singleton instance of the Settings class.
+        _instance: The singleton instance of the SettingsImpl class.
     """
 
     _instance: "SettingsImpl | None" = None
@@ -36,12 +36,12 @@ class SettingsImpl:
         """Create a new instance of Settings if one doesn't exist.
 
         This `__new__` method implements the Singleton pattern, ensuring
-        that only one instance of the `Settings` class is ever created.
+        that only one instance of the `SettingsImpl` class is ever created.
         If an instance already exists, it is returned; otherwise, a new
         instance is created and stored for future use.
 
         Returns:
-            The Settings instance.
+            The SettingsImpl instance.
         """
         if not cls._instance:
             cls._instance = super().__new__(cls)
@@ -254,5 +254,5 @@ class SettingsImpl:
             raise SettingsValidationError(field_name, "Must not be negative")
 
 
-# Create a module-level instance of Settings
+# Create a module-level instance of SettingsImpl
 settings = SettingsImpl()
