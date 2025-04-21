@@ -22,7 +22,6 @@ from typing import Any, TypedDict
 import yaml
 
 from cloud_autopkg_runner import settings
-from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
 from cloud_autopkg_runner.exceptions import (
     InvalidPlistContents,
     InvalidYamlContents,
@@ -37,6 +36,7 @@ from cloud_autopkg_runner.metadata_cache import (
     MetadataCacheManager,
     RecipeCache,
 )
+from cloud_autopkg_runner.recipe_finder import RecipeFinder
 from cloud_autopkg_runner.recipe_report import ConsolidatedReport, RecipeReport
 from cloud_autopkg_runner.shell import run_cmd
 
@@ -105,12 +105,12 @@ class Recipe:
                 from `settings.report_dir` is used.
         """
         self._name: str = recipe_name
+        self.logger = get_logger(__name__)
 
         try:
-            self._path: Path = self.find_recipe(recipe_name)
+            self._path: Path = RecipeFinder().find_recipe(recipe_name)
         except RecipeLookupException:
-            logger = get_logger(__name__)
-            logger.exception("Failed to find recipe: %s", recipe_name)
+            self.logger.exception("Failed to find recipe: %s", recipe_name)
             raise
 
         self._format: RecipeFormat = self.format()
@@ -230,37 +230,6 @@ class Recipe:
             defining the steps in the recipe's processing workflow.
         """
         return self._contents["Process"]
-
-    @classmethod
-    def find_recipe(cls, recipe_name: str) -> Path:
-        """Locates the recipe path.
-
-        Returns:
-            Path of a given recipe
-        """
-        autopkg_preferences = AutoPkgPrefs()
-        lookup_dirs: list[Path] = (
-            autopkg_preferences.recipe_override_dirs
-            + autopkg_preferences.recipe_search_dirs
-        )
-
-        if recipe_name.endswith((".recipe", ".recipe.plist", ".recipe.yaml")):
-            possible_filenames = [recipe_name]
-        else:
-            possible_filenames = [
-                recipe_name + ".recipe",
-                recipe_name + ".recipe.plist",
-                recipe_name + ".recipe.yaml",
-            ]
-
-        for lookup_path in lookup_dirs:
-            path = lookup_path.expanduser()
-            for filename in possible_filenames:
-                recipe_path = path / filename
-                if recipe_path.exists():
-                    return recipe_path
-
-        raise RecipeLookupException(recipe_name)
 
     def _autopkg_run_cmd(self, *, check: bool = False) -> list[str]:
         """Constructs the command-line arguments for running AutoPkg.
@@ -475,8 +444,7 @@ class Recipe:
         Returns:
             A ConsolidatedReport object containing the results of the check phase.
         """
-        logger = get_logger(__name__)
-        logger.debug("Performing Check Phase on %s...", self.name)
+        self.logger.debug("Performing Check Phase on %s...", self.name)
 
         returncode, _stdout, stderr = await run_cmd(
             self._autopkg_run_cmd(check=True), check=False
@@ -485,7 +453,7 @@ class Recipe:
         if returncode != 0:
             if not stderr:
                 stderr = "<Unknown Error>"
-            logger.error(
+            self.logger.error(
                 "An error occurred while running the check phase, on %s: %s",
                 self.name,
                 stderr,
@@ -505,8 +473,7 @@ class Recipe:
         Returns:
             A ConsolidatedReport object containing the results of the full recipe run.
         """
-        logger = get_logger(__name__)
-        logger.debug("Performing AutoPkg Run on %s...", self.name)
+        self.logger.debug("Performing AutoPkg Run on %s...", self.name)
 
         returncode, _stdout, stderr = await run_cmd(
             self._autopkg_run_cmd(check=False), check=False
@@ -515,7 +482,9 @@ class Recipe:
         if returncode != 0:
             if not stderr:
                 stderr = "<Unknown Error>"
-            logger.error("An error occurred while running %s: %s", self.name, stderr)
+            self.logger.error(
+                "An error occurred while running %s: %s", self.name, stderr
+            )
 
         return self.compile_report()
 
@@ -527,8 +496,7 @@ class Recipe:
         Returns:
             True if the trust info was successfully updated, False otherwise.
         """
-        logger = get_logger(__name__)
-        logger.debug("Updating trust info for %s...", self.name)
+        self.logger.debug("Updating trust info for %s...", self.name)
 
         cmd = [
             "/usr/local/bin/autopkg",
@@ -539,14 +507,14 @@ class Recipe:
 
         returncode, stdout, _stderr = await run_cmd(cmd)
 
-        logger.info(stdout)
+        self.logger.info(stdout)
         self._trusted = TrustInfoVerificationState.UNTESTED
 
         if returncode == 0:
-            logger.info("Trust info update for %s successful.", self.name)
+            self.logger.info("Trust info update for %s successful.", self.name)
             return True
 
-        logger.warning("Trust info update for %s failed.", self.name)
+        self.logger.warning("Trust info update for %s failed.", self.name)
         return False
 
     async def verify_trust_info(self) -> bool:
@@ -558,10 +526,8 @@ class Recipe:
             TrustInfoVerificationState.TRUSTED if the trust info is trusted,
             TrustInfoVerificationState.FAILED if it is untrusted, or
         """
-        logger = get_logger(__name__)
-
         if self._trusted == TrustInfoVerificationState.UNTESTED:
-            logger.debug("Verifying trust info for %s...", self.name)
+            self.logger.debug("Verifying trust info for %s...", self.name)
 
             cmd = [
                 "/usr/local/bin/autopkg",
@@ -576,10 +542,12 @@ class Recipe:
             returncode, _stdout, _stderr = await run_cmd(cmd, check=False)
 
             if returncode == 0:
-                logger.info("Trust info verification for %s successful.", self.name)
+                self.logger.info(
+                    "Trust info verification for %s successful.", self.name
+                )
                 self._trusted = TrustInfoVerificationState.TRUSTED
             else:
-                logger.warning("Trust info verification for %s failed.", self.name)
+                self.logger.warning("Trust info verification for %s failed.", self.name)
                 self._trusted = TrustInfoVerificationState.FAILED
 
         return self._trusted.value

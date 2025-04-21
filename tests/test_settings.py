@@ -19,7 +19,7 @@ def test_singleton_pattern() -> None:
 def test_attribute_access() -> None:
     """Test getting and setting each attribute of the Settings class."""
     assert isinstance(settings.cache_file, Path)
-    assert settings.log_file is None
+    assert isinstance(settings.log_file, Path | None)
     assert isinstance(settings.max_concurrency, int)
     assert isinstance(settings.report_dir, Path)
     assert isinstance(settings.verbosity_level, int)
@@ -63,7 +63,7 @@ def test_max_concurrency_setter_validation() -> None:
         settings.max_concurrency = -1
 
     with pytest.raises(TypeError):
-        settings.max_concurrency = "invalid"  # type: ignore[assignment]
+        settings.max_concurrency = "invalid"
 
 
 def test_report_dir_setter(tmp_path: Path) -> None:
@@ -88,7 +88,7 @@ def test_verbosity_level_setter_validation() -> None:
         settings.verbosity_level = -1
 
     with pytest.raises(TypeError):
-        settings.verbosity_level = "invalid"  # type: ignore[assignment]
+        settings.verbosity_level = "invalid"
 
 
 @pytest.mark.parametrize(

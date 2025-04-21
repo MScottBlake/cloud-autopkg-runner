@@ -61,7 +61,7 @@ async def test_create_dummy_files(
 
     # Patch list_possible_file_names to return the recipes in metadata_cache
     with patch(
-        "cloud_autopkg_runner.file_utils.list_possible_file_names",
+        "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
         return_value=recipe_list,
     ):
         await create_dummy_files(recipe_list, metadata_cache)
@@ -84,7 +84,7 @@ async def test_create_dummy_files_skips_existing(
 
     # Patch list_possible_file_names to return the recipes in metadata_cache
     with patch(
-        "cloud_autopkg_runner.file_utils.list_possible_file_names",
+        "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
         return_value=recipe_list,
     ):
         await create_dummy_files(recipe_list, metadata_cache)
