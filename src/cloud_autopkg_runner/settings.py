@@ -209,13 +209,15 @@ class SettingsImpl:
             return ""
         return "-" + "v" * level
 
-    def _convert_to_path(self, value: str | Path) -> Path:
+    @staticmethod
+    def _convert_to_path(value: str | Path) -> Path:
         """Convert to `pathlib.Path`."""
         if isinstance(value, str):
             return Path(value)
         return value
 
-    def _validate_integer_is_positive(self, field_name: str, value: int) -> None:
+    @staticmethod
+    def _validate_integer_is_positive(field_name: str, value: int) -> None:
         """Validates that an integer value is positive (greater than 0).
 
         This method checks if the provided integer value is strictly positive.
@@ -233,7 +235,8 @@ class SettingsImpl:
         if value < 1:
             raise SettingsValidationError(field_name, "Must be a positive integer")
 
-    def _validate_integer_is_not_negative(self, field_name: str, value: int) -> None:
+    @staticmethod
+    def _validate_integer_is_not_negative(field_name: str, value: int) -> None:
         """Validates that an integer value is not negative (greater than or equal to 0).
 
         This method checks if the provided integer value is non-negative.
