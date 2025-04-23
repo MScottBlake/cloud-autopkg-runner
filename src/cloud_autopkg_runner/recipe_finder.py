@@ -39,7 +39,7 @@ class RecipeFinder:
             + self.autopkg_preferences.recipe_search_dirs
         )
 
-    def find_recipe(self, recipe_name: str) -> Path:
+    async def find_recipe(self, recipe_name: str) -> Path:
         """Locates the recipe path.
 
         Finds the path to the AutoPkg recipe with the given name, searching through the
@@ -58,7 +58,9 @@ class RecipeFinder:
         possible_filenames = self.possible_file_names(recipe_name)
 
         for lookup_path in self.lookup_dirs:
-            if recipe_path := self._search_directory(lookup_path, possible_filenames):
+            if recipe_path := await self._search_directory(
+                lookup_path, possible_filenames
+            ):
                 return recipe_path
 
         self.logger.error(
@@ -104,7 +106,7 @@ class RecipeFinder:
                 return direct_path
         return None
 
-    def _find_in_directory_recursively(
+    async def _find_in_directory_recursively(
         self, directory: Path, filenames: list[str]
     ) -> Path | None:
         """Searches recursively for a recipe within the given directory.
@@ -118,14 +120,14 @@ class RecipeFinder:
         """
         expanded_directory = directory.expanduser()
         for filename in filenames:
-            if match := self._find_recursively(
+            if match := await self._find_recursively(
                 expanded_directory, filename, self.max_recursion_depth
             ):
                 self.logger.info("Found recipe via recursive search at: %s", match)
                 return match
         return None
 
-    def _find_recursively(
+    async def _find_recursively(
         self, root: Path, target_filename: str, max_depth: int
     ) -> Path | None:
         """Recursively searches for a file with a specific name within a directory.
@@ -145,7 +147,7 @@ class RecipeFinder:
         """
         try:
             # Use asyncio.to_thread since this is a potentially long-running operation
-            paths = asyncio.run(asyncio.to_thread(list, root.rglob(target_filename)))
+            paths = await asyncio.to_thread(list, root.rglob(target_filename))
 
             for path in paths:
                 if not path.is_file():
@@ -162,7 +164,9 @@ class RecipeFinder:
             self.logger.warning("OSError during recursive search in %s: %s", root, e)
         return None
 
-    def _search_directory(self, directory: Path, filenames: list[str]) -> Path | None:
+    async def _search_directory(
+        self, directory: Path, filenames: list[str]
+    ) -> Path | None:
         """Searches for a recipe within a single directory.
 
         First, it attempts to find the recipe in the top-level of the directory. If
@@ -180,7 +184,9 @@ class RecipeFinder:
         if recipe_path := self._find_in_directory(directory, filenames):
             return recipe_path
 
-        if recipe_path := self._find_in_directory_recursively(directory, filenames):
+        if recipe_path := await self._find_in_directory_recursively(
+            directory, filenames
+        ):
             return recipe_path
 
         return None

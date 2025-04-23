@@ -6,9 +6,9 @@ import pytest
 
 from cloud_autopkg_runner import AutoPkgPrefs
 from cloud_autopkg_runner.exceptions import (
+    InvalidFileContents,
     RecipeFormatException,
     RecipeInputException,
-    RecipeLookupException,
 )
 from cloud_autopkg_runner.recipe import Recipe, RecipeContents, RecipeFormat
 
@@ -46,7 +46,7 @@ def test_recipe_init_yaml(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None
         "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
         return_value=mock_autopkg_prefs,
     ):
-        recipe = Recipe("Test.recipe.yaml", report_dir)
+        recipe = Recipe(recipe_file, report_dir)
 
     assert recipe.identifier == "com.example.test"
     assert recipe.input_name == "TestRecipe"
@@ -73,7 +73,7 @@ def test_recipe_init_plist(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> Non
     ):
         report_dir = tmp_path / "report_dir"
         report_dir.mkdir()
-        recipe = Recipe("Test.recipe.plist", report_dir)
+        recipe = Recipe(recipe_file, report_dir)
         assert recipe.identifier == "com.example.test"
         assert recipe.input_name == "TestRecipe"
         assert recipe.format() == RecipeFormat.PLIST
@@ -107,7 +107,7 @@ def test_recipe_invalid_format(tmp_path: Path, mock_autopkg_prefs: MagicMock) ->
         ),
         pytest.raises(RecipeFormatException),
     ):
-        Recipe("Test.recipe.invalid", report_dir)
+        Recipe(recipe_file, report_dir)
 
 
 def test_recipe_invalid_content(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
@@ -122,9 +122,9 @@ def test_recipe_invalid_content(tmp_path: Path, mock_autopkg_prefs: MagicMock) -
             "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
             return_value=mock_autopkg_prefs,
         ),
-        pytest.raises(RecipeLookupException),
+        pytest.raises(InvalidFileContents),
     ):
-        Recipe("Test.recipe.invalid", report_dir)
+        Recipe(recipe_file, report_dir)
 
 
 def test_recipe_missing_name(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
@@ -144,7 +144,7 @@ def test_recipe_missing_name(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> N
         "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
         return_value=mock_autopkg_prefs,
     ):
-        recipe = Recipe("Test.recipe.yaml", report_dir)
+        recipe = Recipe(recipe_file, report_dir)
         with pytest.raises(RecipeInputException):
             _ = recipe.input_name
 
@@ -169,7 +169,7 @@ def test_recipe_properties(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> Non
         "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
         return_value=mock_autopkg_prefs,
     ):
-        recipe = Recipe("Test.recipe.yaml", report_dir)
+        recipe = Recipe(recipe_file, report_dir)
 
     assert recipe.contents["Description"] == "Test recipe"
     assert recipe.description == "Test recipe"
@@ -207,7 +207,7 @@ def test_autopkg_run_cmd_basic(tmp_path: Path, mock_autopkg_prefs: MagicMock) ->
         mock_settings.verbosity_int.return_value = 0
         mock_settings.verbosity_str.return_value = ""
 
-        recipe = Recipe("Dummy.recipe.yaml", report_dir)
+        recipe = Recipe(recipe_file, report_dir)
         cmd = recipe._autopkg_run_cmd()
 
         assert cmd[:3] == ["/usr/local/bin/autopkg", "run", recipe.name]
@@ -243,7 +243,7 @@ def test_autopkg_run_cmd_with_check(
         mock_settings.verbosity_int.return_value = 0
         mock_settings.verbosity_str.return_value = ""
 
-        recipe = Recipe("Dummy.recipe.yaml", report_dir)
+        recipe = Recipe(recipe_file, report_dir)
         cmd = recipe._autopkg_run_cmd(check=True)
 
         assert "--check" in cmd
@@ -277,7 +277,7 @@ def test_autopkg_run_cmd_with_processors_and_verbosity(
         mock_settings.verbosity_int.return_value = 1
         mock_settings.verbosity_str.return_value = "-v"
 
-        recipe = Recipe("Dummy.recipe.yaml", report_dir)
+        recipe = Recipe(recipe_file, report_dir)
         cmd = recipe._autopkg_run_cmd()
 
         assert "--preprocessor=PreA" in cmd

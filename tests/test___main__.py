@@ -2,25 +2,38 @@
 
 import json
 import os
+import plistlib
 import sys
 from argparse import Namespace
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cloud_autopkg_runner import settings
+from cloud_autopkg_runner import AutoPkgPrefs, settings
 from cloud_autopkg_runner.__main__ import (
     _apply_args_to_settings,
     _create_recipe,
     _generate_recipe_list,
+    _get_recipe_path,
     _parse_arguments,
 )
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
     InvalidJsonContents,
     RecipeException,
+    RecipeLookupException,
 )
+from cloud_autopkg_runner.recipe import Recipe
+
+
+@pytest.fixture
+def mock_autopkg_prefs(tmp_path: Path) -> MagicMock:
+    """Fixture to create a mock AutoPkgPrefs object with search/override dirs."""
+    mock_prefs = MagicMock(spec=AutoPkgPrefs)
+    mock_prefs.recipe_override_dirs = [tmp_path]
+    mock_prefs.recipe_search_dirs = [tmp_path]
+    return mock_prefs
 
 
 def test_apply_args_to_settings(tmp_path: Path) -> None:
@@ -166,26 +179,36 @@ def test_parse_arguments_diff_syntax() -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_recipe_success() -> None:
-    """Should return a Recipe object when creation succeeds."""
-    with (
-        patch("cloud_autopkg_runner.__main__.Recipe") as mock_recipe,
-        patch("cloud_autopkg_runner.__main__.settings") as mock_settings,
+async def test_create_recipe_success(tmp_path: Path) -> None:
+    """Test that _create_recipe successfully creates a Recipe object."""
+    plist_content = {
+        "Description": "Test recipe",
+        "Identifier": "com.example.test",
+        "Input": {"NAME": "TestRecipe"},
+        "Process": [],
+        "MinimumVersion": "",
+        "ParentRecipe": "",
+    }
+    recipe_path = tmp_path / "test_recipe.recipe"
+    recipe_path.write_bytes(plistlib.dumps(plist_content))
+    mock_get_recipe_path = AsyncMock(return_value=recipe_path)
+    with patch(
+        "cloud_autopkg_runner.__main__._get_recipe_path", new=mock_get_recipe_path
     ):
-        mock_settings.report_dir = "/mock/report_dir"
-        mock_instance = MagicMock()
-        mock_recipe.return_value = mock_instance
-
-        result = await _create_recipe("good_recipe")
-
-        mock_recipe.assert_called_once_with("good_recipe", "/mock/report_dir")
-        assert result == mock_instance
+        recipe = await _create_recipe("test_recipe")
+        assert isinstance(recipe, Recipe)
 
 
 @pytest.mark.asyncio
-async def test_create_recipe_invalid_file_contents() -> None:
+async def test_create_recipe_invalid_file_contents(
+    mock_autopkg_prefs: MagicMock,
+) -> None:
     """Should return None and log an error on InvalidFileContents."""
     with (
+        patch(
+            "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
+            return_value=mock_autopkg_prefs,
+        ),
         patch("cloud_autopkg_runner.__main__.get_logger") as mock_get_logger,
         patch(
             "cloud_autopkg_runner.__main__.Recipe",
@@ -204,9 +227,13 @@ async def test_create_recipe_invalid_file_contents() -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_recipe_recipe_exception() -> None:
+async def test_create_recipe_recipe_exception(mock_autopkg_prefs: MagicMock) -> None:
     """Should return None and log an error on RecipeException."""
     with (
+        patch(
+            "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
+            return_value=mock_autopkg_prefs,
+        ),
         patch("cloud_autopkg_runner.__main__.get_logger") as mock_get_logger,
         patch(
             "cloud_autopkg_runner.__main__.Recipe",
@@ -222,3 +249,45 @@ async def test_create_recipe_recipe_exception() -> None:
             "Failed to create recipe: %s", "exception_recipe"
         )
         assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_recipe_path_success(
+    tmp_path: Path, mock_autopkg_prefs: MagicMock
+) -> None:
+    """Test that _get_recipe_path returns the correct path to a recipe."""
+    recipe_path = tmp_path / "test_recipe.recipe"
+    recipe_path.write_text('{"key": "value"}')
+    with (
+        patch(
+            "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
+            return_value=mock_autopkg_prefs,
+        ),
+        patch(
+            "cloud_autopkg_runner.__main__.RecipeFinder.find_recipe",
+            new_callable=AsyncMock,
+            return_value=recipe_path,
+        ),
+    ):
+        path = await _get_recipe_path("test_recipe")
+        assert path == recipe_path
+
+
+@pytest.mark.asyncio
+async def test_get_recipe_path_recipe_lookup_exception(
+    mock_autopkg_prefs: MagicMock,
+) -> None:
+    """Test that _get_recipe_path raises RecipeLookupException."""
+    with (
+        patch(
+            "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
+            return_value=mock_autopkg_prefs,
+        ),
+        patch(
+            "cloud_autopkg_runner.__main__.RecipeFinder.find_recipe",
+            new_callable=AsyncMock,
+            side_effect=RecipeLookupException("Recipe not found"),
+        ),
+        pytest.raises(RecipeLookupException),
+    ):
+        await _get_recipe_path("test_recipe")
