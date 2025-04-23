@@ -78,7 +78,10 @@ def test_path_within_depth_outside_base(tmp_path: Path) -> None:
     )
 
 
-def test_find_recursively_found(recipe_finder: RecipeFinder, tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_find_recursively_found(
+    recipe_finder: RecipeFinder, tmp_path: Path
+) -> None:
     """Test _find_recursively method when the target file is found."""
     search_dir = tmp_path / "search"
     search_dir.mkdir(parents=True, exist_ok=True)
@@ -86,20 +89,21 @@ def test_find_recursively_found(recipe_finder: RecipeFinder, tmp_path: Path) -> 
     target_file = search_dir / "subdir" / "MyRecipe.recipe"
     target_file.write_text("Recipe content")
 
-    found_path = recipe_finder._find_recursively(
+    found_path = await recipe_finder._find_recursively(
         search_dir, "MyRecipe.recipe", recipe_finder.max_recursion_depth
     )
     assert found_path == target_file
 
 
-def test_find_recursively_not_found(
+@pytest.mark.asyncio
+async def test_find_recursively_not_found(
     recipe_finder: RecipeFinder, tmp_path: Path
 ) -> None:
     """Test _find_recursively method when the target file is not found."""
     search_dir = tmp_path / "search"
     search_dir.mkdir(parents=True, exist_ok=True)
 
-    found_path = recipe_finder._find_recursively(
+    found_path = await recipe_finder._find_recursively(
         search_dir, "NonExistent.recipe", recipe_finder.max_recursion_depth
     )
     assert found_path is None
@@ -127,7 +131,8 @@ def test_find_in_directory_not_found(
     assert found_path is None
 
 
-def test_find_in_directory_recursively_found(
+@pytest.mark.asyncio
+async def test_find_in_directory_recursively_found(
     recipe_finder: RecipeFinder, tmp_path: Path
 ) -> None:
     """Test that the target file is found recursively."""
@@ -137,26 +142,28 @@ def test_find_in_directory_recursively_found(
     target_file = search_dir / "subdir" / "MyRecipe.recipe"
     target_file.write_text("Recipe content")
 
-    found_path = recipe_finder._find_in_directory_recursively(
+    found_path = await recipe_finder._find_in_directory_recursively(
         search_dir, ["MyRecipe.recipe"]
     )
     assert found_path == target_file
 
 
-def test_find_in_directory_recursively_not_found(
+@pytest.mark.asyncio
+async def test_find_in_directory_recursively_not_found(
     recipe_finder: RecipeFinder, tmp_path: Path
 ) -> None:
     """Test that the target file is not found recursively."""
     search_dir = tmp_path / "search"
     search_dir.mkdir(parents=True, exist_ok=True)
 
-    found_path = recipe_finder._find_in_directory_recursively(
+    found_path = await recipe_finder._find_in_directory_recursively(
         search_dir, ["NonExistent.recipe"]
     )
     assert found_path is None
 
 
-def test_search_directory_direct_match(
+@pytest.mark.asyncio
+async def test_search_directory_direct_match(
     recipe_finder: RecipeFinder, tmp_path: Path
 ) -> None:
     """Test _search_directory method with a direct match."""
@@ -165,11 +172,12 @@ def test_search_directory_direct_match(
     target_file = search_dir / "MyRecipe.recipe"
     target_file.write_text("Recipe content")
 
-    found_path = recipe_finder._search_directory(search_dir, ["MyRecipe.recipe"])
+    found_path = await recipe_finder._search_directory(search_dir, ["MyRecipe.recipe"])
     assert found_path == target_file
 
 
-def test_search_directory_recursive_match(
+@pytest.mark.asyncio
+async def test_search_directory_recursive_match(
     recipe_finder: RecipeFinder, tmp_path: Path
 ) -> None:
     """Test _search_directory method with a recursive match."""
@@ -179,32 +187,39 @@ def test_search_directory_recursive_match(
     target_file = search_dir / "subdir" / "MyRecipe.recipe"
     target_file.write_text("Recipe content")
 
-    found_path = recipe_finder._search_directory(search_dir, ["MyRecipe.recipe"])
+    found_path = await recipe_finder._search_directory(search_dir, ["MyRecipe.recipe"])
     assert found_path == target_file
 
 
-def test_search_directory_not_found(
+@pytest.mark.asyncio
+async def test_search_directory_not_found(
     recipe_finder: RecipeFinder, tmp_path: Path
 ) -> None:
     """Test _search_directory method when the target file is not found."""
     search_dir = tmp_path / "search"
     search_dir.mkdir(parents=True, exist_ok=True)
 
-    found_path = recipe_finder._search_directory(search_dir, ["NonExistent.recipe"])
+    found_path = await recipe_finder._search_directory(
+        search_dir, ["NonExistent.recipe"]
+    )
     assert found_path is None
 
 
-def test_find_recipe_direct_match(recipe_finder: RecipeFinder, tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_find_recipe_direct_match(
+    recipe_finder: RecipeFinder, tmp_path: Path
+) -> None:
     """Test find_recipe method with a direct match in lookup directories."""
     recipe_file = tmp_path / "override" / "MyRecipe.recipe"
     tmp_path.joinpath("override").mkdir(parents=True)
     recipe_file.write_text("Recipe content")
 
-    found_path = recipe_finder.find_recipe("MyRecipe.recipe")
+    found_path = await recipe_finder.find_recipe("MyRecipe.recipe")
     assert found_path == recipe_file
 
 
-def test_find_recipe_recursive_match(
+@pytest.mark.asyncio
+async def test_find_recipe_recursive_match(
     recipe_finder: RecipeFinder, tmp_path: Path
 ) -> None:
     """Test find_recipe method with a recursive match in lookup directories."""
@@ -212,17 +227,19 @@ def test_find_recipe_recursive_match(
     tmp_path.joinpath("search", "subdir").mkdir(parents=True)
     recipe_file.write_text("Recipe content")
 
-    found_path = recipe_finder.find_recipe("MyRecipe.recipe")
+    found_path = await recipe_finder.find_recipe("MyRecipe.recipe")
     assert found_path == recipe_file
 
 
-def test_find_recipe_not_found(recipe_finder: RecipeFinder) -> None:
+@pytest.mark.asyncio
+async def test_find_recipe_not_found(recipe_finder: RecipeFinder) -> None:
     """Test find_recipe method when the recipe is not found."""
     with pytest.raises(RecipeLookupException):
-        recipe_finder.find_recipe("NonExistentRecipe")
+        await recipe_finder.find_recipe("NonExistentRecipe")
 
 
-def test_find_recipe_prefers_override(
+@pytest.mark.asyncio
+async def test_find_recipe_prefers_override(
     recipe_finder: RecipeFinder, tmp_path: Path
 ) -> None:
     """Test that the override directory is preferred over the search directory."""
@@ -235,11 +252,12 @@ def test_find_recipe_prefers_override(
     override_recipe.write_text("Override Recipe")
     search_recipe.write_text("Search Recipe")
 
-    found_path = recipe_finder.find_recipe("MyRecipe.recipe")
+    found_path = await recipe_finder.find_recipe("MyRecipe.recipe")
     assert found_path == override_recipe
 
 
-def test_find_recipe_handles_tilde_expansion(
+@pytest.mark.asyncio
+async def test_find_recipe_handles_tilde_expansion(
     recipe_finder: RecipeFinder, tmp_path: Path
 ) -> None:
     """Test that find_recipe correctly handles tilde expansion in paths."""
@@ -259,11 +277,12 @@ def test_find_recipe_handles_tilde_expansion(
         tmp_path.joinpath("override").mkdir(parents=True)
         recipe_file.write_text("Recipe content")
 
-        found_path = recipe_finder.find_recipe("MyRecipe.recipe")
+        found_path = await recipe_finder.find_recipe("MyRecipe.recipe")
         assert found_path == recipe_file
 
 
-def test_find_recipe_custom_recursion_depth(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_find_recipe_custom_recursion_depth(tmp_path: Path) -> None:
     """Test find_recipe with a custom recursion depth."""
     mock_prefs = MagicMock()
     mock_prefs.recipe_override_dirs = [tmp_path / "override"]
@@ -282,9 +301,9 @@ def test_find_recipe_custom_recursion_depth(tmp_path: Path) -> None:
         target_file.write_text("Recipe content")
 
         with pytest.raises(RecipeLookupException):
-            recipe_finder.find_recipe("MyRecipe.recipe")
+            await recipe_finder.find_recipe("MyRecipe.recipe")
 
         recipe_finder = RecipeFinder(max_recursion_depth=2)
         recipe_finder.logger = MagicMock()
-        found_path = recipe_finder.find_recipe("MyRecipe.recipe")
+        found_path = await recipe_finder.find_recipe("MyRecipe.recipe")
         assert found_path == target_file
