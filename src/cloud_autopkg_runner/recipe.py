@@ -13,7 +13,6 @@ Key classes:
 
 import asyncio
 import plistlib
-from collections.abc import Iterable
 from datetime import datetime, timezone
 from enum import Enum, auto
 from pathlib import Path
@@ -27,7 +26,6 @@ from cloud_autopkg_runner.exceptions import (
     InvalidYamlContents,
     RecipeFormatException,
     RecipeInputException,
-    RecipeLookupException,
 )
 from cloud_autopkg_runner.file_utils import get_file_metadata, get_file_size
 from cloud_autopkg_runner.logging_config import get_logger
@@ -36,7 +34,6 @@ from cloud_autopkg_runner.metadata_cache import (
     MetadataCacheManager,
     RecipeCache,
 )
-from cloud_autopkg_runner.recipe_finder import RecipeFinder
 from cloud_autopkg_runner.recipe_report import ConsolidatedReport, RecipeReport
 from cloud_autopkg_runner.shell import run_cmd
 
@@ -63,7 +60,7 @@ class RecipeContents(TypedDict):
     Input: dict[str, Any]
     MinimumVersion: str | None
     ParentRecipe: str | None
-    Process: Iterable[dict[str, Any]]
+    Process: list[dict[str, Any]]
 
 
 class RecipeFormat(Enum):
@@ -96,23 +93,22 @@ class Recipe:
         _result: RecipeReport object for storing the results of running the recipe.
     """
 
-    def __init__(self, recipe_name: str, report_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        recipe_path: Path,
+        report_dir: Path | None = None,
+    ) -> None:
         """Initialize a Recipe object.
 
         Args:
-            recipe_name: Name of the recipe file.
+            recipe_path: Path to the recipe file.
             report_dir: Path to the report directory. If None, a the value returned
                 from `settings.report_dir` is used.
         """
-        self._name: str = recipe_name
         self.logger = get_logger(__name__)
 
-        try:
-            self._path: Path = RecipeFinder().find_recipe(recipe_name)
-        except RecipeLookupException:
-            self.logger.exception("Failed to find recipe: %s", recipe_name)
-            raise
-
+        self._name: str = recipe_path.name
+        self._path: Path = recipe_path
         self._format: RecipeFormat = self.format()
         self._contents: RecipeContents = self._get_contents()
         self._trusted: TrustInfoVerificationState = TrustInfoVerificationState.UNTESTED
@@ -150,9 +146,7 @@ class Recipe:
             The recipe's description as a string. Returns an empty string
             if the recipe does not have a description.
         """
-        if self._contents["Description"] is None:
-            return ""
-        return self._contents["Description"]
+        return self._contents["Description"] or ""
 
     @property
     def identifier(self) -> str:
@@ -196,9 +190,7 @@ class Recipe:
             The recipe's minimum version as a string. Returns an empty string
             if the recipe does not have a minimum version specified.
         """
-        if self._contents["MinimumVersion"] is None:
-            return ""
-        return self._contents["MinimumVersion"]
+        return self._contents["MinimumVersion"] or ""
 
     @property
     def name(self) -> str:
@@ -217,19 +209,17 @@ class Recipe:
             The recipe's parent recipe identifier as a string. Returns an empty
             string if the recipe does not have a parent recipe.
         """
-        if self._contents["ParentRecipe"] is None:
-            return ""
-        return self._contents["ParentRecipe"]
+        return self._contents["ParentRecipe"] or ""
 
     @property
-    def process(self) -> Iterable[dict[str, Any]]:
+    def process(self) -> list[dict[str, Any]]:
         """Returns the recipe's process array.
 
         Returns:
             The recipe's process array, which is an iterable of dictionaries
             defining the steps in the recipe's processing workflow.
         """
-        return self._contents["Process"]
+        return self._contents["Process"] or []
 
     def _autopkg_run_cmd(self, *, check: bool = False) -> list[str]:
         """Constructs the command-line arguments for running AutoPkg.
