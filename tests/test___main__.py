@@ -27,6 +27,12 @@ from cloud_autopkg_runner.exceptions import (
 from cloud_autopkg_runner.recipe import Recipe
 
 
+@pytest.fixture(autouse=True)
+def mock_settings() -> None:
+    """Mock the settings module to avoid actual file operations."""
+    settings.report_dir = Path("/tmp/report_dir")
+
+
 def test_apply_args_to_settings(tmp_path: Path) -> None:
     """Test that _apply_args_to_settings correctly sets settings."""
     args = Namespace(
