@@ -30,7 +30,6 @@ from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
     InvalidJsonContents,
     RecipeException,
-    RecipeLookupException,
 )
 from cloud_autopkg_runner.file_utils import create_dummy_files
 from cloud_autopkg_runner.logging_config import get_logger, initialize_logger
@@ -121,13 +120,8 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
 
 async def _get_recipe_path(recipe_name: str) -> Path:
     """Helper function to asynchronously find a recipe path."""
-    try:
-        finder = RecipeFinder()
-        return await finder.find_recipe(recipe_name)
-    except RecipeLookupException:
-        logger = get_logger(__name__)
-        logger.exception("Failed to find recipe: %s", recipe_name)
-        raise
+    finder = RecipeFinder()
+    return await finder.find_recipe(recipe_name)
 
 
 def _parse_arguments() -> Namespace:
