@@ -4,7 +4,8 @@ A Python library designed to level-up your AutoPkg automations with a focus on C
 
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![PyPI Version](https://img.shields.io/pypi/v/cloud-autopkg-runner)](https://pypi.org/project/cloud-autopkg-runner/)
-[![codecov](https://codecov.io/gh/MScottBlake/cloud-autopkg-runner/graph/badge.svg?token=V61UNG93JE)](https://codecov.io/gh/MScottBlake/cloud-autopkg-runner)
+[![PyPI Downloads](https://static.pepy.tech/badge/cloud-autopkg-runner)](https://pepy.tech/projects/cloud-autopkg-runner)
+[![CodeCov](https://codecov.io/gh/MScottBlake/cloud-autopkg-runner/graph/badge.svg?token=V61UNG93JE)](https://codecov.io/gh/MScottBlake/cloud-autopkg-runner)
 
 ![AutoPkgRunner](https://raw.githubusercontent.com/MScottBlake/cloud-autopkg-runner/main/docs/AutoPkgRunner.png)
 
