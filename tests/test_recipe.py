@@ -21,7 +21,11 @@ def create_dummy_file(path: Path, content: str) -> None:
 
 @pytest.fixture
 def mock_autopkg_prefs(tmp_path: Path) -> MagicMock:
-    """Fixture to create a mock AutoPkgPrefs object with search/override dirs."""
+    """Fixture to create a mock AutoPkgPrefs object with search/override dirs.
+
+    Returns:
+        MagicMock: A mock AutoPkgPrefs object.
+    """
     mock_prefs = MagicMock(spec=AutoPkgPrefs)
     mock_prefs.recipe_override_dirs = [tmp_path]
     mock_prefs.recipe_search_dirs = [tmp_path]
@@ -200,12 +204,12 @@ def test_autopkg_run_cmd_basic(tmp_path: Path, mock_autopkg_prefs: MagicMock) ->
             "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
             return_value=mock_autopkg_prefs,
         ),
-        patch("cloud_autopkg_runner.recipe.settings") as mock_settings,
+        patch("cloud_autopkg_runner.recipe.Settings") as mock_settings,
     ):
-        mock_settings.pre_processors = []
-        mock_settings.post_processors = []
-        mock_settings.verbosity_int.return_value = 0
-        mock_settings.verbosity_str.return_value = ""
+        mock_settings.return_value.pre_processors = []
+        mock_settings.return_value.post_processors = []
+        mock_settings.return_value.verbosity_int.return_value = 0
+        mock_settings.return_value.verbosity_str.return_value = ""
 
         recipe = Recipe(recipe_file, report_dir)
         cmd = recipe._autopkg_run_cmd()
@@ -236,12 +240,12 @@ def test_autopkg_run_cmd_with_check(
             "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
             return_value=mock_autopkg_prefs,
         ),
-        patch("cloud_autopkg_runner.recipe.settings") as mock_settings,
+        patch("cloud_autopkg_runner.recipe.Settings") as mock_settings,
     ):
-        mock_settings.pre_processors = []
-        mock_settings.post_processors = []
-        mock_settings.verbosity_int.return_value = 0
-        mock_settings.verbosity_str.return_value = ""
+        mock_settings.return_value.pre_processors = []
+        mock_settings.return_value.post_processors = []
+        mock_settings.return_value.verbosity_int.return_value = 0
+        mock_settings.return_value.verbosity_str.return_value = ""
 
         recipe = Recipe(recipe_file, report_dir)
         cmd = recipe._autopkg_run_cmd(check=True)
@@ -270,12 +274,15 @@ def test_autopkg_run_cmd_with_processors_and_verbosity(
             "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
             return_value=mock_autopkg_prefs,
         ),
-        patch("cloud_autopkg_runner.recipe.settings") as mock_settings,
+        patch("cloud_autopkg_runner.recipe.Settings") as mock_settings,
     ):
-        mock_settings.pre_processors = ["PreA", "com.example.test/PreProcessorB"]
-        mock_settings.post_processors = ["PostA"]
-        mock_settings.verbosity_int.return_value = 1
-        mock_settings.verbosity_str.return_value = "-v"
+        mock_settings.return_value.pre_processors = [
+            "PreA",
+            "com.example.test/PreProcessorB",
+        ]
+        mock_settings.return_value.post_processors = ["PostA"]
+        mock_settings.return_value.verbosity_int.return_value = 1
+        mock_settings.return_value.verbosity_str.return_value = "-v"
 
         recipe = Recipe(recipe_file, report_dir)
         cmd = recipe._autopkg_run_cmd()

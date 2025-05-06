@@ -1,15 +1,15 @@
 """Application settings module (Singleton Pattern with Properties).
 
-This module defines the `SettingsImpl` class, which implements a Singleton pattern
+This module defines the `Settings` class, which implements a Singleton pattern
 to ensure only one instance of application settings is created. It provides
 a type-safe and centralized way to manage application-wide configuration
 parameters such as file paths, verbosity level, and concurrency limits.
 
-The `SettingsImpl` class uses properties and custom setters to control access
+The `Settings` class uses properties and custom setters to control access
 to and modification of the settings, including validation where appropriate.
 
 Classes:
-    SettingsImpl: Manages application settings using properties and custom setters.
+    Settings: Manages application settings using properties and custom setters.
 
 Exceptions:
     SettingsValidationError: Raised when a setting fails validation.
@@ -20,28 +20,28 @@ from pathlib import Path
 from cloud_autopkg_runner.exceptions import SettingsValidationError
 
 
-class SettingsImpl:
+class Settings:
     """Manages application settings using properties and custom setters.
 
     Ensures only one instance is available globally. Provides type-safe
     access and validation for setting application configurations.
 
     Attributes:
-        _instance: The singleton instance of the SettingsImpl class.
+        _instance: The singleton instance of the Settings class.
     """
 
-    _instance: "SettingsImpl | None" = None
+    _instance: "Settings | None" = None
 
-    def __new__(cls) -> "SettingsImpl":
+    def __new__(cls) -> "Settings":
         """Create a new instance of Settings if one doesn't exist.
 
         This `__new__` method implements the Singleton pattern, ensuring
-        that only one instance of the `SettingsImpl` class is ever created.
+        that only one instance of the `Settings` class is ever created.
         If an instance already exists, it is returned; otherwise, a new
         instance is created and stored for future use.
 
         Returns:
-            The SettingsImpl instance.
+            The Settings instance.
         """
         if not cls._instance:
             cls._instance = super().__new__(cls)
@@ -54,16 +54,18 @@ class SettingsImpl:
         is called only once due to the Singleton pattern implemented in
         `__new__`.
         """
-        if not hasattr(self, "_initialized"):
-            self._cache_file: Path = Path("metadata_cache.json")
-            self._log_file: Path | None = None
-            self._max_concurrency: int = 10
-            self._post_processors: list[str] = []
-            self._pre_processors: list[str] = []
-            self._report_dir: Path = Path("recipe_reports")
-            self._verbosity_level: int = 0
+        if hasattr(self, "_initialized"):
+            return  # Prevent re-initialization
 
-            self._initialized = True  # Prevent re-initialization
+        self._cache_file: Path = Path("metadata_cache.json")
+        self._log_file: Path | None = None
+        self._max_concurrency: int = 10
+        self._post_processors: list[str] = []
+        self._pre_processors: list[str] = []
+        self._report_dir: Path = Path("recipe_reports")
+        self._verbosity_level: int = 0
+
+        self._initialized = True
 
     @property
     def cache_file(self) -> Path:
@@ -121,9 +123,6 @@ class SettingsImpl:
 
         Args:
             value: The new maximum number of concurrent tasks (an integer).
-
-        Raises:
-            SettingsValidationError: If the value is not a positive integer.
         """
         self._validate_integer_is_positive("max_concurrency", value)
         self._max_concurrency = value
@@ -210,9 +209,6 @@ class SettingsImpl:
 
         Args:
             value: The new verbosity level (an integer).
-
-        Raises:
-            SettingsValidationError: If the value is negative.
         """
         self._validate_integer_is_not_negative("verbosity_level", value)
         self._verbosity_level = value
@@ -259,7 +255,15 @@ class SettingsImpl:
 
     @staticmethod
     def _convert_to_path(value: str | Path) -> Path:
-        """Convert to `pathlib.Path`."""
+        """Convert to `pathlib.Path`.
+
+        Args:
+            value: The value to convert to a `Path` object (either a string or a `Path`
+            object).
+
+        Returns:
+            A `Path` object representing the given value.
+        """
         if isinstance(value, str):
             return Path(value)
         return value
@@ -300,7 +304,3 @@ class SettingsImpl:
         """
         if value < 0:
             raise SettingsValidationError(field_name, "Must not be negative")
-
-
-# Create a module-level instance of SettingsImpl
-settings = SettingsImpl()

@@ -25,7 +25,7 @@ from pathlib import Path
 from types import FrameType
 from typing import NoReturn
 
-from cloud_autopkg_runner import RecipeFinder, settings
+from cloud_autopkg_runner import RecipeFinder, Settings
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
     InvalidJsonContents,
@@ -47,6 +47,8 @@ def _apply_args_to_settings(args: Namespace) -> None:
     Args:
         args: A Namespace object containing parsed command-line arguments.
     """
+    settings = Settings()
+
     settings.cache_file = args.cache_file
     settings.log_file = args.log_file
     settings.max_concurrency = args.max_concurrency
@@ -69,6 +71,7 @@ async def _create_recipe(recipe_name: str) -> Recipe | None:
         A Recipe object if the creation was successful, otherwise None.
     """
     try:
+        settings = Settings()
         recipe_path = await _get_recipe_path(recipe_name)
         return Recipe(recipe_path, settings.report_dir)
     except (InvalidFileContents, RecipeException):
@@ -104,7 +107,7 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
 
     if args.recipe_list:
         try:
-            output.update(json.loads(Path(args.recipe_list).read_text()))
+            output.update(json.loads(Path(args.recipe_list).read_text("utf-8")))
         except json.JSONDecodeError as exc:
             raise InvalidJsonContents(args.recipe_list) from exc
 
@@ -119,7 +122,14 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
 
 
 async def _get_recipe_path(recipe_name: str) -> Path:
-    """Helper function to asynchronously find a recipe path."""
+    """Helper function to asynchronously find a recipe path.
+
+    Args:
+        recipe_name: The name of the recipe to find the path for.
+
+    Returns:
+        The Path to a given recipe.
+    """
     finder = RecipeFinder()
     return await finder.find_recipe(recipe_name)
 
@@ -249,6 +259,7 @@ async def _run_recipe(
         A tuple containing the recipe name and the ConsolidatedReport object.
     """
     logger = get_logger(__name__)
+    settings = Settings()
     async with asyncio.Semaphore(settings.max_concurrency):
         logger.debug("Running recipe %s", recipe.name)
         return recipe.name, await recipe.run()

@@ -1,11 +1,13 @@
 """Tests for the file_utils module."""
 
+import json
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
 import pytest
 
+from cloud_autopkg_runner import Settings
 from cloud_autopkg_runner.file_utils import (
     create_dummy_files,
     get_file_metadata,
@@ -16,14 +18,22 @@ from cloud_autopkg_runner.metadata_cache import MetadataCache
 
 @pytest.fixture
 def mock_xattr() -> Any:
-    """Fixture to mock the xattr module."""
+    """Fixture to mock the xattr module.
+
+    Yields:
+        Any: The mock xattr module.
+    """
     with patch("cloud_autopkg_runner.file_utils.xattr") as mock:
         yield mock
 
 
 @pytest.fixture
 def metadata_cache(tmp_path: Path) -> MetadataCache:
-    """Fixture for a sample metadata cache."""
+    """Fixture for a sample metadata cache.
+
+    Returns:
+        MetadataCache: A sample metadata cache.
+    """
     return {
         "Recipe1": {
             "timestamp": "foo",
@@ -55,6 +65,9 @@ async def test_create_dummy_files(
     tmp_path: Path, metadata_cache: MetadataCache
 ) -> None:
     """Test creating dummy files based on metadata."""
+    settings = Settings()
+    settings.cache_file = tmp_path / "metatadata_cache.json"
+    settings.cache_file.write_text(json.dumps(metadata_cache))
     recipe_list = ["Recipe1", "Recipe2"]
     file_path1 = tmp_path / "path/to/file1.dmg"
     file_path2 = tmp_path / "path/to/file2.pkg"
@@ -77,6 +90,9 @@ async def test_create_dummy_files_skips_existing(
     tmp_path: Path, metadata_cache: MetadataCache
 ) -> None:
     """Test skipping creation of existing dummy files."""
+    settings = Settings()
+    settings.cache_file = tmp_path / "metatadata_cache.json"
+    settings.cache_file.write_text(json.dumps(metadata_cache))
     recipe_list = ["Recipe1"]
     file_path = tmp_path / "path/to/file1.dmg"
     file_path.parent.mkdir(parents=True, exist_ok=True)
