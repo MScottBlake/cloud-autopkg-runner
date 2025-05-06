@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cloud_autopkg_runner import AutoPkgPrefs, settings
+from cloud_autopkg_runner import AutoPkgPrefs, Settings
 from cloud_autopkg_runner.__main__ import (
     _apply_args_to_settings,
     _create_recipe,
@@ -29,7 +29,11 @@ from cloud_autopkg_runner.recipe import Recipe
 
 @pytest.fixture
 def mock_autopkg_prefs(tmp_path: Path) -> MagicMock:
-    """Fixture to create a mock AutoPkgPrefs object with search/override dirs."""
+    """Fixture to create a mock AutoPkgPrefs object with search/override dirs.
+
+    Returns:
+        MagicMock: A mock AutoPkgPrefs object.
+    """
     mock_prefs = MagicMock(spec=AutoPkgPrefs)
     mock_prefs.recipe_override_dirs = [tmp_path]
     mock_prefs.recipe_search_dirs = [tmp_path]
@@ -45,6 +49,7 @@ def test_apply_args_to_settings(tmp_path: Path) -> None:
         report_dir=tmp_path / "test_reports",
         verbose=2,
     )
+    settings = Settings()
 
     _apply_args_to_settings(args)
 

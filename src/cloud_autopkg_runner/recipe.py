@@ -20,7 +20,7 @@ from typing import Any, TypedDict
 
 import yaml
 
-from cloud_autopkg_runner import settings
+from cloud_autopkg_runner import Settings
 from cloud_autopkg_runner.exceptions import (
     InvalidPlistContents,
     InvalidYamlContents,
@@ -105,7 +105,8 @@ class Recipe:
             report_dir: Path to the report directory. If None, a the value returned
                 from `settings.report_dir` is used.
         """
-        self.logger = get_logger(__name__)
+        self._logger = get_logger(__name__)
+        self._settings = Settings()
 
         self._name: str = recipe_path.name
         self._path: Path = recipe_path
@@ -115,7 +116,7 @@ class Recipe:
 
         now_str = datetime.now(tz=timezone.utc).strftime("%y%m%d_%H%M")
         if report_dir is None:
-            report_dir = settings.report_dir
+            report_dir = self._settings.report_dir
         report_path: Path = report_dir / f"report_{now_str}_{self.name}.plist"
 
         counter = 1
@@ -237,20 +238,21 @@ class Recipe:
             f"--report-plist={self._result.file_path()}",
         ]
 
-        cmd.extend([f"--preprocessor={item}" for item in settings.pre_processors])
-        cmd.extend([f"--postprocessor={item}" for item in settings.post_processors])
+        cmd.extend([f"--preprocessor={item}" for item in self._settings.pre_processors])
+        cmd.extend(
+            [f"--postprocessor={item}" for item in self._settings.post_processors]
+        )
 
-        if settings.verbosity_int(-1) > 0:
-            cmd.append(settings.verbosity_str(-1))
+        if self._settings.verbosity_int(-1) > 0:
+            cmd.append(self._settings.verbosity_str(-1))
 
         if check:
             cmd.append("--check")
 
         return cmd
 
-    def _extract_download_paths(
-        self, download_items: list[dict[str, Any]]
-    ) -> list[str]:
+    @staticmethod
+    def _extract_download_paths(download_items: list[dict[str, Any]]) -> list[str]:
         """Extracts 'download_path' values from a list of dictionaries.
 
         This function assumes that each dictionary in the input list has a structure
@@ -278,9 +280,6 @@ class Recipe:
 
         Returns:
             A dictionary containing the recipe's contents.
-
-        Raises:
-            InvalidFileContents: If the file is invalid or cannot be parsed.
         """
         file_contents = self._path.read_text()
 
@@ -349,7 +348,8 @@ class Recipe:
             "metadata": metadata_list,
         }
 
-    async def _get_metadata_for_item(self, downloaded_item: str) -> DownloadMetadata:
+    @staticmethod
+    async def _get_metadata_for_item(downloaded_item: str) -> DownloadMetadata:
         """Retrieves metadata for a single downloaded item.
 
         This method takes the path to a downloaded item and asynchronously
@@ -404,7 +404,7 @@ class Recipe:
         """
         if self._path.suffix == ".yaml":
             return RecipeFormat.YAML
-        if self._path.suffix in [".plist", ".recipe"]:
+        if self._path.suffix in {".plist", ".recipe"}:
             return RecipeFormat.PLIST
         raise RecipeFormatException(self._path.suffix)
 
@@ -422,7 +422,9 @@ class Recipe:
         output = await self.run_check_phase()
         if output["downloaded_items"]:
             metadata = await self._get_metadata(output["downloaded_items"])
-            await MetadataCacheManager.save(settings.cache_file, self.name, metadata)
+            await MetadataCacheManager.save(
+                self._settings.cache_file, self.name, metadata
+            )
 
             return await self.run_full()
         return output
@@ -437,7 +439,7 @@ class Recipe:
         Returns:
             A ConsolidatedReport object containing the results of the check phase.
         """
-        self.logger.debug("Performing Check Phase on %s...", self.name)
+        self._logger.debug("Performing Check Phase on %s...", self.name)
 
         returncode, _stdout, stderr = await run_cmd(
             self._autopkg_run_cmd(check=True), check=False
@@ -446,7 +448,7 @@ class Recipe:
         if returncode != 0:
             if not stderr:
                 stderr = "<Unknown Error>"
-            self.logger.error(
+            self._logger.error(
                 "An error occurred while running the check phase, on %s: %s",
                 self.name,
                 stderr,
@@ -466,7 +468,7 @@ class Recipe:
         Returns:
             A ConsolidatedReport object containing the results of the full recipe run.
         """
-        self.logger.debug("Performing AutoPkg Run on %s...", self.name)
+        self._logger.debug("Performing AutoPkg Run on %s...", self.name)
 
         returncode, _stdout, stderr = await run_cmd(
             self._autopkg_run_cmd(check=False), check=False
@@ -475,7 +477,7 @@ class Recipe:
         if returncode != 0:
             if not stderr:
                 stderr = "<Unknown Error>"
-            self.logger.error(
+            self._logger.error(
                 "An error occurred while running %s: %s", self.name, stderr
             )
 
@@ -489,7 +491,7 @@ class Recipe:
         Returns:
             True if the trust info was successfully updated, False otherwise.
         """
-        self.logger.debug("Updating trust info for %s...", self.name)
+        self._logger.debug("Updating trust info for %s...", self.name)
 
         cmd = [
             "/usr/local/bin/autopkg",
@@ -500,14 +502,14 @@ class Recipe:
 
         returncode, stdout, _stderr = await run_cmd(cmd)
 
-        self.logger.info(stdout)
+        self._logger.info(stdout)
         self._trusted = TrustInfoVerificationState.UNTESTED
 
         if returncode == 0:
-            self.logger.info("Trust info update for %s successful.", self.name)
+            self._logger.info("Trust info update for %s successful.", self.name)
             return True
 
-        self.logger.warning("Trust info update for %s failed.", self.name)
+        self._logger.warning("Trust info update for %s failed.", self.name)
         return False
 
     async def verify_trust_info(self) -> bool:
@@ -520,7 +522,7 @@ class Recipe:
             TrustInfoVerificationState.FAILED if it is untrusted, or
         """
         if self._trusted == TrustInfoVerificationState.UNTESTED:
-            self.logger.debug("Verifying trust info for %s...", self.name)
+            self._logger.debug("Verifying trust info for %s...", self.name)
 
             cmd = [
                 "/usr/local/bin/autopkg",
@@ -529,18 +531,20 @@ class Recipe:
                 f"--override-dir={self._path.parent}",
             ]
 
-            if settings.verbosity_int() > 0:
-                cmd.append(settings.verbosity_str())
+            if self._settings.verbosity_int() > 0:
+                cmd.append(self._settings.verbosity_str())
 
             returncode, _stdout, _stderr = await run_cmd(cmd, check=False)
 
             if returncode == 0:
-                self.logger.info(
+                self._logger.info(
                     "Trust info verification for %s successful.", self.name
                 )
                 self._trusted = TrustInfoVerificationState.TRUSTED
             else:
-                self.logger.warning("Trust info verification for %s failed.", self.name)
+                self._logger.warning(
+                    "Trust info verification for %s failed.", self.name
+                )
                 self._trusted = TrustInfoVerificationState.FAILED
 
         return self._trusted.value
