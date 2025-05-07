@@ -18,7 +18,7 @@ Functions:
 import asyncio
 from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import xattr  # pyright: ignore[reportMissingTypeStubs]
 
@@ -27,11 +27,7 @@ from cloud_autopkg_runner import (
     metadata_cache,
     recipe_finder,
 )
-
-if TYPE_CHECKING:
-    from cloud_autopkg_runner.metadata_cache import DownloadMetadata
-else:
-    DownloadMetadata = object
+from cloud_autopkg_runner.metadata_cache import DownloadMetadata
 
 
 def _set_file_size(file_path: Path, size: int) -> None:
@@ -51,9 +47,7 @@ def _set_file_size(file_path: Path, size: int) -> None:
         f.write(b"\0")
 
 
-async def create_dummy_files(
-    recipe_list: Iterable[str], cache: metadata_cache.MetadataCache
-) -> None:
+async def create_dummy_files(recipe_list: Iterable[str]) -> None:
     """Create dummy files based on metadata from the cache.
 
     For each recipe in the `recipe_list`, this function iterates through the
@@ -67,11 +61,11 @@ async def create_dummy_files(
 
     Args:
         recipe_list: An iterable of recipe names to process.
-        cache: The metadata cache dictionary.
     """
     logger = logging_config.get_logger(__name__)
     logger.debug("Creating dummy files...")
 
+    cache = await metadata_cache.get_cache_plugin().load()
     tasks: list[asyncio.Task[None]] = []
 
     possible_names: set[str] = set()

@@ -16,7 +16,7 @@ import plistlib
 from datetime import datetime, timezone
 from enum import Enum, auto
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import Any, TypedDict
 
 import yaml
 
@@ -24,6 +24,7 @@ from cloud_autopkg_runner import (
     Settings,
     file_utils,
     logging_config,
+    metadata_cache,
     recipe_report,
     shell,
 )
@@ -33,15 +34,8 @@ from cloud_autopkg_runner.exceptions import (
     RecipeFormatException,
     RecipeInputException,
 )
-from cloud_autopkg_runner.metadata_cache import MetadataCacheManager
-
-if TYPE_CHECKING:
-    from cloud_autopkg_runner.metadata_cache import DownloadMetadata, RecipeCache
-    from cloud_autopkg_runner.recipe_report import ConsolidatedReport
-else:
-    ConsolidatedReport = object
-    DownloadMetadata = object
-    RecipeCache = object
+from cloud_autopkg_runner.metadata_cache import DownloadMetadata, RecipeCache
+from cloud_autopkg_runner.recipe_report import ConsolidatedReport
 
 
 class RecipeContents(TypedDict):
@@ -432,9 +426,8 @@ class Recipe:
         output = await self.run_check_phase()
         if output["downloaded_items"]:
             metadata = await self._get_metadata(output["downloaded_items"])
-            await MetadataCacheManager.save(
-                self._settings.cache_file, self.name, metadata
-            )
+            metadata_cache_manager = metadata_cache.get_cache_plugin()
+            await metadata_cache_manager.set_item(self.name, metadata)
 
             return await self.run_full()
         return output

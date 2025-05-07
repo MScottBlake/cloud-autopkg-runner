@@ -11,13 +11,14 @@ This information is used to create dummy files for testing purposes and
 to avoid unnecessary downloads.
 """
 
-import asyncio
-import json
-from pathlib import Path
-from typing import TypeAlias, TypedDict
+from importlib.metadata import entry_points
+from typing import Protocol, TypeAlias, TypedDict
 
-from cloud_autopkg_runner import logging_config
-from cloud_autopkg_runner.exceptions import InvalidJsonContents
+from cloud_autopkg_runner import Settings, logging_config
+from cloud_autopkg_runner.exceptions import (
+    PluginManagerEntryPointError,
+    PluginManagerError,
+)
 
 
 class DownloadMetadata(TypedDict, total=False):
@@ -49,7 +50,13 @@ class RecipeCache(TypedDict):
     metadata: list[DownloadMetadata]
 
 
-MetadataCache: TypeAlias = dict[str, RecipeCache]
+RecipeName: TypeAlias = str
+"""Type alias for a recipe name.
+
+This type alias represents a recipe name, which is a string.
+"""
+
+MetadataCache: TypeAlias = dict[RecipeName, RecipeCache]
 """Type alias for the metadata cache dictionary.
 
 This type alias represents the structure of the metadata cache, which is a
@@ -57,104 +64,170 @@ dictionary mapping recipe names to `RecipeCache` objects.
 """
 
 
-class MetadataCacheManager:
-    """Manages the metadata cache, loading from and saving to disk."""
+class MetadataCachePlugin(Protocol):
+    """Protocol defining the asynchronous interface for metadata caching."""
 
-    _cache: MetadataCache | None = None
-    _lock = asyncio.Lock()
+    async def open(self) -> None:
+        """Open the cache and establish a connection to the underlying storage.
 
-    @classmethod
-    async def clear_cache(cls) -> None:
-        """Clear the in-memory metadata cache.
-
-        This class method resets the in-memory metadata cache to `None`,
-        forcing a reload from disk on the next access.
+        This method is used to open the cache and establish a connection
+        to the underlying storage, such as a file or a database.
         """
-        async with cls._lock:
-            cls._cache = None
+        ...
 
-    @classmethod
-    async def load(cls, file_path: Path) -> MetadataCache:
-        """Load the metadata cache from disk.
+    async def load(self) -> MetadataCache:
+        """Load the metadata cache from the underlying storage into memory.
 
-        If the cache is not already loaded, this method loads it from the
-        specified file path. It uses a lock to prevent concurrent loads.
-
-        Args:
-            file_path: The path to the file where the metadata cache is stored.
+        This method is used to load the metadata cache from the underlying
+        storage into memory. The cache is represented as a dictionary
+        mapping recipe names to `RecipeCache` objects.
 
         Returns:
-            The loaded metadata cache.
+            The metadata cache loaded from the underlying storage.
         """
-        async with cls._lock:
-            if cls._cache is None:
-                logger = logging_config.get_logger(__name__)
-                logger.debug("Loading metadata cache for the first time...")
-                cls._cache = await asyncio.to_thread(cls._load_from_disk, file_path)
-            return cls._cache
+        ...
 
-    @classmethod
-    async def save(
-        cls, file_path: Path, recipe_name: str, metadata: RecipeCache
-    ) -> None:
-        """Save metadata to the cache and persist it to disk.
+    async def save(self) -> None:
+        """Persist the metadata cache from memory to the underlying storage.
 
-        This method updates the metadata cache with new recipe metadata and
-        then saves the entire cache to disk. It uses a lock to ensure that
-        only one save operation occurs at a time.
+        This method is used to persist the metadata cache from memory
+        to the underlying storage, such as a file or a database.
+        """
+        ...
+
+    async def close(self) -> None:
+        """Close the cache, release any resources, and terminate the connection.
+
+        Close the cache, release any resources, and terminate the connection. to the
+        underlying storage.
+        """
+        ...
+
+    async def clear_cache(self) -> None:
+        """Empty the cache.
+
+        This method is used to remove all items from the cache, effectively
+        resetting it to an empty state.
+        """
+        ...
+
+    async def get_item(self, recipe_name: RecipeName) -> RecipeCache | None:
+        """Retrieve a specific item from the cache asynchronously.
 
         Args:
-            file_path: The path to the file where the metadata cache is stored.
-            recipe_name: The name of the recipe to cache.
-            metadata: The metadata associated with the recipe.
-        """
-        async with cls._lock:
-            if cls._cache is None:
-                cls._cache = await asyncio.to_thread(cls._load_from_disk, file_path)
-
-            cls._cache = cls._cache.copy()
-            cls._cache[recipe_name] = metadata
-            await asyncio.to_thread(cls._save_to_disk, file_path, cls._cache)
-
-    @staticmethod
-    def _load_from_disk(file_path: Path) -> MetadataCache:
-        """Load metadata from disk.
-
-        This static method reads the metadata cache from the specified file.
-        If the file does not exist, it creates an empty JSON file.
-
-        Args:
-            file_path: The path to the file where the metadata cache is stored.
+            recipe_name: The name of the recipe to retrieve.
 
         Returns:
-            The metadata cache loaded from disk.
+            The metadata associated with the recipe, or None if the recipe is not
+            found in the cache.
+        """
+        ...
+
+    async def set_item(self, recipe_name: RecipeName, value: RecipeCache) -> None:
+        """Set a specific item in the cache asynchronously.
+
+        Args:
+            recipe_name: The name of the recipe to set.
+            value: The metadata to associate with the recipe.
+        """
+        ...
+
+    async def delete_item(self, recipe_name: RecipeName) -> None:
+        """Delete a specific item from the cache asynchronously.
+
+        Args:
+            recipe_name: The name of the recipe to delete from the cache.
+        """
+        ...
+
+
+class PluginManager:
+    """Manages metadata cache plugins.
+
+    This class is responsible for loading and managing metadata cache plugins.
+    It uses the `importlib.metadata` module to discover available plugins
+    and load the one specified in the settings.
+
+    Attributes:
+        plugin: The active metadata cache plugin instance.
+    """
+
+    _instance: "PluginManager | None" = None
+
+    def __new__(cls) -> "PluginManager":
+        """Create a new instance of PluginManager if one doesn't exist.
+
+        This `__new__` method implements the Singleton pattern, ensuring
+        that only one instance of the `PluginManager` class is ever created.
+        If an instance already exists, it is returned; otherwise, a new
+        instance is created and stored for future use.
+
+        Returns:
+            The PluginManager instance.
+        """
+        if not cls._instance:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self) -> None:
+        """Initialize the PluginManager.
+
+        This method loads the metadata cache plugin specified in the settings.
+        It prevents re-initialization by checking if the `_initialized` attribute
+        is already set.
+        """
+        if hasattr(self, "_initialized"):
+            return  # Prevent re-initialization
+
+        self.plugin: MetadataCachePlugin
+        self.load_plugin()
+
+        self._initialized = True
+
+    def load_plugin(self) -> None:
+        """Loads the metadata cache plugin specified in the settings.
+
+        This method uses the `importlib.metadata` module to discover available
+        plugins and load the one specified in the settings. It handles
+        potential errors during plugin loading, such as missing entry points
+        or import errors, and raises a `PluginManagerError` if an error occurs.
 
         Raises:
-            InvalidJsonContents: If the JSON contents of the file are invalid.
-        """
-        if not file_path.exists():
-            logger = logging_config.get_logger(__name__)
-            logger.warning("%s does not exist. Creating...", file_path)
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-            file_path.write_text("{}")
-            logger.info("%s created.", file_path)
-
-        try:
-            return MetadataCache(json.loads(file_path.read_text()))
-        except json.JSONDecodeError as exc:
-            raise InvalidJsonContents(file_path) from exc
-
-    @staticmethod
-    def _save_to_disk(file_path: Path, metadata_cache: MetadataCache) -> None:
-        """Save metadata to disk.
-
-        This static method writes the metadata cache to the specified file
-        as a JSON string.
-
-        Args:
-            file_path: The path to the file where the metadata cache is stored.
-            metadata_cache: The metadata cache to be saved.
+            PluginManagerError: If the specified plugin cannot be loaded.
         """
         logger = logging_config.get_logger(__name__)
-        file_path.write_text(json.dumps(metadata_cache, indent=2, sort_keys=True))
-        logger.info("Metadata cache saved to %s.", file_path)
+        settings = Settings()
+
+        plugin_name = settings.cache_plugin
+        try:
+            plugins = entry_points(group="cloud_autopkg_runner.cache", name=plugin_name)
+            if not plugins:
+                raise PluginManagerEntryPointError(plugin_name)
+
+            plugin = plugins[plugin_name]
+            plugin_class = plugin.load()
+            self.plugin = plugin_class()
+            logger.info("Loaded metadata cache plugin: %s", plugin_name)
+        except (ImportError, AttributeError, ValueError) as exc:
+            raise PluginManagerError(plugin_name) from exc
+
+    def get_plugin(self) -> MetadataCachePlugin:
+        """Returns the active metadata cache plugin.
+
+        Returns:
+            The active metadata cache plugin instance.
+        """
+        return self.plugin
+
+
+def get_cache_plugin() -> MetadataCachePlugin:
+    """Returns the active metadata cache plugin instance.
+
+    This function retrieves the active metadata cache plugin instance
+    from the `PluginManager` and returns it.
+
+    Returns:
+        The active metadata cache plugin instance.
+    """
+    plugin_manager = PluginManager()
+    return plugin_manager.get_plugin()

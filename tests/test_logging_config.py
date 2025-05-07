@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from cloud_autopkg_runner import initialize_logger
+from cloud_autopkg_runner import logging_config
 
 
 @pytest.mark.parametrize(
@@ -17,8 +17,7 @@ from cloud_autopkg_runner import initialize_logger
 )
 def test_console_handler_levels(verbosity_level: int, expected_level: int) -> None:
     """Test that verbosity levels are set correctly."""
-    initialize_logger(verbosity_level=verbosity_level, log_file=None)
-
+    logging_config.initialize_logger(verbosity_level=verbosity_level, log_file=None)
     logger = logging.getLogger()
 
     # Get the most recent StreamHandler (console handler)
@@ -37,7 +36,7 @@ def test_logs_to_console_but_not_file(tmp_path: Path) -> None:
         log_file.unlink()
 
     # Initialize logger with no file output
-    initialize_logger(verbosity_level=1, log_file=None)
+    logging_config.initialize_logger(verbosity_level=1, log_file=None)
     logger = logging.getLogger()
 
     # Assert no file handler was added (log file should not exist)
@@ -54,7 +53,7 @@ def test_logs_to_file(tmp_path: Path) -> None:
     """Test that log messages are written to the specified file."""
     log_file = tmp_path / "test.log"
 
-    initialize_logger(verbosity_level=1, log_file=str(log_file))
+    logging_config.initialize_logger(verbosity_level=1, log_file=str(log_file))
     logger = logging.getLogger()
 
     logger.info("This should go to both console and file")

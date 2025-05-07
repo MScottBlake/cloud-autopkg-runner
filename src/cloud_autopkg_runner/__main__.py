@@ -23,7 +23,7 @@ from argparse import ArgumentParser, Namespace
 from collections.abc import Iterable
 from pathlib import Path
 from types import FrameType
-from typing import TYPE_CHECKING, NoReturn
+from typing import NoReturn
 
 from cloud_autopkg_runner import (
     Settings,
@@ -38,11 +38,7 @@ from cloud_autopkg_runner.exceptions import (
     InvalidJsonContents,
     RecipeException,
 )
-
-if TYPE_CHECKING:
-    from cloud_autopkg_runner.recipe_report import ConsolidatedReport
-else:
-    ConsolidatedReport = object
+from cloud_autopkg_runner.recipe_report import ConsolidatedReport
 
 
 def _apply_args_to_settings(args: Namespace) -> None:
@@ -58,6 +54,7 @@ def _apply_args_to_settings(args: Namespace) -> None:
     settings = Settings()
 
     settings.cache_file = args.cache_file
+    settings.cache_plugin = args.cache_plugin
     settings.log_file = args.log_file
     settings.max_concurrency = args.max_concurrency
     settings.report_dir = args.report_dir
@@ -174,10 +171,11 @@ def _parse_arguments() -> Namespace:
         type=Path,
     )
     parser.add_argument(
-        "--cache-file",
-        default="metadata_cache.json",
-        help="Path to the file that stores the download metadata cache.",
-        type=Path,
+        "--cache-plugin",
+        # Use the entry point names
+        choices=["json"],
+        help="The cache plugin to use.",
+        type=str,
     )
     parser.add_argument(
         "--log-file",
@@ -214,6 +212,14 @@ def _parse_arguments() -> Namespace:
         default=10,
         type=int,
     )
+
+    # Plugin-specific arguments
+    parser.add_argument(
+        "--cache-file",
+        default="metadata_cache.json",
+        help="Path to the file that stores the download metadata cache.",
+        type=Path,
+    )
     return parser.parse_args()
 
 
@@ -236,6 +242,8 @@ async def _process_recipe_list(
     logger = logging_config.get_logger(__name__)
     logger.debug("Processing recipes...")
 
+    await file_utils.create_dummy_files(recipe_list)
+
     # Create Recipe objects concurrently
     recipes: list[recipe.Recipe] = [
         recipe
@@ -247,6 +255,8 @@ async def _process_recipe_list(
 
     # Run recipes concurrently
     results = await asyncio.gather(*[_run_recipe(recipe) for recipe in recipes])
+
+    await metadata_cache.get_cache_plugin().save()
 
     return dict(results)
 
@@ -305,10 +315,6 @@ async def _async_main() -> None:
     logging_config.initialize_logger(args.verbose, args.log_file)
 
     recipe_list = _generate_recipe_list(args)
-
-    cache = await metadata_cache.MetadataCacheManager.load(args.cache_file)
-    await file_utils.create_dummy_files(recipe_list, cache)
-
     _results = await _process_recipe_list(recipe_list)
 
 
