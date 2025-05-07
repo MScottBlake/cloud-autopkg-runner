@@ -4,13 +4,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cloud_autopkg_runner import AutoPkgPrefs
+from cloud_autopkg_runner import AutoPkgPrefs, Recipe
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
     RecipeFormatException,
     RecipeInputException,
 )
-from cloud_autopkg_runner.recipe import Recipe, RecipeContents, RecipeFormat
+from cloud_autopkg_runner.recipe import RecipeContents, RecipeFormat
 
 
 def create_dummy_file(path: Path, content: str) -> None:

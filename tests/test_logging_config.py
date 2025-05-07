@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from cloud_autopkg_runner.logging_config import initialize_logger
+from cloud_autopkg_runner import initialize_logger
 
 
 @pytest.mark.parametrize(

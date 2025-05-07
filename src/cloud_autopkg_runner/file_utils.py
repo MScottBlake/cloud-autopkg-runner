@@ -18,13 +18,20 @@ Functions:
 import asyncio
 from collections.abc import Iterable
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import xattr  # pyright: ignore[reportMissingTypeStubs]
 
-from cloud_autopkg_runner.logging_config import get_logger
-from cloud_autopkg_runner.metadata_cache import DownloadMetadata, MetadataCache
-from cloud_autopkg_runner.recipe_finder import RecipeFinder
+from cloud_autopkg_runner import (
+    logging_config,
+    metadata_cache,
+    recipe_finder,
+)
+
+if TYPE_CHECKING:
+    from cloud_autopkg_runner.metadata_cache import DownloadMetadata
+else:
+    DownloadMetadata = object
 
 
 def _set_file_size(file_path: Path, size: int) -> None:
@@ -44,7 +51,9 @@ def _set_file_size(file_path: Path, size: int) -> None:
         f.write(b"\0")
 
 
-async def create_dummy_files(recipe_list: Iterable[str], cache: MetadataCache) -> None:
+async def create_dummy_files(
+    recipe_list: Iterable[str], cache: metadata_cache.MetadataCache
+) -> None:
     """Create dummy files based on metadata from the cache.
 
     For each recipe in the `recipe_list`, this function iterates through the
@@ -60,42 +69,44 @@ async def create_dummy_files(recipe_list: Iterable[str], cache: MetadataCache) -
         recipe_list: An iterable of recipe names to process.
         cache: The metadata cache dictionary.
     """
-    logger = get_logger(__name__)
+    logger = logging_config.get_logger(__name__)
     logger.debug("Creating dummy files...")
 
     tasks: list[asyncio.Task[None]] = []
 
     possible_names: set[str] = set()
     for recipe_name in recipe_list:
-        possible_names.update(RecipeFinder().possible_file_names(recipe_name))
+        possible_names.update(
+            recipe_finder.RecipeFinder().possible_file_names(recipe_name)
+        )
 
     for recipe_name, recipe_cache_data in cache.items():
         if recipe_name not in possible_names:
             continue
 
         logger.info("Creating dummy files for %s...", recipe_name)
-        for metadata_cache in recipe_cache_data.get("metadata", []):
-            if not metadata_cache.get("file_path"):
+        for the_cache in recipe_cache_data.get("metadata", []):
+            if not the_cache.get("file_path"):
                 logger.warning(
                     "Skipping file creation: Missing 'file_path' in %s cache",
                     recipe_name,
                 )
                 continue
-            if not metadata_cache.get("file_size"):
+            if not the_cache.get("file_size"):
                 logger.warning(
                     "Skipping file creation: Missing 'file_size' in %s cache",
                     recipe_name,
                 )
                 continue
 
-            file_path = Path(metadata_cache.get("file_path", ""))
+            file_path = Path(the_cache.get("file_path", ""))
             if file_path.exists():
                 logger.info("Skipping file creation: %s already exists.", file_path)
                 continue
 
             # Add the task to create the file, set its size, and set extended attributes
             task = asyncio.create_task(
-                asyncio.to_thread(_create_and_set_attrs, file_path, metadata_cache)
+                asyncio.to_thread(_create_and_set_attrs, file_path, the_cache)
             )
             tasks.append(task)
 

@@ -16,10 +16,14 @@ Key features include:
 from .settings import Settings  # noqa: I001
 
 from .autopkg_prefs import AutoPkgPrefs
+from .recipe import Recipe
 from .recipe_finder import RecipeFinder
+from .recipe_report import RecipeReport
 
 __all__ = [
     "AutoPkgPrefs",
+    "Recipe",
     "RecipeFinder",
+    "RecipeReport",
     "Settings",
 ]

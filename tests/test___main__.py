@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cloud_autopkg_runner import AutoPkgPrefs, Settings
+from cloud_autopkg_runner import AutoPkgPrefs, Recipe, Settings
 from cloud_autopkg_runner.__main__ import (
     _apply_args_to_settings,
     _create_recipe,
@@ -24,7 +24,6 @@ from cloud_autopkg_runner.exceptions import (
     RecipeException,
     RecipeLookupException,
 )
-from cloud_autopkg_runner.recipe import Recipe
 
 
 @pytest.fixture

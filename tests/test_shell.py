@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
+from cloud_autopkg_runner import run_cmd
 from cloud_autopkg_runner.exceptions import ShellCommandException
-from cloud_autopkg_runner.shell import run_cmd
 
 
 @pytest.mark.asyncio
@@ -12,7 +12,7 @@ async def test_run_cmd_success() -> None:
     returncode, stdout, stderr = await run_cmd("echo 'Hello, world!'")
     assert returncode == 0
     assert "Hello, world!" in stdout
-    assert stderr == ""
+    assert not stderr
 
 
 @pytest.mark.asyncio
@@ -28,8 +28,8 @@ async def test_run_cmd_no_check() -> None:
     """Test command execution with check=False."""
     returncode, stdout, stderr = await run_cmd("false", check=False)
     assert returncode == 1
-    assert stdout == ""
-    assert stderr == ""
+    assert not stdout
+    assert not stderr
 
 
 @pytest.mark.asyncio
@@ -39,8 +39,8 @@ async def test_run_cmd_capture_output_false() -> None:
         "echo 'Hello, world!'", capture_output=False
     )
     assert returncode == 0
-    assert stdout == ""
-    assert stderr == ""
+    assert not stdout
+    assert not stderr
 
 
 @pytest.mark.asyncio
@@ -54,7 +54,7 @@ async def test_run_cmd_cwd(tmp_path: Path) -> None:
     returncode, stdout, stderr = await run_cmd(f"cat {test_file}", cwd=str(tmp_path))
     assert returncode == 0
     assert "Test content" in stdout
-    assert stderr == ""
+    assert not stderr
 
 
 @pytest.mark.asyncio
@@ -82,7 +82,7 @@ async def test_run_cmd_shell_injection_safe() -> None:
     )  # Removed injection
     assert returncode == 0
     assert "hello; rm -rf /" in stdout  # Injection is treated as literal
-    assert stderr == ""
+    assert not stderr
 
     # If the above test is not working as expected due to shell
     # injection (which it shouldn't with create_subprocess_exec),
@@ -98,7 +98,7 @@ async def test_run_cmd_list_command() -> None:
     returncode, stdout, stderr = await run_cmd(["echo", "Hello, world!"])
     assert returncode == 0
     assert "Hello, world!" in stdout
-    assert stderr == ""
+    assert not stderr
 
 
 @pytest.mark.asyncio
