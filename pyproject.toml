@@ -48,6 +48,10 @@ autopkg_runner = "cloud_autopkg_runner.__main__:main"
 cloud-autopkg-runner = "cloud_autopkg_runner.__main__:main"
 cloud_autopkg_runner = "cloud_autopkg_runner.__main__:main"
 
+[project.entry-points."cloud_autopkg_runner.cache"]
+default = "cloud_autopkg_runner.cache.json_cache:AsyncJsonFileCache"
+json = "cloud_autopkg_runner.cache.json_cache:AsyncJsonFileCache"
+
 [project.urls]
 Homepage = "https://github.com/MScottBlake/cloud-autopkg-runner"
 Repository = "https://github.com/MScottBlake/cloud-autopkg-runner.git"

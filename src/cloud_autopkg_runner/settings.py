@@ -58,6 +58,7 @@ class Settings:
             return  # Prevent re-initialization
 
         self._cache_file: Path = Path("metadata_cache.json")
+        self._cache_plugin: str = "default"
         self._log_file: Path | None = None
         self._max_concurrency: int = 10
         self._post_processors: list[str] = []
@@ -85,6 +86,24 @@ class Settings:
                 object).
         """
         self._cache_file = self._convert_to_path(value)
+
+    @property
+    def cache_plugin(self) -> str:
+        """Get the cache file plugin.
+
+        Returns:
+            The name of the cache plugin.
+        """
+        return self._cache_plugin or "default"
+
+    @cache_plugin.setter
+    def cache_plugin(self, value: str) -> None:
+        """Set the cache plugin.
+
+        Args:
+            value: The cache plugin to use.
+        """
+        self._cache_plugin = value
 
     @property
     def log_file(self) -> Path | None:

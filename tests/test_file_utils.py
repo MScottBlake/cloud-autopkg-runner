@@ -2,21 +2,16 @@
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from unittest.mock import patch
 
 import pytest
 
 from cloud_autopkg_runner import (
     Settings,
-    create_dummy_files,
     file_utils,
 )
-
-if TYPE_CHECKING:
-    from cloud_autopkg_runner.metadata_cache import MetadataCache
-else:
-    MetadataCache = object
+from cloud_autopkg_runner.metadata_cache import MetadataCache
 
 
 @pytest.fixture
@@ -76,11 +71,13 @@ async def test_create_dummy_files(
     file_path2 = tmp_path / "path/to/file2.pkg"
 
     # Patch list_possible_file_names to return the recipes in metadata_cache
-    with patch(
-        "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
-        return_value=recipe_list,
+    with (
+        patch(
+            "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
+            return_value=recipe_list,
+        ),
     ):
-        await create_dummy_files(recipe_list, metadata_cache)
+        await file_utils.create_dummy_files(recipe_list)
 
     assert file_path1.exists()
     assert file_path1.stat().st_size == 1024
@@ -106,7 +103,7 @@ async def test_create_dummy_files_skips_existing(
         "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
         return_value=recipe_list,
     ):
-        await create_dummy_files(recipe_list, metadata_cache)
+        await file_utils.create_dummy_files(recipe_list)
 
     assert file_path.exists()
     assert file_path.stat().st_size == 0  # Size remains 0 as it was skipped
