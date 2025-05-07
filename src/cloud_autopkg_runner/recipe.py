@@ -16,26 +16,32 @@ import plistlib
 from datetime import datetime, timezone
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import yaml
 
-from cloud_autopkg_runner import Settings
+from cloud_autopkg_runner import (
+    Settings,
+    file_utils,
+    logging_config,
+    recipe_report,
+    shell,
+)
 from cloud_autopkg_runner.exceptions import (
     InvalidPlistContents,
     InvalidYamlContents,
     RecipeFormatException,
     RecipeInputException,
 )
-from cloud_autopkg_runner.file_utils import get_file_metadata, get_file_size
-from cloud_autopkg_runner.logging_config import get_logger
-from cloud_autopkg_runner.metadata_cache import (
-    DownloadMetadata,
-    MetadataCacheManager,
-    RecipeCache,
-)
-from cloud_autopkg_runner.recipe_report import ConsolidatedReport, RecipeReport
-from cloud_autopkg_runner.shell import run_cmd
+from cloud_autopkg_runner.metadata_cache import MetadataCacheManager
+
+if TYPE_CHECKING:
+    from cloud_autopkg_runner.metadata_cache import DownloadMetadata, RecipeCache
+    from cloud_autopkg_runner.recipe_report import ConsolidatedReport
+else:
+    ConsolidatedReport = object
+    DownloadMetadata = object
+    RecipeCache = object
 
 
 class RecipeContents(TypedDict):
@@ -105,7 +111,7 @@ class Recipe:
             report_dir: Path to the report directory. If None, a the value returned
                 from `settings.report_dir` is used.
         """
-        self._logger = get_logger(__name__)
+        self._logger = logging_config.get_logger(__name__)
         self._settings = Settings()
 
         self._name: str = recipe_path.name
@@ -128,7 +134,9 @@ class Recipe:
             counter += 1
 
         report_path.parent.mkdir(parents=True, exist_ok=True)
-        self._result: RecipeReport = RecipeReport(report_path)
+        self._result: recipe_report.RecipeReport = recipe_report.RecipeReport(
+            report_path
+        )
 
     @property
     def contents(self) -> RecipeContents:
@@ -365,9 +373,11 @@ class Recipe:
             modified date, and file path of the downloaded item.
         """
         downloaded_item_path = Path(downloaded_item)
-        etag_task = get_file_metadata(downloaded_item_path, "com.github.autopkg.etag")
-        file_size_task = get_file_size(downloaded_item_path)
-        last_modified_task = get_file_metadata(
+        etag_task = file_utils.get_file_metadata(
+            downloaded_item_path, "com.github.autopkg.etag"
+        )
+        file_size_task = file_utils.get_file_size(downloaded_item_path)
+        last_modified_task = file_utils.get_file_metadata(
             downloaded_item_path, "com.github.autopkg.last-modified"
         )
 
@@ -441,7 +451,7 @@ class Recipe:
         """
         self._logger.debug("Performing Check Phase on %s...", self.name)
 
-        returncode, _stdout, stderr = await run_cmd(
+        returncode, _stdout, stderr = await shell.run_cmd(
             self._autopkg_run_cmd(check=True), check=False
         )
 
@@ -470,7 +480,7 @@ class Recipe:
         """
         self._logger.debug("Performing AutoPkg Run on %s...", self.name)
 
-        returncode, _stdout, stderr = await run_cmd(
+        returncode, _stdout, stderr = await shell.run_cmd(
             self._autopkg_run_cmd(check=False), check=False
         )
 
@@ -500,7 +510,7 @@ class Recipe:
             f"--override-dir={self._path.parent}",
         ]
 
-        returncode, stdout, _stderr = await run_cmd(cmd)
+        returncode, stdout, _stderr = await shell.run_cmd(cmd)
 
         self._logger.info(stdout)
         self._trusted = TrustInfoVerificationState.UNTESTED
@@ -534,7 +544,7 @@ class Recipe:
             if self._settings.verbosity_int() > 0:
                 cmd.append(self._settings.verbosity_str())
 
-            returncode, _stdout, _stderr = await run_cmd(cmd, check=False)
+            returncode, _stdout, _stderr = await shell.run_cmd(cmd, check=False)
 
             if returncode == 0:
                 self._logger.info(

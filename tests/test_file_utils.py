@@ -2,18 +2,21 @@
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
 
-from cloud_autopkg_runner import Settings
-from cloud_autopkg_runner.file_utils import (
+from cloud_autopkg_runner import (
+    Settings,
     create_dummy_files,
-    get_file_metadata,
-    get_file_size,
+    file_utils,
 )
-from cloud_autopkg_runner.metadata_cache import MetadataCache
+
+if TYPE_CHECKING:
+    from cloud_autopkg_runner.metadata_cache import MetadataCache
+else:
+    MetadataCache = object
 
 
 @pytest.fixture
@@ -116,7 +119,7 @@ async def test_get_file_metadata(tmp_path: Path, mock_xattr: Any) -> None:
     file_path.touch()
     mock_xattr.getxattr.return_value = b"test_value"
 
-    result = await get_file_metadata(file_path, "test_attr")
+    result = await file_utils.get_file_metadata(file_path, "test_attr")
 
     mock_xattr.getxattr.assert_called_with(file_path, "test_attr")
     assert result == "test_value"
@@ -128,6 +131,6 @@ async def test_get_file_size(tmp_path: Path) -> None:
     file_path = tmp_path / "test_file.txt"
     file_path.write_bytes(b"test_content")
 
-    result = await get_file_size(file_path)
+    result = await file_utils.get_file_size(file_path)
 
     assert result == len(b"test_content")

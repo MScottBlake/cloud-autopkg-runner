@@ -3,9 +3,8 @@
 import asyncio
 from pathlib import Path
 
-from cloud_autopkg_runner import AutoPkgPrefs
+from cloud_autopkg_runner import AutoPkgPrefs, logging_config
 from cloud_autopkg_runner.exceptions import RecipeLookupException
-from cloud_autopkg_runner.logging_config import get_logger
 
 
 class RecipeFinder:
@@ -30,7 +29,7 @@ class RecipeFinder:
         max_recursion_depth: int = 3,
     ) -> None:
         """Initializes a RecipeFinder instance."""
-        self.logger = get_logger(__name__)
+        self.logger = logging_config.get_logger(__name__)
         self.autopkg_preferences = autopkg_preferences or AutoPkgPrefs()
         self.max_recursion_depth = max_recursion_depth
 

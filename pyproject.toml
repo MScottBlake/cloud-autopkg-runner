@@ -90,7 +90,7 @@ include = ["pyproject.toml", "{src,tests}/**/*.py"]
 extend-exclude = [".venv"]
 
 [tool.ruff.lint]
-preview = true
+unfixable = ["ALL"]
 select = [
     "A",     # flake8-builtins
     "ANN",   # flake8-annotations
