@@ -9,17 +9,11 @@ asyncio lock to prevent race conditions.
 
 import asyncio
 import json
-import logging
+from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING
 
-from cloud_autopkg_runner import Settings
+from cloud_autopkg_runner import Settings, logging_config
 from cloud_autopkg_runner.metadata_cache import MetadataCache, RecipeCache, RecipeName
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
-logger = logging.getLogger(__name__)
 
 
 class AsyncJsonFileCache:
@@ -62,7 +56,8 @@ class AsyncJsonFileCache:
             return  # Prevent re-initialization
 
         settings = Settings()
-        self._file_path: Path = settings.cache_file
+        self._logger = logging_config.get_logger(__name__)
+        self._file_path: Path = Path(settings.cache_file)
         self._cache_data: MetadataCache = {}
         self._is_loaded: bool = False
 
@@ -134,8 +129,8 @@ class AsyncJsonFileCache:
         await self._load_cache()
         async with self._lock:
             self._cache_data[recipe_name] = value
-            logger.debug(
-                "Set recipe %s to %s in the metadata cache.", recipe_name, value
+            self._logger.debug(
+                "Setting recipe %s to %s in the metadata cache.", recipe_name, value
             )
 
     async def delete_item(self, recipe_name: RecipeName) -> None:
@@ -148,7 +143,9 @@ class AsyncJsonFileCache:
         async with self._lock:
             if recipe_name in self._cache_data:
                 del self._cache_data[recipe_name]
-                logger.debug("Deleted recipe %s from metadata cache.", recipe_name)
+                self._logger.debug(
+                    "Deleted recipe %s from metadata cache.", recipe_name
+                )
 
     async def _load_cache(self) -> None:
         """Load the cache data from the JSON file.
@@ -172,7 +169,7 @@ class AsyncJsonFileCache:
             try:
                 if not self._file_path.exists():
                     self._cache_data = {}
-                    logger.debug(
+                    self._logger.debug(
                         "Metadata file not found: %s, initializing an empty cache.",
                         self._file_path,
                     )
@@ -180,13 +177,13 @@ class AsyncJsonFileCache:
 
                 content = await loop.run_in_executor(None, self._file_path.read_text)
                 self._cache_data = json.loads(content)
-                logger.debug("Loaded metadata from %s", self._file_path)
+                self._logger.debug("Loaded metadata from %s", self._file_path)
             except FileNotFoundError:
                 self._cache_data = {}
-                logger.debug("Metadata file not found: %s", self._file_path)
+                self._logger.debug("Metadata file not found: %s", self._file_path)
             except json.JSONDecodeError:
                 self._cache_data = {}
-                logger.warning(
+                self._logger.warning(
                     "Metadata file %s is corrupt, initializing an empty cache.",
                     self._file_path,
                 )
@@ -205,9 +202,9 @@ class AsyncJsonFileCache:
             try:
                 content = json.dumps(self._cache_data, indent=4)
                 await loop.run_in_executor(None, self._file_path.write_text, content)
-                logger.debug("Saved all metadata to %s", self._file_path)
+                self._logger.debug("Saved all metadata to %s", self._file_path)
             except Exception:
-                logger.exception("Error saving metadata to %s", self._file_path)
+                self._logger.exception("Error saving metadata to %s", self._file_path)
 
     async def __aenter__(self) -> "AsyncJsonFileCache":
         """For use in `async with` statements.

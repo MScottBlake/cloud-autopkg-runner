@@ -10,6 +10,7 @@ dev = [
     "pytest-asyncio>=0.26.0",
     "pytest-cov>=6.0.0",
     "ruff>=0.11.0",
+    "types-boto3[all]>=1.38.10",
 ]
 
 [project]
@@ -50,11 +51,24 @@ cloud_autopkg_runner = "cloud_autopkg_runner.__main__:main"
 
 [project.entry-points."cloud_autopkg_runner.cache"]
 default = "cloud_autopkg_runner.cache.json_cache:AsyncJsonFileCache"
+azure = "cloud_autopkg_runner.cache.azure_blob_cache:AsyncAzureBlobCache"
+gcs = "cloud_autopkg_runner.cache.gcs_cache:AsyncGCSCache"
 json = "cloud_autopkg_runner.cache.json_cache:AsyncJsonFileCache"
+s3 = "cloud_autopkg_runner.cache.s3_cache:AsyncS3Cache"
+sqlite = "cloud_autopkg_runner.cache.sqlite_cache:AsyncSQLiteCache"
+
+[project.optional-dependencies]
+azure = ["azure-identity", "azure-storage-blob"]
+gcs = ["google-cloud-storage"]
+json = []
+s3 = ["boto3"]
+sqlite = []
 
 [project.urls]
 Homepage = "https://github.com/MScottBlake/cloud-autopkg-runner"
+Documentation = "https://github.com/MScottBlake/cloud-autopkg-runner/wiki"
 Repository = "https://github.com/MScottBlake/cloud-autopkg-runner.git"
+Issues = "https://github.com/MScottBlake/cloud-autopkg-runner/issues"
 
 [tool.coverage.report]
 fail_under = 80

@@ -53,12 +53,20 @@ def _apply_args_to_settings(args: Namespace) -> None:
     """
     settings = Settings()
 
-    settings.cache_file = args.cache_file
-    settings.cache_plugin = args.cache_plugin
     settings.log_file = args.log_file
     settings.max_concurrency = args.max_concurrency
     settings.report_dir = args.report_dir
     settings.verbosity_level = args.verbose
+
+    settings.cache_plugin = args.cache_plugin
+    settings.cache_file = args.cache_file
+
+    # Plugin-specific arguments
+    if settings.cache_plugin == "azure":
+        settings.azure_account_url = args.azure_account_url
+
+    if settings.cache_plugin in {"azure", "gcs", "s3"}:
+        settings.cloud_container_name = args.cloud_container_name
 
 
 async def _create_recipe(recipe_name: str) -> recipe.Recipe | None:
@@ -171,13 +179,6 @@ def _parse_arguments() -> Namespace:
         type=Path,
     )
     parser.add_argument(
-        "--cache-plugin",
-        # Use the entry point names
-        choices=["json"],
-        help="The cache plugin to use.",
-        type=str,
-    )
-    parser.add_argument(
         "--log-file",
         help="Path to the log file. If not specified, no file logging will occur.",
         type=Path,
@@ -214,12 +215,31 @@ def _parse_arguments() -> Namespace:
     )
 
     # Plugin-specific arguments
+
+    parser.add_argument(
+        "--cache-plugin",
+        # Use the entry point names
+        choices=["azure", "gcs", "json", "s3", "sqlite"],
+        help="The cache plugin to use (azure, gcs, json, s3, and sqlite).",
+        type=str,
+    )
     parser.add_argument(
         "--cache-file",
         default="metadata_cache.json",
         help="Path to the file that stores the download metadata cache.",
         type=Path,
     )
+    parser.add_argument(
+        "--azure-account-url",
+        help="Azure account URL",
+        type=str,
+    )
+    parser.add_argument(
+        "--cloud-container-name",
+        help="Bucket/Container name",
+        type=str,
+    )
+
     return parser.parse_args()
 
 

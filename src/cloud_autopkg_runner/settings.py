@@ -57,8 +57,6 @@ class Settings:
         if hasattr(self, "_initialized"):
             return  # Prevent re-initialization
 
-        self._cache_file: Path = Path("metadata_cache.json")
-        self._cache_plugin: str = "default"
         self._log_file: Path | None = None
         self._max_concurrency: int = 10
         self._post_processors: list[str] = []
@@ -66,44 +64,10 @@ class Settings:
         self._report_dir: Path = Path("recipe_reports")
         self._verbosity_level: int = 0
 
+        self._cache_plugin: str = "default"
+        self._cache_file: str = "metadata_cache.json"
+
         self._initialized = True
-
-    @property
-    def cache_file(self) -> Path:
-        """Get the cache file path.
-
-        Returns:
-            The path to the cache file.
-        """
-        return self._cache_file
-
-    @cache_file.setter
-    def cache_file(self, value: str | Path) -> None:
-        """Set the cache file path.
-
-        Args:
-            value: The new path to the cache file (either a string or a Path
-                object).
-        """
-        self._cache_file = self._convert_to_path(value)
-
-    @property
-    def cache_plugin(self) -> str:
-        """Get the cache file plugin.
-
-        Returns:
-            The name of the cache plugin.
-        """
-        return self._cache_plugin or "default"
-
-    @cache_plugin.setter
-    def cache_plugin(self, value: str) -> None:
-        """Set the cache plugin.
-
-        Args:
-            value: The cache plugin to use.
-        """
-        self._cache_plugin = value
 
     @property
     def log_file(self) -> Path | None:
@@ -323,3 +287,78 @@ class Settings:
         """
         if value < 0:
             raise SettingsValidationError(field_name, "Must not be negative")
+
+    # Plugin Properties
+
+    @property
+    def cache_plugin(self) -> str:
+        """Get the cache file plugin.
+
+        Returns:
+            The name of the cache plugin.
+        """
+        return self._cache_plugin or "default"
+
+    @cache_plugin.setter
+    def cache_plugin(self, value: str) -> None:
+        """Set the cache plugin.
+
+        Args:
+            value: The cache plugin to use.
+        """
+        self._cache_plugin = value
+
+    @property
+    def cache_file(self) -> str:
+        """Get the cache file path.
+
+        Returns:
+            The path to the cache file.
+        """
+        return self._cache_file
+
+    @cache_file.setter
+    def cache_file(self, value: str) -> None:
+        """Set the cache file path.
+
+        Args:
+            value: The new path to the cache file (either a string or a Path
+                object).
+        """
+        self._cache_file = value
+
+    @property
+    def azure_account_url(self) -> str:
+        """Get the Azure Account URL.
+
+        Returns:
+            The URL of the Azure Account.
+        """
+        return self._azure_account_url
+
+    @azure_account_url.setter
+    def azure_account_url(self, value: str) -> None:
+        """Set the Azure Account URL.
+
+        Args:
+            value: The URL of the Azure Account.
+        """
+        self._azure_account_url = value
+
+    @property
+    def cloud_container_name(self) -> str:
+        """Get the container name.
+
+        Returns:
+            The name of the container.
+        """
+        return self._cloud_container_name
+
+    @cloud_container_name.setter
+    def cloud_container_name(self, value: str) -> None:
+        """Set the container name.
+
+        Args:
+            value: The name of the container.
+        """
+        self._cloud_container_name = value
