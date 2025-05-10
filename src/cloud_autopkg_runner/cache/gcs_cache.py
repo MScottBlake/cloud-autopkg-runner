@@ -76,94 +76,20 @@ class AsyncGCSCache:
     async def load(self) -> MetadataCache:
         """Load metadata from Google Cloud Storage asynchronously.
 
-        This method loads the metadata from Google Cloud Storage into memory. It calls
-        the `_load_cache` method to perform the actual loading operation.
+        This method loads the metadata cache from Google Cloud Storage into memory. It
+        uses an asyncio lock to ensure thread safety and prevents multiple coroutines
+        from loading the cache simultaneously.
 
         Returns:
             The metadata cache loaded from Google Cloud Storage.
         """
-        await self._load_cache()
-        return self._cache_data
-
-    async def save(self) -> None:
-        """Write the metadata cache to Google Cloud Storage.
-
-        This method writes the entire metadata cache to Google Cloud Storage. It calls
-        the `_write_cache_to_gcs` method to perform the actual writing operation.
-        """
-        await self._write_cache_to_gcs()
-
-    async def close(self) -> None:
-        """Close the connection to Google Cloud Storage."""
-        if hasattr(self, "_client"):
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._client.close)
-
-    async def clear_cache(self) -> None:
-        """Clear all data from the cache."""
-        async with self._lock:
-            self._cache_data = {}
-            self._is_loaded = True
-            await self._write_cache_to_gcs()
-
-    async def get_item(self, recipe_name: RecipeName) -> RecipeCache | None:
-        """Retrieve a specific item from the cache asynchronously.
-
-        Args:
-            recipe_name: The name of the recipe to retrieve.
-
-        Returns:
-            The metadata associated with the recipe, or None if the recipe is not
-            found in the cache.
-        """
-        await self._load_cache()
-        return self._cache_data.get(recipe_name)
-
-    async def set_item(self, recipe_name: RecipeName, value: RecipeCache) -> None:
-        """Set a specific item in the cache asynchronously.
-
-        Args:
-            recipe_name: The name of the recipe to set.
-            value: The metadata to associate with the recipe.
-        """
-        await self._load_cache()
-        async with self._lock:
-            self._cache_data[recipe_name] = value
-            self._logger.debug(
-                "Setting recipe %s to %s in the metadata cache.", recipe_name, value
-            )
-
-    async def delete_item(self, recipe_name: RecipeName) -> None:
-        """Delete a specific item from the cache asynchronously.
-
-        Args:
-            recipe_name: The name of the recipe to delete from the cache.
-        """
-        await self._load_cache()
-        async with self._lock:
-            if recipe_name in self._cache_data:
-                del self._cache_data[recipe_name]
-                self._logger.debug(
-                    "Deleted recipe %s from metadata cache.", recipe_name
-                )
-
-    async def _load_cache(self) -> None:
-        """Load the cache data from Google Cloud Storage.
-
-        This method loads the entire cache data from Google Cloud Storage into memory.
-        It uses an asyncio lock to ensure thread safety and prevents multiple
-        coroutines from loading the cache simultaneously.
-
-        If the cache has already been loaded, this method does nothing. If the
-        blob does not exist, it creates a new empty cache. If the blob is corrupt,
-        it logs a warning and returns an empty cache.
-        """
         if self._is_loaded:
-            return
+            return self._cache_data
 
         async with self._lock:
+            # Could have loaded while waiting
             if self._is_loaded:
-                return
+                return self._cache_data
 
             if not hasattr(self, "_client"):
                 await self.open()
@@ -173,10 +99,10 @@ class AsyncGCSCache:
                 blob = bucket.blob(self._blob_name)  # pyright: ignore[reportUnknownMemberType]
 
                 loop = asyncio.get_event_loop()
-                content = await loop.run_in_executor(None, blob.download_as_bytes)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
+                content = await loop.run_in_executor(None, blob.download_as_string)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
 
                 self._cache_data = json.loads(content.decode("utf-8"))
-                self._logger.debug(
+                self._logger.info(
                     "Loaded metadata from gcs://%s/%s",
                     self._bucket_name,
                     self._blob_name,
@@ -192,10 +118,12 @@ class AsyncGCSCache:
             finally:
                 self._is_loaded = True
 
-    async def _write_cache_to_gcs(self) -> None:
-        """Helper method to write the cache data to Google Cloud Storage.
+        return self._cache_data
 
-        This method writes the entire cache data to Google Cloud Storage. It uses an
+    async def save(self) -> None:
+        """Write the metadata cache to Google Cloud Storage.
+
+        This method writes the entire metadata cache to Google Cloud Storage. It uses an
         asyncio lock to ensure thread safety and prevents multiple coroutines
         from writing to the blob simultaneously.
         """
@@ -225,6 +153,61 @@ class AsyncGCSCache:
                     "Error saving metadata to gcs://%s/%s",
                     self._bucket_name,
                     self._blob_name,
+                )
+
+    async def close(self) -> None:
+        """Close the connection to Google Cloud Storage."""
+        if hasattr(self, "_client"):
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, self._client.close)
+
+    async def clear_cache(self) -> None:
+        """Clear all data from the cache."""
+        async with self._lock:
+            self._cache_data = {}
+            self._is_loaded = True
+
+        await self.save()
+
+    async def get_item(self, recipe_name: RecipeName) -> RecipeCache | None:
+        """Retrieve a specific item from the cache asynchronously.
+
+        Args:
+            recipe_name: The name of the recipe to retrieve.
+
+        Returns:
+            The metadata associated with the recipe, or None if the recipe is not
+            found in the cache.
+        """
+        await self.load()
+        return self._cache_data.get(recipe_name)
+
+    async def set_item(self, recipe_name: RecipeName, value: RecipeCache) -> None:
+        """Set a specific item in the cache asynchronously.
+
+        Args:
+            recipe_name: The name of the recipe to set.
+            value: The metadata to associate with the recipe.
+        """
+        await self.load()
+        async with self._lock:
+            self._cache_data[recipe_name] = value
+            self._logger.debug(
+                "Setting recipe %s to %s in the metadata cache.", recipe_name, value
+            )
+
+    async def delete_item(self, recipe_name: RecipeName) -> None:
+        """Delete a specific item from the cache asynchronously.
+
+        Args:
+            recipe_name: The name of the recipe to delete from the cache.
+        """
+        await self.load()
+        async with self._lock:
+            if recipe_name in self._cache_data:
+                del self._cache_data[recipe_name]
+                self._logger.debug(
+                    "Deleted recipe %s from metadata cache.", recipe_name
                 )
 
     async def __aenter__(self) -> "AsyncGCSCache":

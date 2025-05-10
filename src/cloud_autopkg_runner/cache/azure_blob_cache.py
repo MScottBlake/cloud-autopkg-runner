@@ -11,8 +11,8 @@ import asyncio
 import json
 from types import TracebackType
 
-from azure.identity import DefaultAzureCredential
-from azure.storage.blob import BlobClient, BlobServiceClient
+from azure.identity.aio import DefaultAzureCredential
+from azure.storage.blob.aio import BlobClient, BlobServiceClient
 
 from cloud_autopkg_runner import Settings, logging_config
 from cloud_autopkg_runner.metadata_cache import MetadataCache, RecipeCache, RecipeName
@@ -73,9 +73,8 @@ class AsyncAzureBlobCache:
 
     async def open(self) -> None:
         """Open the connection to Azure Blob Storage."""
-        loop = asyncio.get_event_loop()
-        blob_service_client: BlobServiceClient = await loop.run_in_executor(
-            None, BlobServiceClient, self._account_url, DefaultAzureCredential()
+        blob_service_client: BlobServiceClient = BlobServiceClient(
+            self._account_url, DefaultAzureCredential()
         )
         self._client: BlobClient = blob_service_client.get_blob_client(
             container=self._container_name, blob=self._blob_name
@@ -84,106 +83,29 @@ class AsyncAzureBlobCache:
     async def load(self) -> MetadataCache:
         """Load metadata from Azure Blob Storage asynchronously.
 
-        This method loads the metadata from Azure Blob Storage into memory. It calls
-        the `_load_cache` method to perform the actual loading operation.
+        This method loads the metadata cache from Azure Blob Storage into memory. It
+        uses an asyncio lock to ensure thread safety and prevents multiple coroutines
+        from loading the cache simultaneously.
 
         Returns:
             The metadata cache loaded from Azure Blob Storage.
         """
-        await self._load_cache()
-        return self._cache_data
-
-    async def save(self) -> None:
-        """Write the metadata cache to Azure Blob Storage.
-
-        This method writes the entire metadata cache to Azure Blob Storage. It calls the
-        `_write_cache_to_blob` method to perform the actual writing operation.
-        """
-        await self._write_cache_to_blob()
-
-    async def close(self) -> None:
-        """Close the connection to Azure Blob Storage."""
-        if hasattr(self, "_client"):
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._client.close)
-
-    async def clear_cache(self) -> None:
-        """Clear all data from the cache."""
-        async with self._lock:
-            self._cache_data = {}
-            self._is_loaded = True
-            await self._write_cache_to_blob()
-
-    async def get_item(self, recipe_name: RecipeName) -> RecipeCache | None:
-        """Retrieve a specific item from the cache asynchronously.
-
-        Args:
-            recipe_name: The name of the recipe to retrieve.
-
-        Returns:
-            The metadata associated with the recipe, or None if the recipe is not
-            found in the cache.
-        """
-        await self._load_cache()
-        return self._cache_data.get(recipe_name)
-
-    async def set_item(self, recipe_name: RecipeName, value: RecipeCache) -> None:
-        """Set a specific item in the cache asynchronously.
-
-        Args:
-            recipe_name: The name of the recipe to set.
-            value: The metadata to associate with the recipe.
-        """
-        await self._load_cache()
-        async with self._lock:
-            self._cache_data[recipe_name] = value
-            self._logger.debug(
-                "Setting recipe %s to %s in the metadata cache.", recipe_name, value
-            )
-
-    async def delete_item(self, recipe_name: RecipeName) -> None:
-        """Delete a specific item from the cache asynchronously.
-
-        Args:
-            recipe_name: The name of the recipe to delete from the cache.
-        """
-        await self._load_cache()
-        async with self._lock:
-            if recipe_name in self._cache_data:
-                del self._cache_data[recipe_name]
-                self._logger.debug(
-                    "Deleted recipe %s from metadata cache.", recipe_name
-                )
-
-    async def _load_cache(self) -> None:
-        """Load the cache data from Azure Blob Storage.
-
-        This method loads the entire cache data from Azure Blob Storage into memory.
-        It uses an asyncio lock to ensure thread safety and prevents multiple
-        coroutines from loading the cache simultaneously.
-
-        If the cache has already been loaded, this method does nothing. If the
-        blob does not exist, it creates a new empty cache. If the blob is corrupt,
-        it logs a warning and returns an empty cache.
-        """
         if self._is_loaded:
-            return
+            return self._cache_data
 
         async with self._lock:
+            # Could have loaded while waiting
             if self._is_loaded:
-                return
+                return self._cache_data
 
             if not hasattr(self, "_client"):
                 await self.open()
 
             try:
-                loop = asyncio.get_event_loop()
-                downloader = await loop.run_in_executor(
-                    None, self._client.download_blob
-                )
-                content = await loop.run_in_executor(None, downloader.readall)
-                self._cache_data = json.loads(content.decode("utf-8"))
-                self._logger.debug(
+                downloader = await self._client.download_blob(encoding="utf-8")
+                content = await downloader.readall()
+                self._cache_data = json.loads(content)
+                self._logger.info(
                     "Loaded metadata from azure://%s/%s",
                     self._container_name,
                     self._blob_name,
@@ -199,10 +121,12 @@ class AsyncAzureBlobCache:
             finally:
                 self._is_loaded = True
 
-    async def _write_cache_to_blob(self) -> None:
-        """Helper method to write the cache data to Azure Blob Storage.
+        return self._cache_data
 
-        This method writes the entire cache data to Azure Blob Storage. It uses an
+    async def save(self) -> None:
+        """Write the metadata cache to Azure Blob Storage.
+
+        This method writes the entire metadata cache to Azure Blob Storage. It uses an
         asyncio lock to ensure thread safety and prevents multiple coroutines
         from writing to the blob simultaneously.
         """
@@ -211,14 +135,8 @@ class AsyncAzureBlobCache:
                 await self.open()
 
             try:
-                loop = asyncio.get_event_loop()
                 content = json.dumps(self._cache_data, indent=4)
-                await loop.run_in_executor(
-                    None,
-                    lambda: self._client.upload_blob(
-                        content.encode("utf-8"), overwrite=True
-                    ),
-                )
+                await self._client.upload_blob(content.encode("utf-8"), overwrite=True)
                 self._logger.debug(
                     "Saved all metadata to azure://%s/%s",
                     self._container_name,
@@ -229,6 +147,60 @@ class AsyncAzureBlobCache:
                     "Error saving metadata to azure://%s/%s",
                     self._container_name,
                     self._blob_name,
+                )
+
+    async def close(self) -> None:
+        """Close the connection to Azure Blob Storage."""
+        if hasattr(self, "_client"):
+            await self._client.close()
+
+    async def clear_cache(self) -> None:
+        """Clear all data from the cache."""
+        async with self._lock:
+            self._cache_data = {}
+            self._is_loaded = True
+
+        await self.save()
+
+    async def get_item(self, recipe_name: RecipeName) -> RecipeCache | None:
+        """Retrieve a specific item from the cache asynchronously.
+
+        Args:
+            recipe_name: The name of the recipe to retrieve.
+
+        Returns:
+            The metadata associated with the recipe, or None if the recipe is not
+            found in the cache.
+        """
+        await self.load()
+        return self._cache_data.get(recipe_name)
+
+    async def set_item(self, recipe_name: RecipeName, value: RecipeCache) -> None:
+        """Set a specific item in the cache asynchronously.
+
+        Args:
+            recipe_name: The name of the recipe to set.
+            value: The metadata to associate with the recipe.
+        """
+        await self.load()
+        async with self._lock:
+            self._cache_data[recipe_name] = value
+            self._logger.debug(
+                "Setting recipe %s to %s in the metadata cache.", recipe_name, value
+            )
+
+    async def delete_item(self, recipe_name: RecipeName) -> None:
+        """Delete a specific item from the cache asynchronously.
+
+        Args:
+            recipe_name: The name of the recipe to delete from the cache.
+        """
+        await self.load()
+        async with self._lock:
+            if recipe_name in self._cache_data:
+                del self._cache_data[recipe_name]
+                self._logger.debug(
+                    "Deleted recipe %s from metadata cache.", recipe_name
                 )
 
     async def __aenter__(self) -> "AsyncAzureBlobCache":

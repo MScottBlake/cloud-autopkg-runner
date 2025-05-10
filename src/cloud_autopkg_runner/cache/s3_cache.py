@@ -9,6 +9,7 @@ asyncio lock to prevent race conditions.
 
 import asyncio
 import json
+from functools import partial
 from types import TracebackType
 
 import boto3
@@ -81,97 +82,23 @@ class AsyncS3Cache:
     async def load(self) -> MetadataCache:
         """Load metadata from the S3 bucket asynchronously.
 
-        This method loads the metadata from the S3 bucket into memory. It calls
-        the `_load_cache` method to perform the actual loading operation.
+        This method loads the metadata cache from the S3 bucket into memory. It uses
+        an asyncio lock to ensure thread safety and prevents multiple coroutines from
+        loading the cache simultaneously.
+
+        If the object does not exist or if the S3 object is corrupt, it logs a warning
+        and returns an empty cache.
 
         Returns:
             The metadata cache loaded from the S3 bucket.
         """
-        await self._load_cache()
-        return self._cache_data
-
-    async def save(self) -> None:
-        """Write the metadata cache to the S3 bucket.
-
-        This method writes the entire metadata cache to the S3 bucket. It calls the
-        `_write_cache_to_s3` method to perform the actual writing operation.
-        """
-        await self._write_cache_to_s3()
-
-    async def close(self) -> None:
-        """Close the connection to S3.
-
-        This method closes the session and any resources associated with the connection.
-        """
-        if hasattr(self, "_client"):
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._client.close)
-
-    async def clear_cache(self) -> None:
-        """Clear all data from the cache."""
-        async with self._lock:
-            self._cache_data = {}
-            self._is_loaded = True
-            await self._write_cache_to_s3()
-
-    async def get_item(self, recipe_name: RecipeName) -> RecipeCache | None:
-        """Retrieve a specific item from the cache asynchronously.
-
-        Args:
-            recipe_name: The name of the recipe to retrieve.
-
-        Returns:
-            The metadata associated with the recipe, or None if the recipe is not
-            found in the cache.
-        """
-        await self._load_cache()
-        return self._cache_data.get(recipe_name)
-
-    async def set_item(self, recipe_name: RecipeName, value: RecipeCache) -> None:
-        """Set a specific item in the cache asynchronously.
-
-        Args:
-            recipe_name: The name of the recipe to set.
-            value: The metadata to associate with the recipe.
-        """
-        await self._load_cache()
-        async with self._lock:
-            self._cache_data[recipe_name] = value
-            self._logger.debug(
-                "Setting recipe %s to %s in the metadata cache.", recipe_name, value
-            )
-
-    async def delete_item(self, recipe_name: RecipeName) -> None:
-        """Delete a specific item from the cache asynchronously.
-
-        Args:
-            recipe_name: The name of the recipe to delete from the cache.
-        """
-        await self._load_cache()
-        async with self._lock:
-            if recipe_name in self._cache_data:
-                del self._cache_data[recipe_name]
-                self._logger.debug(
-                    "Deleted recipe %s from metadata cache.", recipe_name
-                )
-
-    async def _load_cache(self) -> None:
-        """Load the cache data from the S3 bucket.
-
-        This method loads the entire cache data from the S3 bucket into memory.
-        It uses an asyncio lock to ensure thread safety and prevents multiple
-        coroutines from loading the cache simultaneously.
-
-        If the cache has already been loaded, this method does nothing. If the
-        object does not exist, it creates a new empty cache. If the S3 object
-        is corrupt, it logs a warning and returns an empty cache.
-        """
         if self._is_loaded:
-            return
+            return self._cache_data
 
         async with self._lock:
-            if self._is_loaded:  # Could have loaded while waiting
-                return
+            # Could have loaded while waiting
+            if self._is_loaded:
+                return self._cache_data
 
             if not hasattr(self, "_client"):
                 await self.open()
@@ -180,27 +107,21 @@ class AsyncS3Cache:
                 loop = asyncio.get_event_loop()
                 response = await loop.run_in_executor(
                     None,
-                    lambda: self._client.get_object(
-                        Bucket=self._bucket_name, Key=self._cache_key
+                    partial(
+                        self._client.get_object,
+                        Bucket=self._bucket_name,
+                        Key=self._cache_key,
                     ),
                 )
 
-                content = response["Body"].read().decode("utf-8")
+                content = response["Body"].read()
                 self._cache_data = json.loads(content)
-                self._logger.debug(
+                self._logger.info(
                     "Loaded metadata from s3://%s/%s",
                     self._bucket_name,
                     self._cache_key,
                 )
 
-            except (self._client.exceptions.NoSuchKey, KeyError):
-                self._cache_data = {}
-                self._logger.debug(
-                    "Metadata object not found in s3://%s/%s, "
-                    "initializing an empty cache.",
-                    self._bucket_name,
-                    self._cache_key,
-                )
             except json.JSONDecodeError:
                 self._cache_data = {}
                 self._logger.warning(
@@ -220,10 +141,12 @@ class AsyncS3Cache:
             finally:
                 self._is_loaded = True
 
-    async def _write_cache_to_s3(self) -> None:
-        """Helper method to write the cache data to the S3 bucket.
+        return self._cache_data
 
-        This method writes the entire cache data to the S3 bucket. It uses an
+    async def save(self) -> None:
+        """Write the metadata cache to the S3 bucket.
+
+        This method writes the entire metadata cache to the S3 bucket. It uses an
         asyncio lock to ensure thread safety and prevents multiple coroutines
         from writing to the S3 object simultaneously.
         """
@@ -232,7 +155,12 @@ class AsyncS3Cache:
                 content = json.dumps(self._cache_data, indent=4)
                 loop = asyncio.get_event_loop()
                 await loop.run_in_executor(
-                    None, self._put_object, self._bucket_name, self._cache_key, content
+                    None,
+                    lambda: self._client.put_object(
+                        Bucket=self._bucket_name,
+                        Key=self._cache_key,
+                        Body=content.encode("utf-8"),
+                    ),
                 )
                 self._logger.debug(
                     "Saved all metadata to s3://%s/%s",
@@ -246,17 +174,63 @@ class AsyncS3Cache:
                     self._cache_key,
                 )
 
-    def _put_object(self, bucket_name: str, cache_key: str, content: str) -> None:
-        """Helper method to put an object into S3.
+    async def close(self) -> None:
+        """Close the connection to S3.
 
-        This function is called from within an executor to avoid blocking the event
-        loop.
+        This method closes the session and any resources associated with the connection.
         """
-        self._client.put_object(
-            Bucket=bucket_name,
-            Key=cache_key,
-            Body=content.encode("utf-8"),
-        )
+        if hasattr(self, "_client"):
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, self._client.close)
+
+    async def clear_cache(self) -> None:
+        """Clear all data from the cache."""
+        async with self._lock:
+            self._cache_data = {}
+            self._is_loaded = True
+
+        await self.save()
+
+    async def get_item(self, recipe_name: RecipeName) -> RecipeCache | None:
+        """Retrieve a specific item from the cache asynchronously.
+
+        Args:
+            recipe_name: The name of the recipe to retrieve.
+
+        Returns:
+            The metadata associated with the recipe, or None if the recipe is not
+            found in the cache.
+        """
+        await self.load()
+        return self._cache_data.get(recipe_name)
+
+    async def set_item(self, recipe_name: RecipeName, value: RecipeCache) -> None:
+        """Set a specific item in the cache asynchronously.
+
+        Args:
+            recipe_name: The name of the recipe to set.
+            value: The metadata to associate with the recipe.
+        """
+        await self.load()
+        async with self._lock:
+            self._cache_data[recipe_name] = value
+            self._logger.debug(
+                "Setting recipe %s to %s in the metadata cache.", recipe_name, value
+            )
+
+    async def delete_item(self, recipe_name: RecipeName) -> None:
+        """Delete a specific item from the cache asynchronously.
+
+        Args:
+            recipe_name: The name of the recipe to delete from the cache.
+        """
+        await self.load()
+        async with self._lock:
+            if recipe_name in self._cache_data:
+                del self._cache_data[recipe_name]
+                self._logger.debug(
+                    "Deleted recipe %s from metadata cache.", recipe_name
+                )
 
     async def __aenter__(self) -> "AsyncS3Cache":
         """For use in `async with` statements.

@@ -78,30 +78,72 @@ class AsyncSQLiteCache:
     async def load(self) -> MetadataCache:
         """Load metadata from the SQLite database asynchronously.
 
-        This method loads the metadata from the SQLite database into memory. It calls
-        the `_load_cache` method to perform the actual loading operation.
+        This method loads the metadata cache from the SQLite database into memory. It
+        uses an asyncio lock to ensure thread safety and prevents multiple coroutines
+        from loading the cache simultaneously.
+
+        If the database does not exist or if the database is corrupt, it logs a warning
+        and returns an empty cache.
 
         Returns:
             The metadata cache loaded from the SQLite database.
         """
-        await self._load_cache()
+        if self._is_loaded:
+            return self._cache_data
+
+        async with self._lock:
+            # Could have loaded while waiting
+            if self._is_loaded:
+                return self._cache_data
+
+            try:
+                rows = await self._execute_sql(
+                    "SELECT recipe_name, cache_data FROM metadata"
+                )
+
+                self._cache_data = {
+                    recipe_name: json.loads(cache_data)
+                    for recipe_name, cache_data in rows
+                }
+                self._logger.info("Loaded metadata from %s", self._db_path)
+            except FileNotFoundError:
+                self._cache_data = {}
+                self._logger.warning(
+                    "Metadata database not found: %s, initializing an empty cache.",
+                    self._db_path,
+                )
+            except Exception:
+                self._cache_data = {}
+                self._logger.exception(
+                    "An unexpected error occurred loading the metadata from %s, "
+                    "initializing an empty cache.",
+                    self._db_path,
+                )
+            finally:
+                self._is_loaded = True
+
         return self._cache_data
 
     async def save(self) -> None:
         """Write the metadata cache to the SQLite database.
 
-        This method writes the entire metadata cache to the SQLite database. It calls
-        the `_write_cache_to_db` method to perform the actual writing operation.
+        This method writes the entire metadata cache to the SQLite database. It uses an
+        asyncio lock to ensure thread safety and prevents multiple coroutines
+        from writing to the database simultaneously.
         """
-        await self._write_cache_to_db()
+        try:
+            for recipe_name, cache_data in self._cache_data.items():
+                await self._execute_sql(
+                    "INSERT INTO metadata (recipe_name, cache_data) VALUES (?, ?)",
+                    (recipe_name, json.dumps(cache_data)),
+                )
+
+            self._logger.debug("Saved all metadata to %s", self._db_path)
+        except Exception:
+            self._logger.exception("Error saving metadata to %s", self._db_path)
 
     async def close(self) -> None:
-        """Close the cache and write it to the database, close the database connection.
-
-        This method writes the entire metadata cache to the SQLite database. It calls
-        the `_write_cache_to_db` method to perform the actual writing operation.
-        """
-        # await self._write_cache_to_db()
+        """Close the database connection."""
         if hasattr(self, "_conn"):
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, self._conn.close)
@@ -112,7 +154,7 @@ class AsyncSQLiteCache:
             self._cache_data = {}
             self._is_loaded = True
             await self._clear_table()
-            await self._write_cache_to_db()
+            await self.save()
 
     async def get_item(self, recipe_name: RecipeName) -> RecipeCache | None:
         """Retrieve a specific item from the cache asynchronously.
@@ -124,7 +166,7 @@ class AsyncSQLiteCache:
             The metadata associated with the recipe, or None if the recipe is not
             found in the cache.
         """
-        await self._load_cache()
+        await self.load()
         return self._cache_data.get(recipe_name)
 
     async def set_item(self, recipe_name: RecipeName, value: RecipeCache) -> None:
@@ -134,7 +176,7 @@ class AsyncSQLiteCache:
             recipe_name: The name of the recipe to set.
             value: The metadata to associate with the recipe.
         """
-        await self._load_cache()
+        await self.load()
         async with self._lock:
             self._cache_data[recipe_name] = value
             self._logger.debug(
@@ -147,7 +189,7 @@ class AsyncSQLiteCache:
         Args:
             recipe_name: The name of the recipe to delete from the cache.
         """
-        await self._load_cache()
+        await self.load()
         async with self._lock:
             if recipe_name in self._cache_data:
                 del self._cache_data[recipe_name]
@@ -197,60 +239,6 @@ class AsyncSQLiteCache:
         except Exception:
             self._logger.exception("An unexpected error occurred.")
             raise
-
-    async def _load_cache(self) -> None:
-        """Load the cache data from the SQLite database.
-
-        This method loads the metadata from the SQLite database into memory.
-        It uses an asyncio lock to ensure thread safety and prevents multiple
-        coroutines from loading the cache simultaneously.
-
-        If the cache has already been loaded, this method does nothing. If the
-        database does not exist, it creates a new empty cache. If the database
-        is corrupt, it logs a warning and returns an empty cache.
-        """
-        if self._is_loaded:
-            return
-
-        try:
-            rows = await self._execute_sql(
-                "SELECT recipe_name, cache_data FROM metadata"
-            )
-
-            self._cache_data = {
-                recipe_name: json.loads(cache_data) for recipe_name, cache_data in rows
-            }
-            self._logger.debug("Loaded metadata from %s", self._db_path)
-        except FileNotFoundError:
-            self._cache_data = {}
-            self._logger.debug("Metadata database not found: %s", self._db_path)
-        except Exception:
-            self._cache_data = {}
-            self._logger.exception(
-                "An unexpected error occurred loading the metadata from %s, "
-                "initializing an empty cache.",
-                self._db_path,
-            )
-        finally:
-            self._is_loaded = True
-
-    async def _write_cache_to_db(self) -> None:
-        """Helper method to write the cache data to the SQLite database.
-
-        This method writes the entire cache data to the SQLite database. It uses an
-        asyncio lock to ensure thread safety and prevents multiple coroutines
-        from writing to the database simultaneously.
-        """
-        try:
-            for recipe_name, cache_data in self._cache_data.items():
-                await self._execute_sql(
-                    "INSERT INTO metadata (recipe_name, cache_data) VALUES (?, ?)",
-                    (recipe_name, json.dumps(cache_data)),
-                )
-
-            self._logger.debug("Saved all metadata to %s", self._db_path)
-        except Exception:
-            self._logger.exception("Error saving metadata to %s", self._db_path)
 
     async def _clear_table(self) -> None:
         """Helper method to clear the SQLite database table.
