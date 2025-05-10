@@ -27,6 +27,18 @@ from cloud_autopkg_runner.exceptions import (
 
 
 @pytest.fixture
+def settings() -> Settings:
+    """Fixture to get the settings instance.
+
+    Returns:
+        Settings: A new instance of the Settings class.
+    """
+    with patch.object(Settings, "_instance", None):
+        instance = Settings()
+        yield instance
+
+
+@pytest.fixture
 def mock_autopkg_prefs(tmp_path: Path) -> MagicMock:
     """Fixture to create a mock AutoPkgPrefs object with search/override dirs.
 
@@ -39,21 +51,22 @@ def mock_autopkg_prefs(tmp_path: Path) -> MagicMock:
     return mock_prefs
 
 
-def test_apply_args_to_settings(tmp_path: Path) -> None:
+def test_apply_args_to_settings(tmp_path: Path, settings: Settings) -> None:
     """Test that _apply_args_to_settings correctly sets settings."""
     args = Namespace(
-        cache_file=tmp_path / "test_cache.json",
+        cache_file="test_cache.json",
         cache_plugin="json",
         log_file=tmp_path / "test_log.txt",
         max_concurrency=5,
         report_dir=tmp_path / "test_reports",
         verbose=2,
     )
-    settings = Settings()
 
     _apply_args_to_settings(args)
 
-    assert settings.cache_file == tmp_path / "test_cache.json"
+    assert settings.cache_file == "test_cache.json"
+    assert Path(settings.cache_file) == Path("test_cache.json")
+    assert tmp_path / settings.cache_file == tmp_path / "test_cache.json"
     assert settings.log_file == tmp_path / "test_log.txt"
     assert settings.max_concurrency == 5
     assert settings.report_dir == tmp_path / "test_reports"
@@ -145,7 +158,7 @@ def test_parse_arguments() -> None:
     assert args.verbose == 2
     assert args.recipe == ["Recipe1", "Recipe2"]
     assert args.recipe_list == Path("recipes.json")
-    assert args.cache_file == Path("test_cache.json")
+    assert args.cache_file == "test_cache.json"
     assert args.log_file == Path("test_log.txt")
     assert args.post_processor == ["PostProcessor1"]
     assert args.pre_processor == ["PreProcessor1"]
@@ -175,7 +188,7 @@ def test_parse_arguments_diff_syntax() -> None:
     assert args.verbose == 2
     assert args.recipe == ["Recipe1", "Recipe2"]
     assert args.recipe_list == Path("recipes.json")
-    assert args.cache_file == Path("test_cache.json")
+    assert args.cache_file == "test_cache.json"
     assert args.log_file == Path("test_log.txt")
     assert args.post_processor == ["PostProcessor1"]
     assert args.pre_processor == ["PreProcessor1"]

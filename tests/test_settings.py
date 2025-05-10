@@ -1,6 +1,9 @@
 """Tests for the settings module."""
 
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -9,13 +12,15 @@ from cloud_autopkg_runner.exceptions import SettingsValidationError
 
 
 @pytest.fixture
-def settings() -> Settings:
+def settings() -> Generator[Settings, Any, None]:
     """Fixture to get the settings instance.
 
     Returns:
-        Settings: An instance of the Settings class.
+        Settings: A new instance of the Settings class.
     """
-    return Settings()
+    with patch.object(Settings, "_instance", None):
+        instance = Settings()
+        yield instance
 
 
 def test_singleton_pattern() -> None:
@@ -27,7 +32,7 @@ def test_singleton_pattern() -> None:
 
 def test_attribute_access(settings: Settings) -> None:
     """Test getting and setting each attribute of the Settings class."""
-    assert isinstance(settings.cache_file, Path)
+    assert isinstance(settings.cache_file, str)
     assert isinstance(settings.log_file, Path | None)
     assert isinstance(settings.max_concurrency, int)
     assert isinstance(settings.post_processors, list)
@@ -36,13 +41,10 @@ def test_attribute_access(settings: Settings) -> None:
     assert isinstance(settings.verbosity_level, int)
 
 
-def test_cache_file_setter(tmp_path: Path, settings: Settings) -> None:
+def test_cache_file_setter(settings: Settings) -> None:
     """Test setting the cache_file attribute with a Path object."""
-    new_cache_file = tmp_path / "new_cache.json"
+    new_cache_file = "new_cache.json"
     settings.cache_file = new_cache_file
-    assert settings.cache_file == new_cache_file
-
-    settings.cache_file = str(new_cache_file)
     assert settings.cache_file == new_cache_file
 
 
