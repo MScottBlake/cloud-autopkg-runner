@@ -12,7 +12,7 @@ to avoid unnecessary downloads.
 """
 
 from importlib.metadata import entry_points
-from typing import Protocol, TypeAlias, TypedDict
+from typing import Protocol, TypeAlias, TypedDict, runtime_checkable
 
 from cloud_autopkg_runner import Settings, logging_config
 from cloud_autopkg_runner.exceptions import (
@@ -64,6 +64,7 @@ dictionary mapping recipe names to `RecipeCache` objects.
 """
 
 
+@runtime_checkable
 class MetadataCachePlugin(Protocol):
     """Protocol defining the asynchronous interface for metadata caching."""
 
