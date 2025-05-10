@@ -29,7 +29,7 @@ jobs:
         with:
           version: "latest"
           enable-cache: true
-      - run: uv run ruff check .
+      - run: uv run --all-extras ruff check .
 
   formatting:
     runs-on: ubuntu-latest
@@ -41,7 +41,7 @@ jobs:
         with:
           version: "latest"
           enable-cache: true
-      - run: uv run ruff format --check .
+      - run: uv run --all-extras ruff format --check .
 
   type_consistency:
     runs-on: ubuntu-latest
@@ -55,7 +55,7 @@ jobs:
           enable-cache: true
       - name: Install the project
         run: uv sync
-      - run: uv run pyright .
+      - run: uv run --all-extras pyright .
 
   unit_tests:
     runs-on: macos-latest
@@ -65,9 +65,11 @@ jobs:
       statuses: write
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        allow-failures:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        experimental: [false]
+        include:
           - python-version: "3.14"
+            experimental: true
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
