@@ -78,7 +78,7 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras
       - name: Run tests with pytest
-        run: uv run --python ${{ matrix.python-version }} pytest
+        run: uv run --all-extras --python ${{ matrix.python-version }} pytest
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1
