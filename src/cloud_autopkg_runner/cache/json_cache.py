@@ -74,37 +74,77 @@ class AsyncJsonFileCache:
     async def load(self) -> MetadataCache:
         """Load metadata from the JSON file asynchronously.
 
-        This method loads the metadata from the JSON file into memory. It calls
-        the `_load_cache` method to perform the actual loading operation.
+        This method loads the metadata cache from the JSON file into memory. It uses
+        an asyncio lock to ensure thread safety and prevents multiple coroutines from
+        loading the cache simultaneously.
+
+        If the JSON file does not exist or if the JSON file is corrupt, it logs a
+        warning and returns an empty cache.
 
         Returns:
             The metadata cache loaded from the JSON file.
         """
-        await self._load_cache()
+        if self._is_loaded:
+            return self._cache_data
+
+        async with self._lock:
+            # Could have loaded while waiting
+            if self._is_loaded:
+                return self._cache_data
+
+            try:
+                loop = asyncio.get_event_loop()
+                content = await loop.run_in_executor(None, self._file_path.read_text)
+                self._cache_data = json.loads(content)
+                self._logger.info("Loaded metadata from %s", self._file_path)
+            except FileNotFoundError:
+                self._cache_data = {}
+                self._logger.warning(
+                    "Metadata file not found: %s, initializing an empty cache.",
+                    self._file_path,
+                )
+            except json.JSONDecodeError:
+                self._cache_data = {}
+                self._logger.warning(
+                    "Metadata file %s is corrupt, initializing an empty cache.",
+                    self._file_path,
+                )
+            finally:
+                self._is_loaded = True
+
         return self._cache_data
 
     async def save(self) -> None:
         """Write the metadata cache to disk.
 
-        This method writes the entire metadata cache to disk. It calls the
-        `_write_cache_to_disk` method to perform the actual writing operation.
+        This method writes the entire metadata cache to the JSON file. It uses an
+        asyncio lock to ensure thread safety and prevents multiple coroutines
+        from writing to the file simultaneously.
         """
-        await self._write_cache_to_disk()
+        async with self._lock:
+            try:
+                loop = asyncio.get_event_loop()
+                content = json.dumps(self._cache_data, indent=4)
+                await loop.run_in_executor(None, self._file_path.write_text, content)
+                self._logger.debug("Saved all metadata to %s", self._file_path)
+            except Exception:
+                self._logger.exception("Error saving metadata to %s", self._file_path)
 
     async def close(self) -> None:
-        """Close the cache and write it to disk.
+        """Placeholder method for closing the cache.
 
-        This method writes the entire metadata cache to disk. It calls the
-        `_write_cache_to_disk` method to perform the actual writing operation.
+        In this implementation, the `close` method is a placeholder and does not
+        perform any actual operations. It is included to satisfy the
+        `MetadataCachePlugin` interface.
         """
-        await self._write_cache_to_disk()
 
     async def clear_cache(self) -> None:
         """Clear all data from the cache."""
         async with self._lock:
             self._cache_data = {}
             self._is_loaded = True
-            await self._write_cache_to_disk()
+
+        await self.save()
 
     async def get_item(self, recipe_name: RecipeName) -> RecipeCache | None:
         """Retrieve a specific item from the cache asynchronously.
@@ -116,7 +156,7 @@ class AsyncJsonFileCache:
             The metadata associated with the recipe, or None if the recipe is not
             found in the cache.
         """
-        await self._load_cache()
+        await self.load()
         return self._cache_data.get(recipe_name)
 
     async def set_item(self, recipe_name: RecipeName, value: RecipeCache) -> None:
@@ -126,7 +166,7 @@ class AsyncJsonFileCache:
             recipe_name: The name of the recipe to set.
             value: The metadata to associate with the recipe.
         """
-        await self._load_cache()
+        await self.load()
         async with self._lock:
             self._cache_data[recipe_name] = value
             self._logger.debug(
@@ -139,72 +179,13 @@ class AsyncJsonFileCache:
         Args:
             recipe_name: The name of the recipe to delete from the cache.
         """
-        await self._load_cache()
+        await self.load()
         async with self._lock:
             if recipe_name in self._cache_data:
                 del self._cache_data[recipe_name]
                 self._logger.debug(
                     "Deleted recipe %s from metadata cache.", recipe_name
                 )
-
-    async def _load_cache(self) -> None:
-        """Load the cache data from the JSON file.
-
-        This method loads the entire cache data from the JSON file into memory.
-        It uses an asyncio lock to ensure thread safety and prevents multiple
-        coroutines from loading the cache simultaneously.
-
-        If the cache has already been loaded, this method does nothing. If the
-        JSON file does not exist, it creates a new empty cache. If the JSON file
-        is corrupt, it logs a warning and returns an empty cache.
-        """
-        if self._is_loaded:
-            return
-
-        async with self._lock:
-            if self._is_loaded:  # Could have loaded while waiting
-                return
-
-            loop = asyncio.get_event_loop()
-            try:
-                if not self._file_path.exists():
-                    self._cache_data = {}
-                    self._logger.debug(
-                        "Metadata file not found: %s, initializing an empty cache.",
-                        self._file_path,
-                    )
-                    return
-
-                content = await loop.run_in_executor(None, self._file_path.read_text)
-                self._cache_data = json.loads(content)
-                self._logger.debug("Loaded metadata from %s", self._file_path)
-            except FileNotFoundError:
-                self._cache_data = {}
-                self._logger.debug("Metadata file not found: %s", self._file_path)
-            except json.JSONDecodeError:
-                self._cache_data = {}
-                self._logger.warning(
-                    "Metadata file %s is corrupt, initializing an empty cache.",
-                    self._file_path,
-                )
-            finally:
-                self._is_loaded = True
-
-    async def _write_cache_to_disk(self) -> None:
-        """Helper method to write the cache data to disk.
-
-        This method writes the entire cache data to the JSON file. It uses an
-        asyncio lock to ensure thread safety and prevents multiple coroutines
-        from writing to the file simultaneously.
-        """
-        async with self._lock:
-            loop = asyncio.get_event_loop()
-            try:
-                content = json.dumps(self._cache_data, indent=4)
-                await loop.run_in_executor(None, self._file_path.write_text, content)
-                self._logger.debug("Saved all metadata to %s", self._file_path)
-            except Exception:
-                self._logger.exception("Error saving metadata to %s", self._file_path)
 
     async def __aenter__(self) -> "AsyncJsonFileCache":
         """For use in `async with` statements.
