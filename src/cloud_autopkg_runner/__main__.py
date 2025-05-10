@@ -227,7 +227,7 @@ def _parse_arguments() -> Namespace:
         "--cache-file",
         default="metadata_cache.json",
         help="Path to the file that stores the download metadata cache.",
-        type=Path,
+        type=str,
     )
     parser.add_argument(
         "--azure-account-url",
