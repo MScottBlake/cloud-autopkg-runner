@@ -5,14 +5,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cloud_autopkg_runner import AutoPkgPrefs
+from cloud_autopkg_runner import AutoPkgPrefs, RecipeFinder
 from cloud_autopkg_runner.exceptions import RecipeLookupException
-from cloud_autopkg_runner.recipe_finder import RecipeFinder
 
 
 @pytest.fixture
 def recipe_finder(tmp_path: Path) -> RecipeFinder:
-    """Fixture for creating a RecipeFinder instance with a mock AutoPkgPrefs object."""
+    """Fixture for creating a RecipeFinder instance with a mock AutoPkgPrefs object.
+
+    Returns:
+        RecipeFinder: A RecipeFinder object.
+    """
     mock_prefs = MagicMock(spec=AutoPkgPrefs)
     mock_prefs.recipe_override_dirs = [tmp_path / "override"]
     mock_prefs.recipe_search_dirs = [tmp_path / "search"]

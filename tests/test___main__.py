@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cloud_autopkg_runner import AutoPkgPrefs, settings
+from cloud_autopkg_runner import AutoPkgPrefs, Recipe, Settings
 from cloud_autopkg_runner.__main__ import (
     _apply_args_to_settings,
     _create_recipe,
@@ -24,22 +24,38 @@ from cloud_autopkg_runner.exceptions import (
     RecipeException,
     RecipeLookupException,
 )
-from cloud_autopkg_runner.recipe import Recipe
+
+
+@pytest.fixture
+def settings() -> Settings:
+    """Fixture to get the settings instance.
+
+    Returns:
+        Settings: A new instance of the Settings class.
+    """
+    with patch.object(Settings, "_instance", None):
+        instance = Settings()
+        yield instance
 
 
 @pytest.fixture
 def mock_autopkg_prefs(tmp_path: Path) -> MagicMock:
-    """Fixture to create a mock AutoPkgPrefs object with search/override dirs."""
+    """Fixture to create a mock AutoPkgPrefs object with search/override dirs.
+
+    Returns:
+        MagicMock: A mock AutoPkgPrefs object.
+    """
     mock_prefs = MagicMock(spec=AutoPkgPrefs)
     mock_prefs.recipe_override_dirs = [tmp_path]
     mock_prefs.recipe_search_dirs = [tmp_path]
     return mock_prefs
 
 
-def test_apply_args_to_settings(tmp_path: Path) -> None:
+def test_apply_args_to_settings(tmp_path: Path, settings: Settings) -> None:
     """Test that _apply_args_to_settings correctly sets settings."""
     args = Namespace(
-        cache_file=tmp_path / "test_cache.json",
+        cache_file="test_cache.json",
+        cache_plugin="json",
         log_file=tmp_path / "test_log.txt",
         max_concurrency=5,
         report_dir=tmp_path / "test_reports",
@@ -48,7 +64,9 @@ def test_apply_args_to_settings(tmp_path: Path) -> None:
 
     _apply_args_to_settings(args)
 
-    assert settings.cache_file == tmp_path / "test_cache.json"
+    assert settings.cache_file == "test_cache.json"
+    assert Path(settings.cache_file) == Path("test_cache.json")
+    assert tmp_path / settings.cache_file == tmp_path / "test_cache.json"
     assert settings.log_file == tmp_path / "test_log.txt"
     assert settings.max_concurrency == 5
     assert settings.report_dir == tmp_path / "test_reports"
@@ -140,7 +158,7 @@ def test_parse_arguments() -> None:
     assert args.verbose == 2
     assert args.recipe == ["Recipe1", "Recipe2"]
     assert args.recipe_list == Path("recipes.json")
-    assert args.cache_file == Path("test_cache.json")
+    assert args.cache_file == "test_cache.json"
     assert args.log_file == Path("test_log.txt")
     assert args.post_processor == ["PostProcessor1"]
     assert args.pre_processor == ["PreProcessor1"]
@@ -170,7 +188,7 @@ def test_parse_arguments_diff_syntax() -> None:
     assert args.verbose == 2
     assert args.recipe == ["Recipe1", "Recipe2"]
     assert args.recipe_list == Path("recipes.json")
-    assert args.cache_file == Path("test_cache.json")
+    assert args.cache_file == "test_cache.json"
     assert args.log_file == Path("test_log.txt")
     assert args.post_processor == ["PostProcessor1"]
     assert args.pre_processor == ["PreProcessor1"]
@@ -209,9 +227,9 @@ async def test_create_recipe_invalid_file_contents(
             "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
             return_value=mock_autopkg_prefs,
         ),
-        patch("cloud_autopkg_runner.__main__.get_logger") as mock_get_logger,
+        patch("cloud_autopkg_runner.logging_config.get_logger") as mock_get_logger,
         patch(
-            "cloud_autopkg_runner.__main__.Recipe",
+            "cloud_autopkg_runner.recipe.Recipe",
             side_effect=InvalidFileContents("corrupt recipe file"),
         ),
     ):
@@ -234,9 +252,9 @@ async def test_create_recipe_recipe_exception(mock_autopkg_prefs: MagicMock) -> 
             "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
             return_value=mock_autopkg_prefs,
         ),
-        patch("cloud_autopkg_runner.__main__.get_logger") as mock_get_logger,
+        patch("cloud_autopkg_runner.logging_config.get_logger") as mock_get_logger,
         patch(
-            "cloud_autopkg_runner.__main__.Recipe",
+            "cloud_autopkg_runner.recipe.Recipe",
             side_effect=RecipeException("missing processor"),
         ),
     ):
@@ -264,7 +282,7 @@ async def test_get_recipe_path_success(
             return_value=mock_autopkg_prefs,
         ),
         patch(
-            "cloud_autopkg_runner.__main__.RecipeFinder.find_recipe",
+            "cloud_autopkg_runner.recipe_finder.RecipeFinder.find_recipe",
             new_callable=AsyncMock,
             return_value=recipe_path,
         ),
@@ -284,7 +302,7 @@ async def test_get_recipe_path_recipe_lookup_exception(
             return_value=mock_autopkg_prefs,
         ),
         patch(
-            "cloud_autopkg_runner.__main__.RecipeFinder.find_recipe",
+            "cloud_autopkg_runner.recipe_finder.RecipeFinder.find_recipe",
             new_callable=AsyncMock,
             side_effect=RecipeLookupException("Recipe not found"),
         ),

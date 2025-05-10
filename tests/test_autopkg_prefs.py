@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
+from cloud_autopkg_runner import AutoPkgPrefs
 from cloud_autopkg_runner.exceptions import (
     InvalidPlistContents,
     PreferenceFileNotFoundError,

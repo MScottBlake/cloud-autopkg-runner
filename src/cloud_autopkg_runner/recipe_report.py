@@ -4,8 +4,8 @@ import plistlib
 from pathlib import Path
 from typing import Any, TypedDict
 
+from cloud_autopkg_runner import logging_config
 from cloud_autopkg_runner.exceptions import InvalidPlistContents
-from cloud_autopkg_runner.logging_config import get_logger
 
 
 class RecipeReportFailedItem(TypedDict):
@@ -145,8 +145,6 @@ class RecipeReport:
 
         Raises:
             InvalidPlistContents: If the plist file is invalid or cannot be parsed.
-            FileNotFoundError: If the report file does not exist.
-            OSError: If an I/O error occurs while reading the file.
         """
         try:
             self._contents: RecipeReportContents = plistlib.loads(
@@ -169,7 +167,7 @@ class RecipeReport:
             A ConsolidatedReport dictionary containing the files downloaded, packages
             built, any failures, and Munki imports.
         """
-        logger = get_logger(__name__)
+        logger = logging_config.get_logger(__name__)
         logger.debug("Parsing the report at %s...", self.file_path())
 
         if not self._parsed:

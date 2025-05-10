@@ -9,8 +9,8 @@ import asyncio
 import contextlib
 import shlex
 
+from cloud_autopkg_runner import logging_config
 from cloud_autopkg_runner.exceptions import ShellCommandException
-from cloud_autopkg_runner.logging_config import get_logger
 
 
 def _normalize_cmd(cmd: str | list[str]) -> list[str]:
@@ -61,7 +61,7 @@ async def _run_and_capture(
             - stdout (str): The standard output of the command.
             - stderr (str): The standard error of the command.
     """
-    logger = get_logger(__name__)
+    logger = logging_config.get_logger(__name__)
     returncode: int = -1
 
     proc = await asyncio.create_subprocess_exec(
@@ -115,7 +115,7 @@ async def _run_without_capture(
             - stdout (str): An empty string ("").
             - stderr (str): An empty string ("").
     """
-    logger = get_logger(__name__)
+    logger = logging_config.get_logger(__name__)
     returncode: int = -1
 
     proc = await asyncio.create_subprocess_exec(*cmd, cwd=cwd)
@@ -185,7 +185,7 @@ async def run_cmd(
             - An `OSError` occurs during subprocess creation.
             - Any other unexpected exception occurs during command execution.
     """
-    logger = get_logger(__name__)
+    logger = logging_config.get_logger(__name__)
     cmd_list = _normalize_cmd(cmd)
     cmd_str = " ".join(cmd_list)
 

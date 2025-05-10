@@ -12,6 +12,43 @@ class AutoPkgRunnerException(BaseException):
     """Base exception class for the AutoPkg runner."""
 
 
+# Cache
+class PluginManagerError(AutoPkgRunnerException):
+    """Base exception class for handling invalid cache plugins."""
+
+    def __init__(self, plugin_name: str) -> None:
+        """Initializes PluginManagerError with the name of a plugin.
+
+        Args:
+            plugin_name: The name of a cache plugin.
+        """
+        super().__init__(f"Failed to load '{plugin_name}' metadata cache plugin.")
+
+
+class PluginManagerEntryPointError(PluginManagerError):
+    """Exception class for handling invalid cache plugins missing entry points."""
+
+    def __init__(self, plugin_name: str) -> None:
+        """Initializes PluginManagerEntryPointError with the name of a plugin.
+
+        Args:
+            plugin_name: The name of a cache plugin.
+        """
+        super().__init__(f"No entry point found for cache plugin: {plugin_name}")
+
+
+class InvalidCacheContents(AutoPkgRunnerException):
+    """Base exception class for handling invalid cache contents.
+
+    This exception is raised when a cache is found to contain invalid data
+    or is improperly formatted.
+    """
+
+    def __init__(self) -> None:
+        """Initializes InvalidCacheContents with the path to the invalid file."""
+        super().__init__("Invalid cache contents.")
+
+
 # File Contents
 class InvalidFileContents(AutoPkgRunnerException):
     """Base exception class for handling invalid file contents.

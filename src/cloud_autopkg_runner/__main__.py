@@ -25,16 +25,20 @@ from pathlib import Path
 from types import FrameType
 from typing import NoReturn
 
-from cloud_autopkg_runner import RecipeFinder, settings
+from cloud_autopkg_runner import (
+    Settings,
+    file_utils,
+    logging_config,
+    metadata_cache,
+    recipe,
+    recipe_finder,
+)
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
     InvalidJsonContents,
     RecipeException,
 )
-from cloud_autopkg_runner.file_utils import create_dummy_files
-from cloud_autopkg_runner.logging_config import get_logger, initialize_logger
-from cloud_autopkg_runner.metadata_cache import MetadataCacheManager
-from cloud_autopkg_runner.recipe import ConsolidatedReport, Recipe
+from cloud_autopkg_runner.recipe_report import ConsolidatedReport
 
 
 def _apply_args_to_settings(args: Namespace) -> None:
@@ -47,14 +51,25 @@ def _apply_args_to_settings(args: Namespace) -> None:
     Args:
         args: A Namespace object containing parsed command-line arguments.
     """
-    settings.cache_file = args.cache_file
+    settings = Settings()
+
     settings.log_file = args.log_file
     settings.max_concurrency = args.max_concurrency
     settings.report_dir = args.report_dir
     settings.verbosity_level = args.verbose
 
+    settings.cache_plugin = args.cache_plugin
+    settings.cache_file = args.cache_file
 
-async def _create_recipe(recipe_name: str) -> Recipe | None:
+    # Plugin-specific arguments
+    if settings.cache_plugin == "azure":
+        settings.azure_account_url = args.azure_account_url
+
+    if settings.cache_plugin in {"azure", "gcs", "s3"}:
+        settings.cloud_container_name = args.cloud_container_name
+
+
+async def _create_recipe(recipe_name: str) -> recipe.Recipe | None:
     """Create a Recipe object, handling potential exceptions during initialization.
 
     This function attempts to create a `Recipe` object for a given recipe name.
@@ -69,10 +84,11 @@ async def _create_recipe(recipe_name: str) -> Recipe | None:
         A Recipe object if the creation was successful, otherwise None.
     """
     try:
+        settings = Settings()
         recipe_path = await _get_recipe_path(recipe_name)
-        return Recipe(recipe_path, settings.report_dir)
+        return recipe.Recipe(recipe_path, settings.report_dir)
     except (InvalidFileContents, RecipeException):
-        logger = get_logger(__name__)
+        logger = logging_config.get_logger(__name__)
         logger.exception("Failed to create recipe: %s", recipe_name)
         return None
 
@@ -97,14 +113,14 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
         InvalidJsonContents: If the JSON file specified by 'args.recipe_list'
             contains invalid JSON.
     """
-    logger = get_logger(__name__)
+    logger = logging_config.get_logger(__name__)
     logger.debug("Generating recipe list...")
 
     output: set[str] = set()
 
     if args.recipe_list:
         try:
-            output.update(json.loads(Path(args.recipe_list).read_text()))
+            output.update(json.loads(Path(args.recipe_list).read_text("utf-8")))
         except json.JSONDecodeError as exc:
             raise InvalidJsonContents(args.recipe_list) from exc
 
@@ -119,8 +135,15 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
 
 
 async def _get_recipe_path(recipe_name: str) -> Path:
-    """Helper function to asynchronously find a recipe path."""
-    finder = RecipeFinder()
+    """Helper function to asynchronously find a recipe path.
+
+    Args:
+        recipe_name: The name of the recipe to find the path for.
+
+    Returns:
+        The Path to a given recipe.
+    """
+    finder = recipe_finder.RecipeFinder()
     return await finder.find_recipe(recipe_name)
 
 
@@ -153,12 +176,6 @@ def _parse_arguments() -> Namespace:
     parser.add_argument(
         "--recipe-list",
         help="Path to a list of recipe names in JSON format.",
-        type=Path,
-    )
-    parser.add_argument(
-        "--cache-file",
-        default="metadata_cache.json",
-        help="Path to the file that stores the download metadata cache.",
         type=Path,
     )
     parser.add_argument(
@@ -196,6 +213,33 @@ def _parse_arguments() -> Namespace:
         default=10,
         type=int,
     )
+
+    # Plugin-specific arguments
+
+    parser.add_argument(
+        "--cache-plugin",
+        # Use the entry point names
+        choices=["azure", "gcs", "json", "s3", "sqlite"],
+        help="The cache plugin to use (azure, gcs, json, s3, and sqlite).",
+        type=str,
+    )
+    parser.add_argument(
+        "--cache-file",
+        default="metadata_cache.json",
+        help="Path to the file that stores the download metadata cache.",
+        type=str,
+    )
+    parser.add_argument(
+        "--azure-account-url",
+        help="Azure account URL",
+        type=str,
+    )
+    parser.add_argument(
+        "--cloud-container-name",
+        help="Bucket/Container name",
+        type=str,
+    )
+
     return parser.parse_args()
 
 
@@ -215,11 +259,13 @@ async def _process_recipe_list(
         A dictionary where the keys are recipe names and the values are
         ConsolidatedReport objects representing the results of running each recipe.
     """
-    logger = get_logger(__name__)
+    logger = logging_config.get_logger(__name__)
     logger.debug("Processing recipes...")
 
+    await file_utils.create_dummy_files(recipe_list)
+
     # Create Recipe objects concurrently
-    recipes: list[Recipe] = [
+    recipes: list[recipe.Recipe] = [
         recipe
         for recipe in await asyncio.gather(
             *[_create_recipe(recipe_name) for recipe_name in recipe_list]
@@ -230,11 +276,13 @@ async def _process_recipe_list(
     # Run recipes concurrently
     results = await asyncio.gather(*[_run_recipe(recipe) for recipe in recipes])
 
+    await metadata_cache.get_cache_plugin().save()
+
     return dict(results)
 
 
 async def _run_recipe(
-    recipe: Recipe,
+    recipe: recipe.Recipe,
 ) -> tuple[str, ConsolidatedReport]:
     """Run a single AutoPkg recipe with a concurrency limit.
 
@@ -248,7 +296,8 @@ async def _run_recipe(
     Returns:
         A tuple containing the recipe name and the ConsolidatedReport object.
     """
-    logger = get_logger(__name__)
+    logger = logging_config.get_logger(__name__)
+    settings = Settings()
     async with asyncio.Semaphore(settings.max_concurrency):
         logger.debug("Running recipe %s", recipe.name)
         return recipe.name, await recipe.run()
@@ -265,7 +314,7 @@ def _signal_handler(sig: int, _frame: FrameType | None) -> NoReturn:
         sig: The signal number (an integer).
         _frame: The frame object (unused).
     """
-    logger = get_logger(__name__)
+    logger = logging_config.get_logger(__name__)
     logger.error("Signal %s received. Exiting...", sig)
     sys.exit(0)
 
@@ -277,20 +326,15 @@ async def _async_main() -> None:
     - Parsing command-line arguments.
     - Initializing logging.
     - Generating a list of recipes to process.
-    - Loading the metadata cache.
     - Creating dummy files to simulate previous downloads.
     - Processing the recipe list concurrently.
     """
     args = _parse_arguments()
-    initialize_logger(args.verbose, args.log_file)
-
     _apply_args_to_settings(args)
 
+    logging_config.initialize_logger(args.verbose, args.log_file)
+
     recipe_list = _generate_recipe_list(args)
-
-    metadata_cache = await MetadataCacheManager.load(args.cache_file)
-    await create_dummy_files(recipe_list, metadata_cache)
-
     _results = await _process_recipe_list(recipe_list)
 
 
