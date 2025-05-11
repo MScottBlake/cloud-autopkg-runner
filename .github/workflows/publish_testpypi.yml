@@ -30,6 +30,8 @@ jobs:
     name: Test Installation from TestPyPI
     needs: [publish-to-testpypi]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
