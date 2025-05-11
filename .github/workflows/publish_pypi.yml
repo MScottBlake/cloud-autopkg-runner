@@ -26,6 +26,8 @@ jobs:
     name: Install from PyPI
     needs: [publish-to-pypi]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
