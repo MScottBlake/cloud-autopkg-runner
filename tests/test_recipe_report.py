@@ -4,8 +4,8 @@ from typing import Any
 
 import pytest
 
+from cloud_autopkg_runner import recipe_report
 from cloud_autopkg_runner.exceptions import InvalidPlistContents
-from cloud_autopkg_runner.recipe_report import RecipeReport
 
 
 def create_dummy_file(content: str, path: Path) -> None:
@@ -21,7 +21,7 @@ def create_dummy_plist(content: dict[str, Any], path: Path) -> None:
 def test_recipe_report_init(tmp_path: Path) -> None:
     """Test initializing a RecipeReport object."""
     report_path = tmp_path / "report.plist"
-    report = RecipeReport(report_path)
+    report = recipe_report.RecipeReport(report_path)
 
     assert report.file_path() == report_path
 
@@ -29,7 +29,7 @@ def test_recipe_report_init(tmp_path: Path) -> None:
 def test_recipe_report_refresh_contents(tmp_path: Path) -> None:
     """Test parsing a valid report file."""
     report_path = tmp_path / "report.plist"
-    report = RecipeReport(report_path)
+    report = recipe_report.RecipeReport(report_path)
     content: dict[str, Any] = {
         "failures": [],
         "summary_results": {
@@ -53,7 +53,7 @@ def test_recipe_report_refresh_contents_invalid_plist(tmp_path: Path) -> None:
     """Test parsing an invalid report file raises the appropriate exception."""
     report_path = tmp_path / "report.plist"
     create_dummy_file("invalid plist content", report_path)
-    report = RecipeReport(report_path)
+    report = recipe_report.RecipeReport(report_path)
 
     with pytest.raises(InvalidPlistContents):
         report.refresh_contents()
@@ -90,7 +90,7 @@ def test_recipe_report_consolidate_report(tmp_path: Path) -> None:
 
     create_dummy_plist(content, report_path)
 
-    report = RecipeReport(report_path)
+    report = recipe_report.RecipeReport(report_path)
     report.refresh_contents()
 
     consolidated = report.consolidate_report()

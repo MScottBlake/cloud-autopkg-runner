@@ -10,11 +10,12 @@ dev = [
     "pytest-asyncio>=0.26.0",
     "pytest-cov>=6.0.0",
     "ruff>=0.11.0",
+    "types-boto3[all]>=1.38.10",
 ]
 
 [project]
 name = "cloud-autopkg-runner"
-version = "0.13.4"
+version = "0.14.0"
 description = "A Python library designed to level-up your AutoPkg automations with a focus on CI/CD performance."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
@@ -48,9 +49,26 @@ autopkg_runner = "cloud_autopkg_runner.__main__:main"
 cloud-autopkg-runner = "cloud_autopkg_runner.__main__:main"
 cloud_autopkg_runner = "cloud_autopkg_runner.__main__:main"
 
+[project.entry-points."cloud_autopkg_runner.cache"]
+default = "cloud_autopkg_runner.cache.json_cache:AsyncJsonFileCache"
+azure = "cloud_autopkg_runner.cache.azure_blob_cache:AsyncAzureBlobCache"
+gcs = "cloud_autopkg_runner.cache.gcs_cache:AsyncGCSCache"
+json = "cloud_autopkg_runner.cache.json_cache:AsyncJsonFileCache"
+s3 = "cloud_autopkg_runner.cache.s3_cache:AsyncS3Cache"
+sqlite = "cloud_autopkg_runner.cache.sqlite_cache:AsyncSQLiteCache"
+
+[project.optional-dependencies]
+azure = ["azure-identity", "azure-storage-blob"]
+gcs = ["google-cloud-storage"]
+json = []
+s3 = ["boto3"]
+sqlite = []
+
 [project.urls]
 Homepage = "https://github.com/MScottBlake/cloud-autopkg-runner"
+Documentation = "https://github.com/MScottBlake/cloud-autopkg-runner/wiki"
 Repository = "https://github.com/MScottBlake/cloud-autopkg-runner.git"
+Issues = "https://github.com/MScottBlake/cloud-autopkg-runner/issues"
 
 [tool.coverage.report]
 fail_under = 80
@@ -90,6 +108,7 @@ include = ["pyproject.toml", "{src,tests}/**/*.py"]
 extend-exclude = [".venv"]
 
 [tool.ruff.lint]
+unfixable = ["ALL"]
 select = [
     "A",     # flake8-builtins
     "ANN",   # flake8-annotations
@@ -133,7 +152,7 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*" = ["S101", "S108", "D100", "PLR2004", "ANN401", "SLF001"]
+"tests/**/*" = ["S101", "S108", "D100", "PLR2004", "PLC2701", "ANN401", "SLF001"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

@@ -13,12 +13,19 @@ Key features include:
 - Metadata caching to reduce redundant downloads.
 """
 
+from .settings import Settings  # noqa: I001
+
 from .autopkg_prefs import AutoPkgPrefs
+from .metadata_cache import get_cache_plugin
+from .recipe import Recipe
 from .recipe_finder import RecipeFinder
-from .settings import settings
+from .recipe_report import RecipeReport
 
 __all__ = [
     "AutoPkgPrefs",
+    "Recipe",
     "RecipeFinder",
-    "settings",
+    "RecipeReport",
+    "Settings",
+    "get_cache_plugin",
 ]
