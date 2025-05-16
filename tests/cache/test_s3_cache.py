@@ -2,7 +2,7 @@ import asyncio
 import json
 from collections.abc import Generator
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
@@ -34,15 +34,13 @@ async def s3_cache() -> Generator[AsyncS3Cache, Any, None]:
 @pytest.mark.asyncio
 async def test_load_cache_success(s3_cache: AsyncS3Cache) -> None:
     """Test loading the cache successfully from S3."""
-    s3_cache._client.get_object.return_value = {
-        "Body": MagicMock(
-            read=MagicMock(return_value=json.dumps({"recipe1": {"timestamp": "test"}}))
-        )
-    }
+    mock_body = AsyncMock()
+    mock_body.read.return_value = b'{"recipe1": {"timestamp": "test", "metadata": []}}'
 
+    s3_cache._client.get_object.return_value = {"Body": mock_body}
     cache_data = await s3_cache.load()
 
-    assert cache_data == {"recipe1": {"timestamp": "test"}}
+    assert cache_data == {"recipe1": {"timestamp": "test", "metadata": []}}
     assert s3_cache._is_loaded is True
     s3_cache._client.get_object.assert_called_once_with(
         Bucket="test-bucket", Key="metadata_cache.json"
@@ -155,18 +153,14 @@ async def test_clear_cache(s3_cache: AsyncS3Cache) -> None:
 @pytest.mark.asyncio
 async def test_get_item(s3_cache: AsyncS3Cache) -> None:
     """Test getting an item from the cache."""
-    s3_cache._client.get_object.return_value = {
-        "Body": MagicMock(
-            read=MagicMock(
-                return_value=json.dumps({"recipe1": {"timestamp": "test"}}).encode(
-                    "utf-8"
-                )
-            )
-        )
-    }
+    mock_body = AsyncMock()
+    mock_body.read.return_value = b'{"recipe1": {"timestamp": "test", "metadata": []}}'
+
+    s3_cache._client.get_object.return_value = {"Body": mock_body}
+
     await s3_cache.load()
     item = await s3_cache.get_item("recipe1")
-    assert item == {"timestamp": "test"}
+    assert item == {"timestamp": "test", "metadata": []}
 
 
 @pytest.mark.asyncio
