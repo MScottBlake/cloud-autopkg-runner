@@ -204,3 +204,10 @@ async def test_clear_cache(azure_cache: AsyncAzureBlobCache) -> None:
         json.dumps({}, indent=4).encode("utf-8"),
         overwrite=True,
     )
+
+
+@pytest.mark.asyncio
+async def test_close(azure_cache: AsyncAzureBlobCache) -> None:
+    """Test that `self._client` does not exist after closing."""
+    await azure_cache.close()
+    assert not hasattr(azure_cache, "_client")

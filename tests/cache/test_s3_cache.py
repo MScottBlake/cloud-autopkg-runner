@@ -209,3 +209,10 @@ async def test_delete_non_existent_key(s3_cache: AsyncS3Cache) -> None:
     s3_cache._cache_data = {"recipe1": {"timestamp": "test"}}
     await s3_cache.delete_item("non_existent_key")  # Should not raise an error
     assert "recipe1" in s3_cache._cache_data
+
+
+@pytest.mark.asyncio
+async def test_close(s3_cache: AsyncS3Cache) -> None:
+    """Test that `self._client` does not exist after closing."""
+    await s3_cache.close()
+    assert not hasattr(s3_cache, "_client")

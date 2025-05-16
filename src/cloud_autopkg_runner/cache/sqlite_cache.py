@@ -147,6 +147,7 @@ class AsyncSQLiteCache:
         if hasattr(self, "_conn"):
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, self._conn.close)
+            del self._conn
 
     async def clear_cache(self) -> None:
         """Clear all data from the cache."""

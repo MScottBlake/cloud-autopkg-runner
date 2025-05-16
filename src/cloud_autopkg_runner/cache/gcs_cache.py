@@ -160,6 +160,7 @@ class AsyncGCSCache:
         if hasattr(self, "_client"):
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, self._client.close)
+            del self._client
 
     async def clear_cache(self) -> None:
         """Clear all data from the cache."""

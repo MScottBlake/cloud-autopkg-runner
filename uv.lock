@@ -449,7 +449,7 @@ wheels = [
 
 [[package]]
 name = "cloud-autopkg-runner"
-version = "0.14.6"
+version = "0.14.7"
 source = { editable = "." }
 dependencies = [
     { name = "pyyaml" },
