@@ -214,5 +214,6 @@ async def test_open(sqlite_cache: AsyncSQLiteCache) -> None:
 @pytest.mark.asyncio
 async def test_close(sqlite_cache: AsyncSQLiteCache) -> None:
     """Test that `self._conn` does not exist after closing."""
+    await sqlite_cache.open()
     await sqlite_cache.close()
     assert not hasattr(sqlite_cache, "_conn")
