@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import pytest_asyncio
 from botocore.exceptions import ClientError
-from types_aiobotocore_s3 import S3Client
 
 from cloud_autopkg_runner import Settings
 from cloud_autopkg_runner.cache import AsyncS3Cache
@@ -19,15 +18,14 @@ async def s3_cache() -> Generator[AsyncS3Cache, Any, None]:
     with (
         patch.object(Settings, "_instance", None),
         patch.object(AsyncS3Cache, "_instance", None),
-        patch("cloud_autopkg_runner.cache.s3_cache.aioboto3.Session") as mock_session,
+        patch("cloud_autopkg_runner.cache.s3_cache.aioboto3.Session"),
     ):
         settings = Settings()
         settings.cloud_container_name = "test-bucket"
         settings.cache_file = "metadata_cache.json"
 
-        mock_session.return_value.client.return_value = MagicMock()
         cache = AsyncS3Cache()
-        cache._client = MagicMock(spec=S3Client)
+        await cache.open()
         yield cache
 
 
