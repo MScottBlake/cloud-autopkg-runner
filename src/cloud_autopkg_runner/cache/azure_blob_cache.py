@@ -153,6 +153,7 @@ class AsyncAzureBlobCache:
         """Close the connection to Azure Blob Storage."""
         if hasattr(self, "_client"):
             await self._client.close()
+            del self._client
 
     async def clear_cache(self) -> None:
         """Clear all data from the cache."""

@@ -9,13 +9,16 @@ asyncio lock to prevent race conditions.
 
 import asyncio
 import json
-from functools import partial
 from types import TracebackType
+from typing import TYPE_CHECKING
 
-import boto3
+import aioboto3
 
 from cloud_autopkg_runner import Settings, logging_config
 from cloud_autopkg_runner.metadata_cache import MetadataCache, RecipeCache, RecipeName
+
+if TYPE_CHECKING:
+    from types_aiobotocore_s3 import S3Client
 
 
 class AsyncS3Cache:
@@ -74,10 +77,9 @@ class AsyncS3Cache:
         Creates a boto3 session and s3 client, which are stored to the `_client`
         variable.
         """
-        loop = asyncio.get_event_loop()
-        self._client = await loop.run_in_executor(
-            None, lambda: boto3.Session().client("s3")
-        )
+        session = aioboto3.Session()
+        async with session.client("s3") as s3_client:
+            self._client: S3Client = s3_client
 
     async def load(self) -> MetadataCache:
         """Load metadata from the S3 bucket asynchronously.
@@ -104,17 +106,12 @@ class AsyncS3Cache:
                 await self.open()
 
             try:
-                loop = asyncio.get_event_loop()
-                response = await loop.run_in_executor(
-                    None,
-                    partial(
-                        self._client.get_object,
-                        Bucket=self._bucket_name,
-                        Key=self._cache_key,
-                    ),
+                response = await self._client.get_object(
+                    Bucket=self._bucket_name,
+                    Key=self._cache_key,
                 )
 
-                content = response["Body"].read()
+                content = await response["Body"].read()
                 self._cache_data = json.loads(content)
                 self._logger.info(
                     "Loaded metadata from s3://%s/%s",
@@ -153,14 +150,10 @@ class AsyncS3Cache:
         async with self._lock:
             try:
                 content = json.dumps(self._cache_data, indent=4)
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(
-                    None,
-                    lambda: self._client.put_object(
-                        Bucket=self._bucket_name,
-                        Key=self._cache_key,
-                        Body=content.encode("utf-8"),
-                    ),
+                await self._client.put_object(
+                    Bucket=self._bucket_name,
+                    Key=self._cache_key,
+                    Body=content.encode("utf-8"),
                 )
                 self._logger.debug(
                     "Saved all metadata to s3://%s/%s",
@@ -180,8 +173,8 @@ class AsyncS3Cache:
         This method closes the session and any resources associated with the connection.
         """
         if hasattr(self, "_client"):
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._client.close)
+            await self._client.close()
+            del self._client
 
     async def clear_cache(self) -> None:
         """Clear all data from the cache."""

@@ -2,12 +2,11 @@ import asyncio
 import json
 from collections.abc import Generator
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
 from botocore.exceptions import ClientError
-from types_boto3_s3 import Client
 
 from cloud_autopkg_runner import Settings
 from cloud_autopkg_runner.cache import AsyncS3Cache
@@ -19,30 +18,27 @@ async def s3_cache() -> Generator[AsyncS3Cache, Any, None]:
     with (
         patch.object(Settings, "_instance", None),
         patch.object(AsyncS3Cache, "_instance", None),
-        patch("cloud_autopkg_runner.cache.s3_cache.boto3.Session") as mock_session,
+        patch("cloud_autopkg_runner.cache.s3_cache.aioboto3.Session"),
     ):
         settings = Settings()
         settings.cloud_container_name = "test-bucket"
         settings.cache_file = "metadata_cache.json"
 
-        mock_session.return_value.client.return_value = MagicMock()
         cache = AsyncS3Cache()
-        cache._client = MagicMock(spec=Client)
+        await cache.open()
         yield cache
 
 
 @pytest.mark.asyncio
 async def test_load_cache_success(s3_cache: AsyncS3Cache) -> None:
     """Test loading the cache successfully from S3."""
-    s3_cache._client.get_object.return_value = {
-        "Body": MagicMock(
-            read=MagicMock(return_value=json.dumps({"recipe1": {"timestamp": "test"}}))
-        )
-    }
+    mock_body = AsyncMock()
+    mock_body.read.return_value = b'{"recipe1": {"timestamp": "test", "metadata": []}}'
 
+    s3_cache._client.get_object.return_value = {"Body": mock_body}
     cache_data = await s3_cache.load()
 
-    assert cache_data == {"recipe1": {"timestamp": "test"}}
+    assert cache_data == {"recipe1": {"timestamp": "test", "metadata": []}}
     assert s3_cache._is_loaded is True
     s3_cache._client.get_object.assert_called_once_with(
         Bucket="test-bucket", Key="metadata_cache.json"
@@ -155,18 +151,14 @@ async def test_clear_cache(s3_cache: AsyncS3Cache) -> None:
 @pytest.mark.asyncio
 async def test_get_item(s3_cache: AsyncS3Cache) -> None:
     """Test getting an item from the cache."""
-    s3_cache._client.get_object.return_value = {
-        "Body": MagicMock(
-            read=MagicMock(
-                return_value=json.dumps({"recipe1": {"timestamp": "test"}}).encode(
-                    "utf-8"
-                )
-            )
-        )
-    }
+    mock_body = AsyncMock()
+    mock_body.read.return_value = b'{"recipe1": {"timestamp": "test", "metadata": []}}'
+
+    s3_cache._client.get_object.return_value = {"Body": mock_body}
+
     await s3_cache.load()
     item = await s3_cache.get_item("recipe1")
-    assert item == {"timestamp": "test"}
+    assert item == {"timestamp": "test", "metadata": []}
 
 
 @pytest.mark.asyncio
@@ -215,3 +207,10 @@ async def test_delete_non_existent_key(s3_cache: AsyncS3Cache) -> None:
     s3_cache._cache_data = {"recipe1": {"timestamp": "test"}}
     await s3_cache.delete_item("non_existent_key")  # Should not raise an error
     assert "recipe1" in s3_cache._cache_data
+
+
+@pytest.mark.asyncio
+async def test_close(s3_cache: AsyncS3Cache) -> None:
+    """Test that `self._client` does not exist after closing."""
+    await s3_cache.close()
+    assert not hasattr(s3_cache, "_client")

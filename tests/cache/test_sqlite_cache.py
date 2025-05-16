@@ -202,3 +202,18 @@ async def test_delete_non_existent_key(sqlite_cache: AsyncSQLiteCache) -> None:
     sqlite_cache._cache_data = {"recipe1": {"timestamp": "test"}}
     await sqlite_cache.delete_item("non_existent_key")  # Should not raise an error
     assert "recipe1" in sqlite_cache._cache_data
+
+
+@pytest.mark.asyncio
+async def test_open(sqlite_cache: AsyncSQLiteCache) -> None:
+    """Test that `self._conn` exists after opening."""
+    await sqlite_cache.open()
+    assert hasattr(sqlite_cache, "_conn")
+
+
+@pytest.mark.asyncio
+async def test_close(sqlite_cache: AsyncSQLiteCache) -> None:
+    """Test that `self._conn` does not exist after closing."""
+    await sqlite_cache.open()
+    await sqlite_cache.close()
+    assert not hasattr(sqlite_cache, "_conn")

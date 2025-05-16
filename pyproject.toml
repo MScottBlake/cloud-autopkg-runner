@@ -10,12 +10,12 @@ dev = [
     "pytest-asyncio>=0.26.0",
     "pytest-cov>=6.0.0",
     "ruff>=0.11.0",
-    "types-boto3[all]>=1.38.10",
+    "types-aioboto3-lite[s3]>=1.38.10",
 ]
 
 [project]
 name = "cloud-autopkg-runner"
-version = "0.14.3"
+version = "0.14.9"
 description = "A Python library designed to level-up your AutoPkg automations with a focus on CI/CD performance."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
@@ -61,7 +61,7 @@ sqlite = "cloud_autopkg_runner.cache.sqlite_cache:AsyncSQLiteCache"
 azure = ["azure-identity", "azure-storage-blob"]
 gcs = ["google-cloud-storage"]
 json = []
-s3 = ["boto3"]
+s3 = ["aioboto3"]
 sqlite = []
 
 [project.urls]

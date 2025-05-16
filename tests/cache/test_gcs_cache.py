@@ -174,3 +174,10 @@ async def test_delete_non_existent_key(gcs_cache: AsyncGCSCache) -> None:
     gcs_cache._cache_data = {"recipe1": {"timestamp": "test"}}
     await gcs_cache.delete_item("non_existent_key")  # Should not raise an error
     assert "recipe1" in gcs_cache._cache_data
+
+
+@pytest.mark.asyncio
+async def test_close(gcs_cache: AsyncGCSCache) -> None:
+    """Test that `self._client` does not exist after closing."""
+    await gcs_cache.close()
+    assert not hasattr(gcs_cache, "_client")
