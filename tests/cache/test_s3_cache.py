@@ -9,7 +9,7 @@ import pytest_asyncio
 from botocore.exceptions import ClientError
 
 from cloud_autopkg_runner import Settings
-from cloud_autopkg_runner.cache import AsyncS3Cache
+from cloud_autopkg_runner.cache.s3_cache import AsyncS3Cache
 
 
 @pytest_asyncio.fixture

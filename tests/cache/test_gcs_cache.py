@@ -11,7 +11,7 @@ from google.cloud.storage import (  # pyright: ignore[reportMissingTypeStubs]
     Client,
 )
 
-from cloud_autopkg_runner.cache import AsyncGCSCache
+from cloud_autopkg_runner.cache.gcs_cache import AsyncGCSCache
 from cloud_autopkg_runner.settings import Settings
 
 

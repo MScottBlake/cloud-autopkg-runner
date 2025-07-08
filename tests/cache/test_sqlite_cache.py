@@ -9,7 +9,7 @@ import pytest
 import pytest_asyncio
 
 from cloud_autopkg_runner import Settings
-from cloud_autopkg_runner.cache import AsyncSQLiteCache
+from cloud_autopkg_runner.cache.sqlite_cache import AsyncSQLiteCache
 
 
 @pytest_asyncio.fixture
