@@ -8,7 +8,7 @@ import pytest
 import pytest_asyncio
 
 from cloud_autopkg_runner import Settings
-from cloud_autopkg_runner.cache import AsyncJsonFileCache
+from cloud_autopkg_runner.cache.json_cache import AsyncJsonFileCache
 
 
 @pytest_asyncio.fixture

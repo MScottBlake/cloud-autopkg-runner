@@ -7,13 +7,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from cloud_autopkg_runner import Settings
-from cloud_autopkg_runner.cache import (
-    AsyncAzureBlobCache,
-    AsyncGCSCache,
-    AsyncJsonFileCache,
-    AsyncS3Cache,
-    AsyncSQLiteCache,
-)
+from cloud_autopkg_runner.cache.azure_blob_cache import AsyncAzureBlobCache
+from cloud_autopkg_runner.cache.gcs_cache import AsyncGCSCache
+from cloud_autopkg_runner.cache.json_cache import AsyncJsonFileCache
+from cloud_autopkg_runner.cache.s3_cache import AsyncS3Cache
+from cloud_autopkg_runner.cache.sqlite_cache import AsyncSQLiteCache
 from cloud_autopkg_runner.exceptions import PluginManagerEntryPointError
 from cloud_autopkg_runner.metadata_cache import (
     MetadataCachePlugin,

@@ -6,10 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 import pytest_asyncio
 
-from cloud_autopkg_runner.cache.azure_blob_cache import (
-    AsyncAzureBlobCache,
-    BlobClient,
-)
+from cloud_autopkg_runner.cache.azure_blob_cache import AsyncAzureBlobCache, BlobClient
 from cloud_autopkg_runner.settings import Settings
 
 if TYPE_CHECKING:
