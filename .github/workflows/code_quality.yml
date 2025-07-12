@@ -58,6 +58,7 @@ jobs:
       - run: uv run --all-extras pyright .
 
   unit_tests:
+    name: Unit tests on ${{ matrix.os }} with Python ${{ matrix.python-version }}${{ matrix.experimental && ' (Experimental)' || '' }}
     runs-on: macos-latest
     needs: [lock_file]
     permissions:
@@ -72,6 +73,7 @@ jobs:
           - os: [ubuntu-latest, macos-latest, windows-latest]
             python-version: "3.14"
             experimental: true
+    continue-on-error: ${{ matrix.experimental }}
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
