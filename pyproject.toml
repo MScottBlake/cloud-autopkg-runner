@@ -15,7 +15,7 @@ dev = [
 
 [project]
 name = "cloud-autopkg-runner"
-version = "0.14.10"
+version = "0.14.12"
 description = "A Python library designed to level-up your AutoPkg automations with a focus on CI/CD performance."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
@@ -42,12 +42,7 @@ classifiers = [
 dependencies = ["pyyaml>=6.0.2", "xattr>=1.1.4"]
 
 [project.scripts]
-autopkg-run = "cloud_autopkg_runner.__main__:main"
-autopkg_run = "cloud_autopkg_runner.__main__:main"
-autopkg-runner = "cloud_autopkg_runner.__main__:main"
-autopkg_runner = "cloud_autopkg_runner.__main__:main"
 cloud-autopkg-runner = "cloud_autopkg_runner.__main__:main"
-cloud_autopkg_runner = "cloud_autopkg_runner.__main__:main"
 
 [project.entry-points."cloud_autopkg_runner.cache"]
 default = "cloud_autopkg_runner.cache.json_cache:AsyncJsonFileCache"
