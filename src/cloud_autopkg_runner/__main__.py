@@ -27,7 +27,6 @@ from typing import NoReturn
 
 from cloud_autopkg_runner import (
     Settings,
-    file_utils,
     logging_config,
     metadata_cache,
     recipe,
@@ -84,9 +83,8 @@ async def _create_recipe(recipe_name: str) -> recipe.Recipe | None:
         A Recipe object if the creation was successful, otherwise None.
     """
     try:
-        settings = Settings()
         recipe_path = await _get_recipe_path(recipe_name)
-        return recipe.Recipe(recipe_path, settings.report_dir)
+        return recipe.Recipe(recipe_path)
     except (InvalidFileContents, RecipeException):
         logger = logging_config.get_logger(__name__)
         logger.exception("Failed to create recipe: %s", recipe_name)
@@ -261,8 +259,6 @@ async def _process_recipe_list(
     """
     logger = logging_config.get_logger(__name__)
     logger.debug("Processing recipes...")
-
-    await file_utils.create_placeholder_files(recipe_list)
 
     # Create Recipe objects concurrently
     recipes: list[recipe.Recipe] = [
