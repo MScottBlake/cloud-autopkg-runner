@@ -7,7 +7,7 @@ sources.
 
 The metadata cache is stored in a JSON file and contains information
 about downloaded files, such as their size, ETag, and last modified date.
-This information is used to create dummy files for testing purposes and
+This information is used to create placeholder files for testing purposes and
 to avoid unnecessary downloads.
 """
 

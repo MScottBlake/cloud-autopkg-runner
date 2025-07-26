@@ -12,8 +12,8 @@ from cloud_autopkg_runner.exceptions import (
 )
 
 
-def create_dummy_plist(content: dict[str, Any], path: Path) -> None:
-    """Creates a dummy plist file for testing."""
+def create_test_plist(content: dict[str, Any], path: Path) -> None:
+    """Creates a plist file for testing."""
     if path.exists():
         path.unlink()
     path.write_bytes(plistlib.dumps(content))
@@ -34,7 +34,7 @@ def test_autopkgprefs_init_default_plist(tmp_path: Path) -> None:
             "RECIPE_REPO_DIR": str(tmp_path),
             "MUNKI_REPO": str(munki_repo),
         }
-        create_dummy_plist(plist_content, prefs_file)
+        create_test_plist(plist_content, prefs_file)
 
     AutoPkgPrefs()
     assert AutoPkgPrefs().recipe_override_dirs != []
@@ -56,7 +56,7 @@ def test_init_with_existing_plist(tmp_path: Path) -> None:
     }
 
     plist_path = tmp_path / "test.plist"
-    create_dummy_plist(plist_content, plist_path)
+    create_test_plist(plist_content, plist_path)
 
     prefs = AutoPkgPrefs(plist_path)
 
@@ -97,7 +97,7 @@ def test_autopkgprefs_known_key_properties(tmp_path: Path) -> None:
         "RECIPE_SEARCH_DIRS": override_dir,
     }
     plist_path = tmp_path / "test.plist"
-    create_dummy_plist(plist_content, plist_path)
+    create_test_plist(plist_content, plist_path)
 
     prefs = AutoPkgPrefs(plist_path)
 
@@ -111,7 +111,7 @@ def test_autopkgprefs_get_known_key(tmp_path: Path) -> None:
     cache_dir = tmp_path / "cache"
     plist_content = {"CACHE_DIR": str(cache_dir)}
     plist_path = tmp_path / "test.plist"
-    create_dummy_plist(plist_content, plist_path)
+    create_test_plist(plist_content, plist_path)
 
     prefs = AutoPkgPrefs(plist_path)
 
@@ -122,7 +122,7 @@ def test_autopkgprefs_get_known_key(tmp_path: Path) -> None:
 def test_autopkgprefs_get_nonexistent_key(tmp_path: Path) -> None:
     """Test getting a nonexistent preference using get()."""
     plist_path = tmp_path / "test.plist"
-    create_dummy_plist({}, plist_path)
+    create_test_plist({}, plist_path)
 
     prefs = AutoPkgPrefs(plist_path)
 
@@ -155,7 +155,7 @@ def test_autopkgprefs_getattr_known_key(tmp_path: Path) -> None:
         "VIRUSTOTAL_API_KEY": mock_api_key,
     }
     plist_path = tmp_path / "test.plist"
-    create_dummy_plist(plist_content, plist_path)
+    create_test_plist(plist_content, plist_path)
 
     prefs = AutoPkgPrefs(plist_path)
 
@@ -191,7 +191,7 @@ def test_autopkgprefs_getattr_known_key(tmp_path: Path) -> None:
 def test_autopkgprefs_getattr_nonexistent_key(tmp_path: Path) -> None:
     """Test accessing a nonexistent preference using getattr()."""
     plist_path = tmp_path / "test.plist"
-    create_dummy_plist({}, plist_path)
+    create_test_plist({}, plist_path)
 
     prefs = AutoPkgPrefs(plist_path)
 

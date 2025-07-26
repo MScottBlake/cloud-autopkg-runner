@@ -59,10 +59,10 @@ def metadata_cache(tmp_path: Path) -> MetadataCache:
 
 
 @pytest.mark.asyncio
-async def test_create_dummy_files(
+async def test_create_placeholder_files(
     tmp_path: Path, metadata_cache: MetadataCache
 ) -> None:
-    """Test creating dummy files based on metadata."""
+    """Test creating placeholder files based on metadata."""
     settings = Settings()
     settings.cache_file = tmp_path / "metatadata_cache.json"
     settings.cache_file.write_text(json.dumps(metadata_cache))
@@ -77,7 +77,7 @@ async def test_create_dummy_files(
             return_value=recipe_list,
         ),
     ):
-        await file_utils.create_dummy_files(recipe_list)
+        await file_utils.create_placeholder_files(recipe_list)
 
     assert file_path1.exists()
     assert file_path1.stat().st_size == 1024
@@ -86,10 +86,10 @@ async def test_create_dummy_files(
 
 
 @pytest.mark.asyncio
-async def test_create_dummy_files_skips_existing(
+async def test_create_placeholder_files_skips_existing(
     tmp_path: Path, metadata_cache: MetadataCache
 ) -> None:
-    """Test skipping creation of existing dummy files."""
+    """Test skipping creation of existing placeholder files."""
     settings = Settings()
     settings.cache_file = tmp_path / "metatadata_cache.json"
     settings.cache_file.write_text(json.dumps(metadata_cache))
@@ -103,7 +103,7 @@ async def test_create_dummy_files_skips_existing(
         "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
         return_value=recipe_list,
     ):
-        await file_utils.create_dummy_files(recipe_list)
+        await file_utils.create_placeholder_files(recipe_list)
 
     assert file_path.exists()
     assert file_path.stat().st_size == 0  # Size remains 0 as it was skipped
