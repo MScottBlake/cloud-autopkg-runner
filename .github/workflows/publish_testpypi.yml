@@ -14,7 +14,7 @@ jobs:
     name: Publish to TestPyPI
     runs-on: ubuntu-latest
     environment:
-      name: TestPyPi
+      name: TestPyPI
       url: https://test.pypi.org/p/cloud-autopkg-runner
     permissions:
       id-token: write
@@ -23,6 +23,8 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - name: Build
         run: uv build
+      - name: Bump Version
+        run: uv version --bump dev --dry-run
       - name: Publish
         run: uv publish --index testpypi --trusted-publishing always
 
