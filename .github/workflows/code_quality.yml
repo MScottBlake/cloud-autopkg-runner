@@ -106,3 +106,15 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
+
+  woke:
+    name: 🔤 Inclusive Language Check
+    runs-on: ubuntu-latest
+    needs: [lock_file]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: woke
+        uses: get-woke/woke-action@v0
+        with:
+          fail-on-error: true
