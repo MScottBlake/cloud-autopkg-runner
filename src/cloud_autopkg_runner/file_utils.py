@@ -3,14 +3,15 @@
 This module provides utility functions for handling file operations,
 specifically related to AutoPkg recipes and metadata caching.
 
-It includes functions for creating dummy files based on cached metadata,
+It includes functions for creating placeholder files based on cached metadata,
 setting file sizes, and retrieving extended file metadata (xattrs).
 These functions are designed to be used within asynchronous workflows,
 often involving file system interactions and external command execution.
 
 Functions:
     _set_file_size: Sets a file to a specified size by writing a null byte at the end.
-    create_dummy_files: Creates dummy files based on metadata from the cache.
+    create_placeholder_files: Creates placeholder files based on metadata from the
+        cache.
     get_file_metadata: Get extended file metadata.
     get_file_size: Get the size of the file.
 """
@@ -36,7 +37,7 @@ def _set_file_size(file_path: Path, size: int) -> None:
     Effectively replicates the behavior of `mkfile -n` on macOS. This function
     does not actually write `size` bytes of data, but rather sets the file's
     metadata to indicate that it is `size` bytes long. This is used to
-    quickly create dummy files for testing.
+    quickly create placeholder files for testing.
 
     Args:
         file_path: The path to the file.
@@ -47,12 +48,12 @@ def _set_file_size(file_path: Path, size: int) -> None:
         f.write(b"\0")
 
 
-async def create_dummy_files(recipe_list: Iterable[str]) -> None:
-    """Create dummy files based on metadata from the cache.
+async def create_placeholder_files(recipe_list: Iterable[str]) -> None:
+    """Create placeholder files based on metadata from the cache.
 
     For each recipe in the `recipe_list`, this function iterates through the
     download metadata in the `cache`. If a file path (`file_path`) is present
-    in the metadata and the file does not already exist, a dummy file is created
+    in the metadata and the file does not already exist, a placeholder file is created
     with the specified size and extended attributes (etag, last_modified).
 
     This function is primarily used for testing and development purposes,
@@ -63,7 +64,7 @@ async def create_dummy_files(recipe_list: Iterable[str]) -> None:
         recipe_list: An iterable of recipe names to process.
     """
     logger = logging_config.get_logger(__name__)
-    logger.debug("Creating dummy files...")
+    logger.debug("Creating placeholder files...")
 
     cache = await metadata_cache.get_cache_plugin().load()
     tasks: list[asyncio.Task[None]] = []
@@ -78,7 +79,7 @@ async def create_dummy_files(recipe_list: Iterable[str]) -> None:
         if recipe_name not in possible_names:
             continue
 
-        logger.info("Creating dummy files for %s...", recipe_name)
+        logger.info("Creating placeholder files for %s...", recipe_name)
         for the_cache in recipe_cache_data.get("metadata", []):
             if not the_cache.get("file_path"):
                 logger.warning(
@@ -106,7 +107,7 @@ async def create_dummy_files(recipe_list: Iterable[str]) -> None:
 
     # Await all the tasks
     await asyncio.gather(*tasks)
-    logger.debug("Dummy files created.")
+    logger.debug("Placeholder files created.")
 
 
 def _create_and_set_attrs(file_path: Path, metadata_cache: DownloadMetadata) -> None:

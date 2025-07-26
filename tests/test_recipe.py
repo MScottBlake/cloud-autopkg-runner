@@ -13,8 +13,8 @@ from cloud_autopkg_runner.exceptions import (
 from cloud_autopkg_runner.recipe import RecipeContents, RecipeFormat
 
 
-def create_dummy_file(path: Path, content: str) -> None:
-    """Creates a dummy file for testing."""
+def create_test_file(path: Path, content: str) -> None:
+    """Creates a file for testing."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
 
@@ -42,7 +42,7 @@ def test_recipe_init_yaml(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None
     Process: []
     """
     recipe_file = tmp_path / "Test.recipe.yaml"
-    create_dummy_file(recipe_file, yaml_content)
+    create_test_file(recipe_file, yaml_content)
     report_dir = tmp_path / "report_dir"
     report_dir.mkdir()
 
@@ -117,7 +117,7 @@ def test_recipe_invalid_format(tmp_path: Path, mock_autopkg_prefs: MagicMock) ->
 def test_recipe_invalid_content(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
     """Test initializing a Recipe object with an invalid file format."""
     recipe_file = tmp_path / "Test.recipe"
-    create_dummy_file(recipe_file, "invalid content")
+    create_test_file(recipe_file, "invalid content")
     report_dir = tmp_path / "report_dir"
     report_dir.mkdir()
 
@@ -140,7 +140,7 @@ def test_recipe_missing_name(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> N
     Process: []
     """
     recipe_file = tmp_path / "Test.recipe.yaml"
-    create_dummy_file(recipe_file, yaml_content)
+    create_test_file(recipe_file, yaml_content)
     report_dir = tmp_path / "report_dir"
     report_dir.mkdir()
 
@@ -165,7 +165,7 @@ def test_recipe_properties(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> Non
     ParentRecipe: ParentRecipe.recipe
     """
     recipe_file = tmp_path / "Test.recipe.yaml"
-    create_dummy_file(recipe_file, yaml_content)
+    create_test_file(recipe_file, yaml_content)
     report_dir = tmp_path / "report_dir"
     report_dir.mkdir()
 
@@ -188,14 +188,14 @@ def test_recipe_properties(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> Non
 def test_autopkg_run_cmd_basic(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
     """Test basic command construction with no verbosity or processors."""
     yaml_content = """
-    Description: Dummy
-    Identifier: com.example.dummy
+    Description: Test
+    Identifier: com.example.test
     Input:
-        NAME: DummyRecipe
+        NAME: TestRecipe
     Process: []
     """
-    recipe_file = tmp_path / "Dummy.recipe.yaml"
-    create_dummy_file(recipe_file, yaml_content)
+    recipe_file = tmp_path / "test.recipe.yaml"
+    create_test_file(recipe_file, yaml_content)
     report_dir = tmp_path / "report"
     report_dir.mkdir()
 
@@ -224,14 +224,14 @@ def test_autopkg_run_cmd_with_check(
 ) -> None:
     """Test command includes --check when requested."""
     yaml_content = """
-    Description: Dummy
-    Identifier: com.example.dummy
+    Description: Test
+    Identifier: com.example.test
     Input:
-        NAME: DummyRecipe
+        NAME: TestRecipe
     Process: []
     """
-    recipe_file = tmp_path / "Dummy.recipe.yaml"
-    create_dummy_file(recipe_file, yaml_content)
+    recipe_file = tmp_path / "test.recipe.yaml"
+    create_test_file(recipe_file, yaml_content)
     report_dir = tmp_path / "report"
     report_dir.mkdir()
 
@@ -258,14 +258,14 @@ def test_autopkg_run_cmd_with_processors_and_verbosity(
 ) -> None:
     """Test command with pre/post processors and verbosity."""
     yaml_content = """
-    Description: Dummy
-    Identifier: com.example.dummy
+    Description: Test
+    Identifier: com.example.test
     Input:
-        NAME: DummyRecipe
+        NAME: TestRecipe
     Process: []
     """
-    recipe_file = tmp_path / "Dummy.recipe.yaml"
-    create_dummy_file(recipe_file, yaml_content)
+    recipe_file = tmp_path / "test.recipe.yaml"
+    create_test_file(recipe_file, yaml_content)
     report_dir = tmp_path / "report"
     report_dir.mkdir()
 

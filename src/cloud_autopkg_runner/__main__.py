@@ -9,7 +9,7 @@ The application:
 2.  Initializes the logging system for monitoring and debugging.
 3.  Generates a list of AutoPkg recipes to be processed.
 4.  Loads a metadata cache to optimize downloads and identify changes.
-5.  Creates dummy files to simulate existing downloads for testing or efficiency.
+5.  Creates placeholder files to simulate existing downloads for testing or efficiency.
 6.  Processes the list of recipes concurrently, managing a maximum number of
     concurrent tasks.
 """
@@ -262,7 +262,7 @@ async def _process_recipe_list(
     logger = logging_config.get_logger(__name__)
     logger.debug("Processing recipes...")
 
-    await file_utils.create_dummy_files(recipe_list)
+    await file_utils.create_placeholder_files(recipe_list)
 
     # Create Recipe objects concurrently
     recipes: list[recipe.Recipe] = [
@@ -326,7 +326,7 @@ async def _async_main() -> None:
     - Parsing command-line arguments.
     - Initializing logging.
     - Generating a list of recipes to process.
-    - Creating dummy files to simulate previous downloads.
+    - Creating placeholder files to simulate previous downloads.
     - Processing the recipe list concurrently.
     """
     args = _parse_arguments()

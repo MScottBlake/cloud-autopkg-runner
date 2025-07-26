@@ -8,13 +8,13 @@ from cloud_autopkg_runner import recipe_report
 from cloud_autopkg_runner.exceptions import InvalidPlistContents
 
 
-def create_dummy_file(content: str, path: Path) -> None:
-    """Creates a dummy file for testing."""
+def create_test_file(content: str, path: Path) -> None:
+    """Creates a file for testing."""
     path.write_text(content)
 
 
-def create_dummy_plist(content: dict[str, Any], path: Path) -> None:
-    """Creates a dummy plist file for testing."""
+def create_test_plist(content: dict[str, Any], path: Path) -> None:
+    """Creates a plist file for testing."""
     path.write_bytes(plistlib.dumps(content))
 
 
@@ -40,7 +40,7 @@ def test_recipe_report_refresh_contents(tmp_path: Path) -> None:
             }
         },
     }
-    create_dummy_plist(content, report_path)
+    create_test_plist(content, report_path)
 
     report.refresh_contents()
 
@@ -52,7 +52,7 @@ def test_recipe_report_refresh_contents(tmp_path: Path) -> None:
 def test_recipe_report_refresh_contents_invalid_plist(tmp_path: Path) -> None:
     """Test parsing an invalid report file raises the appropriate exception."""
     report_path = tmp_path / "report.plist"
-    create_dummy_file("invalid plist content", report_path)
+    create_test_file("invalid plist content", report_path)
     report = recipe_report.RecipeReport(report_path)
 
     with pytest.raises(InvalidPlistContents):
@@ -88,7 +88,7 @@ def test_recipe_report_consolidate_report(tmp_path: Path) -> None:
         },
     }
 
-    create_dummy_plist(content, report_path)
+    create_test_plist(content, report_path)
 
     report = recipe_report.RecipeReport(report_path)
     report.refresh_contents()
