@@ -1,4 +1,5 @@
-name: Python Code Quality
+name: Code Quality
+
 on:
   push:
     branches:
@@ -9,6 +10,7 @@ permissions:
 
 jobs:
   lock_file:
+    name: 🧷 Prepare Locked Dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +22,7 @@ jobs:
       - run: uv lock --locked
 
   linting:
+    name: 🔍 Lint Code with Ruff
     runs-on: ubuntu-latest
     needs: [lock_file]
     steps:
@@ -32,6 +35,7 @@ jobs:
       - run: uv run --all-extras ruff check .
 
   formatting:
+    name: 🧹 Check Code Formatting
     runs-on: ubuntu-latest
     needs: [lock_file]
     steps:
@@ -44,6 +48,7 @@ jobs:
       - run: uv run --all-extras ruff format --check .
 
   type_consistency:
+    name: 🧠 Check Type Consistency
     runs-on: ubuntu-latest
     needs: [lock_file]
     steps:
@@ -58,7 +63,7 @@ jobs:
       - run: uv run --all-extras pyright .
 
   unit_tests:
-    name: Unit tests on ${{ matrix.os }} with Python ${{ matrix.python-version }}${{ matrix.experimental && ' (Experimental)' || '' }}
+    name: 🧪 Unit Tests on ${{ matrix.os }} / Python ${{ matrix.python-version }}${{ matrix.experimental && ' (Experimental)' || '' }}
     runs-on: macos-latest
     needs: [lock_file]
     permissions:
