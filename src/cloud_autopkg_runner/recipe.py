@@ -253,6 +253,18 @@ class Recipe:
 
         return cmd
 
+    async def _create_placeholder_cache_files(self) -> None:
+        """Creates placeholder cache files for the recipe.
+
+        This asynchronous method calls the `create_placeholder_files` utility
+        function to create empty placeholder files in AutoPkg's cache directory
+        to simulate an existing cache. It uses the `_placeholder_files_created`
+        variable to prevent running multiple times.
+        """
+        if not self._placeholder_files_created:
+            await file_utils.create_placeholder_files([self.name])
+            self._placeholder_files_created = True
+
     @staticmethod
     def _extract_download_paths(download_items: list[dict[str, Any]]) -> list[str]:
         """Extracts 'download_path' values from a list of dictionaries.
@@ -442,6 +454,8 @@ class Recipe:
         Returns:
             A ConsolidatedReport object containing the results of the check phase.
         """
+        await self._create_placeholder_cache_files()
+
         self._logger.debug("Performing Check Phase on %s...", self.name)
 
         returncode, _stdout, stderr = await shell.run_cmd(
@@ -471,8 +485,9 @@ class Recipe:
         Returns:
             A ConsolidatedReport object containing the results of the full recipe run.
         """
-        self._logger.debug("Performing AutoPkg Run on %s...", self.name)
+        await self._create_placeholder_cache_files()
 
+        self._logger.debug("Performing AutoPkg Run on %s...", self.name)
         returncode, _stdout, stderr = await shell.run_cmd(
             self._autopkg_run_cmd(check=False), check=False
         )
