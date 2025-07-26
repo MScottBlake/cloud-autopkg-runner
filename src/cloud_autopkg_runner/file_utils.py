@@ -31,6 +31,32 @@ from cloud_autopkg_runner import (
 from cloud_autopkg_runner.metadata_cache import DownloadMetadata
 
 
+def _create_and_set_attrs(file_path: Path, metadata_cache: DownloadMetadata) -> None:
+    """Create the file, set its size, and set extended attributes."""
+    # Create parent directory if needed
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Create file
+    file_path.touch()
+
+    # Set file size
+    _set_file_size(file_path, metadata_cache.get("file_size", 0))
+
+    # Set extended attributes
+    if metadata_cache.get("etag"):
+        xattr.setxattr(  # pyright: ignore[reportUnknownMemberType]
+            file_path,
+            "com.github.autopkg.etag",
+            metadata_cache.get("etag", "").encode("utf-8"),
+        )
+    if metadata_cache.get("last_modified"):
+        xattr.setxattr(  # pyright: ignore[reportUnknownMemberType]
+            file_path,
+            "com.github.autopkg.last-modified",
+            metadata_cache.get("last_modified", "").encode("utf-8"),
+        )
+
+
 def _set_file_size(file_path: Path, size: int) -> None:
     """Set a file to a specified size by writing a null byte at the end.
 
@@ -108,32 +134,6 @@ async def create_placeholder_files(recipe_list: Iterable[str]) -> None:
     # Await all the tasks
     await asyncio.gather(*tasks)
     logger.debug("Placeholder files created.")
-
-
-def _create_and_set_attrs(file_path: Path, metadata_cache: DownloadMetadata) -> None:
-    """Create the file, set its size, and set extended attributes."""
-    # Create parent directory if needed
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Create file
-    file_path.touch()
-
-    # Set file size
-    _set_file_size(file_path, metadata_cache.get("file_size", 0))
-
-    # Set extended attributes
-    if metadata_cache.get("etag"):
-        xattr.setxattr(  # pyright: ignore[reportUnknownMemberType]
-            file_path,
-            "com.github.autopkg.etag",
-            metadata_cache.get("etag", "").encode("utf-8"),
-        )
-    if metadata_cache.get("last_modified"):
-        xattr.setxattr(  # pyright: ignore[reportUnknownMemberType]
-            file_path,
-            "com.github.autopkg.last-modified",
-            metadata_cache.get("last_modified", "").encode("utf-8"),
-        )
 
 
 async def get_file_metadata(file_path: Path, attr: str) -> str:
