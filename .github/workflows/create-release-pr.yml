@@ -24,7 +24,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch_depth: 0  # Ensure full history for accurate version bumping
+          fetch-depth: 0  # Ensure full history for accurate version bumping
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
