@@ -1,0 +1,75 @@
+name: Create Release Pull Request
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: "Type of version bump (major, minor, patch)"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  create-release-pr:
+    name: Create Release Pull Request
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed to push the new branch and commit changes
+      pull-requests: write  # Needed to create the pull request
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch_depth: 0  # Ensure full history for accurate version bumping
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump Version using uv
+        id: new_stable_version
+        run: |
+          if [ "${{ github.event.inputs.bump_type }}" == "patch" ]; then
+            uv version --bump stable
+          else
+            uv version --bump "${{ github.event.inputs.bump_type }}"
+          fi
+          # Capture the new version for use in subsequent steps
+          echo "NEW_VERSION=$(uv version --short)" >> "${GITHUB_OUTPUT}"
+
+      - name: Create Release Branch and Commit
+        run: |
+          NEW_VERSION="${{ steps.new_stable_version.outputs.NEW_VERSION }}"
+          RELEASE_BRANCH="release/v${NEW_VERSION}"
+
+          git checkout -b "${RELEASE_BRANCH}"
+          git add pyproject.toml uv.lock
+          git commit -m "chore(release): Release v${NEW_VERSION}" || echo "No changes to commit"
+          git push origin "${RELEASE_BRANCH}"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(release): Release v${{ steps.new_stable_version.outputs.NEW_VERSION }}"
+          title: "Release v${{ steps.new_stable_version.outputs.NEW_VERSION }}"
+          body: |
+            Automated release PR for version `v${{ steps.new_stable_version.outputs.NEW_VERSION }}`.
+
+            This PR includes:
+            - Bumped version in `pyproject.toml` and `uv.lock`.
+            - Ready for new stable release.
+
+            Please review and merge this Pull Request to proceed with the stable release.
+          branch: "release/v${{ steps.new_stable_version.outputs.NEW_VERSION }}"  # The branch that was just created and pushed
+          base: main  # The target branch for the PR
+          delete-branch: true  # Automatically delete the release branch after merging
+          draft: false
