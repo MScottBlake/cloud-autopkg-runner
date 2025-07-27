@@ -14,7 +14,7 @@ jobs:
     name: Publish to TestPyPI
     runs-on: ubuntu-latest
     environment:
-      name: TestPyPI
+      name: TestPyPi
       url: https://test.pypi.org/p/cloud-autopkg-runner
     permissions:
       id-token: write
