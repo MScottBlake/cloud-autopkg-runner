@@ -25,13 +25,13 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Build
-        run: uv build
-
       - name: Bump Version
         run: |
           short_ver=$(uv version --short | sed -E 's/\.([a-zA-Z]+)[0-9]+$/.\1/')
           uv version "${short_ver}${{ github.run_number }}"
+
+      - name: Build
+        run: uv build
 
       - name: Publish
         run: uv publish --index testpypi --trusted-publishing always
