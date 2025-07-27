@@ -29,7 +29,7 @@ jobs:
         run: uv build
 
       - name: Bump Version
-        run: uv version $(uv version --short).${{ github.run_number }}
+        run: uv version --bump dev
 
       - name: Publish
         run: uv publish --index testpypi --trusted-publishing always
