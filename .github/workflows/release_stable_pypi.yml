@@ -20,23 +20,18 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Setup Repository
-        uses: ./.github/workflows/_reusable/setup_repo.yml
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch_depth: 0
 
-      # - name: Checkout repository
-      #   uses: actions/checkout@v4
-      #   with:
-      #     fetch_depth: 0
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
 
-      # - name: Setup uv
-      #   uses: astral-sh/setup-uv@v5
-
-      # - name: Configure Git
-      #   run: |
-      #     git config user.name github-actions[bot]
-      #     git config user.email github-actions[bot]@users.noreply.github.com
+      - name: Configure Git
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
 
       - name: Bump Version using uv
         id: new_stable_version
@@ -80,14 +75,11 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - name: Setup Repository
-        uses: ./.github/workflows/_reusable/setup_repo.yml
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # - name: Checkout repository
-      #   uses: actions/checkout@v4
-
-      # - name: Setup uv
-      #   uses: astral-sh/setup-uv@v5
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Build
         run: uv build
@@ -102,14 +94,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Setup Repository
-        uses: ./.github/workflows/_reusable/setup_repo.yml
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # - name: Checkout repository
-      #   uses: actions/checkout@v4
-
-      # - name: Setup uv
-      #   uses: astral-sh/setup-uv@v5
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Verify Installation
         run: uv run --with cloud-autopkg-runner --no-project -- python -c "import cloud_autopkg_runner"
@@ -121,19 +110,16 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Setup Repository
-        uses: ./.github/workflows/_reusable/setup_repo.yml
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # - name: Checkout repository
-      #   uses: actions/checkout@v4
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
 
-      # - name: Setup uv
-      #   uses: astral-sh/setup-uv@v5
-
-      # - name: Configure Git
-      #   run: |
-      #     git config user.name github-actions[bot]
-      #     git config user.email github-actions[bot]@users.noreply.github.com
+      - name: Configure Git
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
 
       - name: Bump Version using uv
         id: new_dev_version

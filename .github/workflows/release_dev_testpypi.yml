@@ -19,12 +19,11 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - name: Setup Repository
-        uses: ./.github/workflows/_reusable/setup_repo.yml
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # - uses: actions/checkout@v4
-
-      # - uses: astral-sh/setup-uv@v5
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Build
         run: uv build
@@ -43,12 +42,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Setup Repository
-        uses: ./.github/workflows/_reusable/setup_repo.yml
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # - uses: actions/checkout@v4
-
-      # - uses: astral-sh/setup-uv@v5
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install
         run: uv run --with cloud-autopkg-runner --extra-index-url https://test.pypi.org/simple/ --index-strategy unsafe-best-match --no-project -- python -c "import cloud_autopkg_runner"
