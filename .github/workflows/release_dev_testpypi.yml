@@ -26,6 +26,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Bump Version
+        if: ${{ !contains(github.ref, 'release') }}
         run: |
           short_ver=$(uv version --short | sed -E 's/\.([a-zA-Z]+)[0-9]+$/.\1/')
           uv version "${short_ver}${{ github.run_number }}"
