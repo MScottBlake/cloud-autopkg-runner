@@ -14,12 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
           enable-cache: true
+
       - run: uv lock --locked
+
 
   linting:
     name: 🔍 Lint Code with Ruff
@@ -27,12 +30,15 @@ jobs:
     needs: [lock_file]
     steps:
       - uses: actions/checkout@v4
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
           enable-cache: true
+
       - run: uv run --all-extras ruff check .
+
 
   formatting:
     name: 🧹 Check Code Formatting
@@ -40,12 +46,15 @@ jobs:
     needs: [lock_file]
     steps:
       - uses: actions/checkout@v4
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
           enable-cache: true
+
       - run: uv run --all-extras ruff format --check .
+
 
   type_consistency:
     name: 🧠 Check Type Consistency
@@ -53,14 +62,18 @@ jobs:
     needs: [lock_file]
     steps:
       - uses: actions/checkout@v4
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
           enable-cache: true
+
       - name: Install the project
         run: uv sync
+
       - run: uv run --all-extras pyright .
+
 
   unit_tests:
     name: 🧪 Unit Tests on ${{ matrix.os }} / Python ${{ matrix.python-version }}${{ matrix.experimental && ' (Experimental)' || '' }}
@@ -87,25 +100,31 @@ jobs:
     continue-on-error: ${{ matrix.experimental }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
           enable-cache: true
+
       - name: Install the project
         run: uv sync --all-extras
+
       - name: Run tests with pytest
         run: uv run --all-extras --python ${{ matrix.python-version }} pytest
+
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
+
 
   inclusive_language:
     name: 🔤 Inclusive Language Check
@@ -114,6 +133,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
       - name: Run Inclusive Language Check
         uses: get-woke/woke-action@v0
         with:
