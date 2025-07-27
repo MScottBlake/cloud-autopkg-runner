@@ -70,7 +70,7 @@ jobs:
     needs: [prepare-release]
     if: success() && startsWith(github.ref, 'refs/tags/')
     environment:
-      name: PyPi
+      name: PyPI
       url: https://pypi.org/p/cloud-autopkg-runner
     permissions:
       id-token: write
