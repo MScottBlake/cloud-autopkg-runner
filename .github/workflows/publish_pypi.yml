@@ -1,0 +1,45 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish-to-testpypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: PyPi
+      url: https://pypi.org/p/cloud-autopkg-runner
+    permissions:
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build
+        run: uv build
+
+      - name: Publish
+        run: uv publish --trusted-publishing always
+
+
+  install-library-from-testpypi:
+    name: Test Installation from PyPI
+    needs: [publish-to-pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install
+        run: uv run --with cloud-autopkg-runner --no-project -- python -c "import cloud_autopkg_runner"
