@@ -1,4 +1,4 @@
-name: Publish to TestPyPI
+name: Release Dev to TestPyPI
 
 on:
   pull_request:
@@ -19,12 +19,23 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Bump Version
+        run: |
+          short_ver=$(uv version --short | sed -E 's/\.([a-zA-Z]+)[0-9]+$/.\1/')
+          uv version "${short_ver}${{ github.run_number }}"
+
       - name: Build
         run: uv build
+
       - name: Publish
         run: uv publish --index testpypi --trusted-publishing always
+
 
   install-library-from-testpypi:
     name: Test Installation from TestPyPI
@@ -33,7 +44,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Install
         run: uv run --with cloud-autopkg-runner --extra-index-url https://test.pypi.org/simple/ --index-strategy unsafe-best-match --no-project -- python -c "import cloud_autopkg_runner"
