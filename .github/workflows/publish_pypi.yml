@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  publish-to-testpypi:
+  publish-to-pypi:
     name: Publish to PyPI
     runs-on: ubuntu-latest
     environment:
@@ -28,7 +28,7 @@ jobs:
         run: uv publish --trusted-publishing always
 
 
-  install-library-from-testpypi:
+  install-library-from-pypi:
     name: Test Installation from PyPI
     needs: [publish-to-pypi]
     runs-on: ubuntu-latest
