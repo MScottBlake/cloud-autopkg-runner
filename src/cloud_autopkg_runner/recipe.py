@@ -261,7 +261,10 @@ class Recipe:
         to simulate an existing cache. It uses the `_placeholder_files_created`
         variable to prevent running multiple times.
         """
-        if not self._placeholder_files_created:
+        if (
+            not hasattr(self, "_placeholder_files_created")
+            or self._placeholder_files_created is not True
+        ):
             await file_utils.create_placeholder_files([self.name])
             self._placeholder_files_created = True
 
