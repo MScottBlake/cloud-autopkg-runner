@@ -1,6 +1,6 @@
 import plistlib
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -294,3 +294,64 @@ def test_autopkg_run_cmd_with_processors_and_verbosity(
         )
         assert "--postprocessor=PostA" in cmd
         assert "-v" in cmd
+
+
+@pytest.mark.asyncio
+async def test_create_placeholder_cache_files_first_run(
+    tmp_path: Path,
+) -> None:
+    """Test that file_utils is called and the flag is set on the first run."""
+    recipe_file = tmp_path / "Test.recipe.yaml"
+    recipe_file.write_text("""
+    Description: Test
+    Identifier: com.example.test
+    Input:
+        NAME: TestRecipe
+    Process: []
+    """)
+
+    with (
+        patch(
+            "cloud_autopkg_runner.file_utils.create_placeholder_files",
+            new_callable=AsyncMock,
+        ) as mock_create_placeholder_files,
+        patch("cloud_autopkg_runner.recipe.Settings"),
+    ):
+        recipe = Recipe(recipe_file, tmp_path)
+        # Ensure the flag is not set initially
+        assert not hasattr(recipe, "_placeholder_files_created")
+
+        await recipe._create_placeholder_cache_files()
+
+        mock_create_placeholder_files.assert_called_once_with([recipe.name])
+        assert recipe._placeholder_files_created is True
+
+
+@pytest.mark.asyncio
+async def test_create_placeholder_cache_files_subsequent_run(
+    tmp_path: Path,
+) -> None:
+    """Test that file_utils is not called a second time."""
+    recipe_file = tmp_path / "Test.recipe.yaml"
+    recipe_file.write_text("""
+    Description: Test
+    Identifier: com.example.test
+    Input:
+        NAME: TestRecipe
+    Process: []
+    """)
+
+    with (
+        patch(
+            "cloud_autopkg_runner.file_utils.create_placeholder_files",
+            new_callable=AsyncMock,
+        ) as mock_create_placeholder_files,
+        patch("cloud_autopkg_runner.recipe.Settings"),
+    ):
+        recipe = Recipe(recipe_file, tmp_path)
+        # Manually set the flag to simulate a previous run
+        recipe._placeholder_files_created = True
+
+        await recipe._create_placeholder_cache_files()
+
+        mock_create_placeholder_files.assert_not_called()
