@@ -28,6 +28,7 @@ from cloud_autopkg_runner import (
     recipe_report,
     shell,
 )
+from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
 from cloud_autopkg_runner.exceptions import (
     InvalidPlistContents,
     InvalidYamlContents,
@@ -224,7 +225,7 @@ class Recipe:
         """
         return self._contents["Process"] or []
 
-    def _autopkg_run_cmd(self, *, check: bool = False) -> list[str]:
+    async def _autopkg_run_cmd(self, *, check: bool = False) -> list[str]:
         """Constructs the command-line arguments for running AutoPkg.
 
         Args:
@@ -238,6 +239,7 @@ class Recipe:
             "run",
             self.name,
             f"--report-plist={self._result.file_path()}",
+            f"--prefs={await AutoPkgPrefs().to_json_file(indent=2)}",
         ]
 
         cmd.extend([f"--preprocessor={item}" for item in self._settings.pre_processors])
@@ -462,7 +464,7 @@ class Recipe:
         self._logger.debug("Performing Check Phase on %s...", self.name)
 
         returncode, _stdout, stderr = await shell.run_cmd(
-            self._autopkg_run_cmd(check=True), check=False
+            await self._autopkg_run_cmd(check=True), check=False
         )
 
         if returncode != 0:
@@ -492,7 +494,7 @@ class Recipe:
 
         self._logger.debug("Performing AutoPkg Run on %s...", self.name)
         returncode, _stdout, stderr = await shell.run_cmd(
-            self._autopkg_run_cmd(check=False), check=False
+            await self._autopkg_run_cmd(check=False), check=False
         )
 
         if returncode != 0:
