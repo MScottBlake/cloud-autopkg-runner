@@ -52,6 +52,7 @@ class AutoPkgPrefs:
     """
 
     _instance: "AutoPkgPrefs | None" = None
+    _temp_json_file_path: Path | None = None
     _DEFAULT_PREF_FILE_PATH = Path(
         "~/Library/Preferences/com.github.autopkg.plist"
     ).expanduser()
