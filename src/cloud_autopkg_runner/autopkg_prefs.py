@@ -17,11 +17,14 @@ Key preferences managed include:
 - Recipe override directories (`RECIPE_OVERRIDE_DIRS`)
 """
 
+import asyncio
 import json
 import plistlib
+import tempfile
 from pathlib import Path
 from typing import Any
 
+from cloud_autopkg_runner import logging_config
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
     PreferenceFileNotFoundError,
@@ -275,6 +278,111 @@ class AutoPkgPrefs:
             The value of the preference, or the default value if the key is not found.
         """
         return self._prefs.get(key, default)
+
+    def to_json(self, indent: int | None = None) -> str:
+        """Serializes the preferences to a JSON-formatted string.
+
+        Converts all Path objects and lists of Path objects to strings.
+
+        Args:
+            indent: Number of spaces for indentation in the output JSON.
+                    If None, the JSON will be compact.
+
+        Returns:
+            A JSON string representation of the preferences.
+        """
+
+        def _serialize(
+            *,
+            value: str | int | float | bool | Path | list[Any] | dict[str, Any] | None,
+        ) -> str | int | float | bool | None | list[Any] | dict[str, Any]:
+            if isinstance(value, Path):
+                return str(value)
+            if isinstance(value, list):
+                # Recursively apply serialize to each item in the list
+                return [_serialize(value=item) for item in value]
+            if isinstance(value, dict):
+                # Recursively apply serialize to each value in the dictionary
+                return {k: _serialize(value=v) for k, v in value.items()}
+            # For all other types (str, int, bool, None, etc.), return as is
+            return value
+
+        serializable_prefs = {
+            key: _serialize(value=value) for key, value in self._prefs.items()
+        }
+        return json.dumps(serializable_prefs, indent=indent)
+
+    async def to_json_file(self, indent: int | None = None) -> Path:
+        """Serializes the preferences to a temporary JSON file.
+
+        This method generates a JSON string representation of the preferences
+        (converting Path objects to strings) and then asynchronously writes
+        this string to a temporary file. The file is created with a unique name
+        and is configured to *not* be deleted automatically upon closure of its
+        file object, allowing it to persist for external processes.
+
+        It uses `asyncio.to_thread` to offload the blocking file writing
+        operation to a separate thread, preventing the main event loop from
+        being blocked.
+
+        The path to the created temporary file is stored in `_temp_pref_file_path`.
+        It is the responsibility of the caller (or the application's lifecycle
+        management) to eventually call `cleanup_temp_file()` to delete this file.
+
+        Args:
+            indent: Number of spaces for indentation in the output JSON.
+                    If None, the JSON will be compact.
+
+        Returns:
+            The Path object pointing to the created temporary JSON file.
+        """
+
+        def _write_and_get_path(data: str) -> Path:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False, encoding="utf-8"
+            ) as tmp:
+                tmp.write(data)
+            return Path(tmp.name)
+
+        # Offload the file write operation to a separate thread
+        self._temp_json_file_path = await asyncio.to_thread(
+            _write_and_get_path, self.to_json(indent)
+        )
+
+        return self._temp_json_file_path
+
+    def cleanup_temp_file(self) -> None:
+        """Cleans up (deletes) the temporary preference file if it exists.
+
+        This method should be called explicitly when the temporary preferences
+        file is no longer needed by external processes. It checks if a temporary
+        file path has been stored and, if so, attempts to delete the file.
+        Errors during deletion (e.g., file not found, permission denied) are caught
+        and logged, preventing the application from crashing.
+        """
+        if self._temp_json_file_path:
+            if self._temp_json_file_path.exists():
+                try:
+                    self._temp_json_file_path.unlink()
+                except OSError as exc:
+                    logger = logging_config.get_logger(__name__)
+                    logger.warning(
+                        "Could not delete temporary prefs file %s: %s",
+                        self._temp_json_file_path,
+                        exc,
+                    )
+            self._temp_json_file_path = None
+
+    def __del__(self) -> None:
+        """Attempts to clean up the temporary preference file during garbage collection.
+
+        This method is a fallback for cleanup. It calls `cleanup_temp_file()`.
+        However, relying solely on `__del__` for critical resource management
+        (like file deletion) is generally discouraged in Python due to
+        unpredictable execution times and potential issues during program shutdown.
+        It is highly recommended to call `cleanup_temp_file()` explicitly.
+        """
+        self.cleanup_temp_file()
 
     @property
     def cache_dir(self) -> Path:
