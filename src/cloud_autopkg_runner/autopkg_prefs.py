@@ -48,9 +48,32 @@ class AutoPkgPrefs:
     for known preference keys.
     """
 
+    _instance: "AutoPkgPrefs | None" = None
     _DEFAULT_PREF_FILE_PATH = Path(
         "~/Library/Preferences/com.github.autopkg.plist"
     ).expanduser()
+
+    def __new__(cls, file_path: Path = _DEFAULT_PREF_FILE_PATH) -> "AutoPkgPrefs":
+        """Create a new instance of AutoPkgPrefs if one doesn't exist.
+
+        This `__new__` method implements the Singleton pattern, ensuring
+        that only one instance of the `AutoPkgPrefs` class is ever created.
+        If an instance already exists, it is returned; otherwise, a new
+        instance is created and stored for future use.
+
+        Args:
+            file_path: The path to the preference file. Defaults to
+                `~/Library/Preferences/com.github.autopkg.plist`. This file can be in
+                JSON or Plist format. This argument is only used on the
+                initial creation of the singleton instance.
+
+        Returns:
+            The AutoPkgPrefs instance.
+        """
+        if not cls._instance:
+            cls._instance = super().__new__(cls)
+            cls._instance.initializer(file_path)
+        return cls._instance
 
     def __init__(self, file_path: Path = _DEFAULT_PREF_FILE_PATH) -> None:
         """Creates an AutoPkgPrefs object from a plist file.
@@ -64,12 +87,30 @@ class AutoPkgPrefs:
                 `~/Library/Preferences/com.github.autopkg.plist`. This file can be in
                 JSON or Plist format.
         """
+        if hasattr(self, "_initialized"):
+            return  # Prevent re-initialization
+
+        self.initializer(file_path)
+
+    def initializer(self, file_path: Path) -> None:
+        """Creates an AutoPkgPrefs object from a plist file.
+
+        Loads the contents of the plist file, separates the known preferences
+        from the extra preferences, and creates a new
+        AutoPkgPrefs object.
+
+        Args:
+            file_path: The path to the preference file. This file can be in
+                JSON or Plist format.
+        """
         self._prefs: dict[str, Any] = (
             self._default_preferences()
             | self._normalize_preference_values(
                 self._get_preference_file_contents(file_path)
             )
         )
+
+        self._initialized = True
 
     @staticmethod
     def _convert_to_path(string: str) -> Path:
