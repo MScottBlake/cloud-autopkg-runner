@@ -6,7 +6,7 @@ import pytest
 
 from cloud_autopkg_runner import AutoPkgPrefs
 from cloud_autopkg_runner.exceptions import (
-    InvalidPlistContents,
+    InvalidFileContents,
     PreferenceFileNotFoundError,
     PreferenceKeyNotFoundError,
 )
@@ -82,7 +82,7 @@ def test_autopkgprefs_init_with_invalid_plist(tmp_path: Path) -> None:
     plist_path = tmp_path / "invalid.plist"
     plist_path.write_text("invalid file")
 
-    with pytest.raises(InvalidPlistContents):
+    with pytest.raises(InvalidFileContents):
         AutoPkgPrefs(plist_path)
 
 

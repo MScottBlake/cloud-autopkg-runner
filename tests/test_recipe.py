@@ -185,7 +185,8 @@ def test_recipe_properties(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> Non
     assert recipe.process == []
 
 
-def test_autopkg_run_cmd_basic(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
+@pytest.mark.asyncio
+async def test_autopkg_run_cmd_basic(tmp_path: Path) -> None:
     """Test basic command construction with no verbosity or processors."""
     yaml_content = """
     Description: Test
@@ -199,27 +200,22 @@ def test_autopkg_run_cmd_basic(tmp_path: Path, mock_autopkg_prefs: MagicMock) ->
     report_dir = tmp_path / "report"
     report_dir.mkdir()
 
-    with (
-        patch(
-            "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
-            return_value=mock_autopkg_prefs,
-        ),
-        patch("cloud_autopkg_runner.recipe.Settings") as mock_settings,
-    ):
+    with patch("cloud_autopkg_runner.recipe.Settings") as mock_settings:
         mock_settings.return_value.pre_processors = []
         mock_settings.return_value.post_processors = []
         mock_settings.return_value.verbosity_int.return_value = 0
         mock_settings.return_value.verbosity_str.return_value = ""
 
         recipe = Recipe(recipe_file, report_dir)
-        cmd = recipe._autopkg_run_cmd()
+        cmd = await recipe._autopkg_run_cmd()
 
         assert cmd[:3] == ["/usr/local/bin/autopkg", "run", recipe.name]
         assert any(arg.startswith("--report-plist=") for arg in cmd)
         assert "--check" not in cmd
 
 
-def test_autopkg_run_cmd_with_check(
+@pytest.mark.asyncio
+async def test_autopkg_run_cmd_with_check(
     tmp_path: Path, mock_autopkg_prefs: MagicMock
 ) -> None:
     """Test command includes --check when requested."""
@@ -248,12 +244,13 @@ def test_autopkg_run_cmd_with_check(
         mock_settings.return_value.verbosity_str.return_value = ""
 
         recipe = Recipe(recipe_file, report_dir)
-        cmd = recipe._autopkg_run_cmd(check=True)
+        cmd = await recipe._autopkg_run_cmd(check=True)
 
         assert "--check" in cmd
 
 
-def test_autopkg_run_cmd_with_processors_and_verbosity(
+@pytest.mark.asyncio
+async def test_autopkg_run_cmd_with_processors_and_verbosity(
     tmp_path: Path, mock_autopkg_prefs: MagicMock
 ) -> None:
     """Test command with pre/post processors and verbosity."""
@@ -285,7 +282,7 @@ def test_autopkg_run_cmd_with_processors_and_verbosity(
         mock_settings.return_value.verbosity_str.return_value = "-v"
 
         recipe = Recipe(recipe_file, report_dir)
-        cmd = recipe._autopkg_run_cmd()
+        cmd = await recipe._autopkg_run_cmd()
 
         assert "--preprocessor=PreA" in cmd
         assert "--preprocessor=com.example.test/PreProcessorB" in cmd
