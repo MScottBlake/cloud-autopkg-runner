@@ -26,8 +26,8 @@ from types import FrameType
 from typing import NoReturn
 
 from cloud_autopkg_runner import (
+    AutoPkgPrefs,
     Settings,
-    autopkg_prefs,
     logging_config,
     metadata_cache,
     recipe,
@@ -332,7 +332,6 @@ async def _async_main() -> None:
     - Parsing command-line arguments.
     - Initializing logging.
     - Generating a list of recipes to process.
-    - Creating placeholder files to simulate previous downloads.
     - Processing the recipe list concurrently.
     """
     args = _parse_arguments()
@@ -340,7 +339,7 @@ async def _async_main() -> None:
 
     logging_config.initialize_logger(args.verbose, args.log_file)
 
-    autopkg_prefs.AutoPkgPrefs(args.autopkg_pref_file)
+    AutoPkgPrefs(args.autopkg_pref_file)
 
     recipe_list = _generate_recipe_list(args)
     _results = await _process_recipe_list(recipe_list)

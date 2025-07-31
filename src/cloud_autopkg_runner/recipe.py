@@ -21,6 +21,7 @@ from typing import Any, TypedDict
 import yaml
 
 from cloud_autopkg_runner import (
+    AutoPkgPrefs,
     Settings,
     file_utils,
     logging_config,
@@ -28,7 +29,6 @@ from cloud_autopkg_runner import (
     recipe_report,
     shell,
 )
-from cloud_autopkg_runner.autopkg_prefs import AutoPkgPrefs
 from cloud_autopkg_runner.exceptions import (
     InvalidPlistContents,
     InvalidYamlContents,
