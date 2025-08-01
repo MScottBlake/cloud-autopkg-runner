@@ -1,6 +1,9 @@
 """Tests for the recipe_finder module."""
 
+import plistlib
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,20 +12,35 @@ from cloud_autopkg_runner import AutoPkgPrefs, RecipeFinder
 from cloud_autopkg_runner.exceptions import RecipeLookupException
 
 
+@pytest.fixture(autouse=True)
+def setup_autopkg_prefs_class(tmp_path: Path) -> Generator[AutoPkgPrefs, Any, None]:
+    """Fixture to reset the AutoPkgPrefs singleton instance before each test.
+
+    This ensures that each test gets a clean, independent instance of the
+    AutoPkgPrefs singleton, preventing test contamination.
+    """
+    file_path = tmp_path / "test.plist"
+    content = {
+        "CACHE_DIR": str(tmp_path / "cache"),
+        "RECIPE_OVERRIDE_DIRS": [str(tmp_path / "override")],
+        "RECIPE_SEARCH_DIRS": [str(tmp_path / "search")],
+        "RECIPE_REPO_DIR": str(tmp_path),
+        "MUNKI_REPO": str(tmp_path / "munki"),
+    }
+    file_path.write_bytes(plistlib.dumps(content))
+    prefs = AutoPkgPrefs(file_path)
+    yield prefs
+    file_path.unlink()
+
+
 @pytest.fixture
-def recipe_finder(tmp_path: Path) -> RecipeFinder:
+def recipe_finder() -> RecipeFinder:
     """Fixture for creating a RecipeFinder instance with a mock AutoPkgPrefs object.
 
     Returns:
         RecipeFinder: A RecipeFinder object.
     """
-    mock_prefs = MagicMock(spec=AutoPkgPrefs)
-    mock_prefs.recipe_override_dirs = [tmp_path / "override"]
-    mock_prefs.recipe_search_dirs = [tmp_path / "search"]
-
-    finder = RecipeFinder(autopkg_preferences=mock_prefs)
-    finder.logger = MagicMock()  # Mock the logger to avoid actual logging
-    return finder
+    return RecipeFinder()
 
 
 @pytest.mark.parametrize(

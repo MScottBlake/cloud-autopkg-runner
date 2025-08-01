@@ -26,6 +26,7 @@ from types import FrameType
 from typing import NoReturn
 
 from cloud_autopkg_runner import (
+    AutoPkgPrefs,
     Settings,
     logging_config,
     metadata_cache,
@@ -238,6 +239,15 @@ def _parse_arguments() -> Namespace:
         type=str,
     )
 
+    # AutoPkg-specific Preferences
+
+    parser.add_argument(
+        "--autopkg-pref-file",
+        default=Path("~/Library/Preferences/com.github.autopkg.plist").expanduser(),
+        help="Path to the AutoPkg preferences file.",
+        type=Path,
+    )
+
     return parser.parse_args()
 
 
@@ -322,13 +332,14 @@ async def _async_main() -> None:
     - Parsing command-line arguments.
     - Initializing logging.
     - Generating a list of recipes to process.
-    - Creating placeholder files to simulate previous downloads.
     - Processing the recipe list concurrently.
     """
     args = _parse_arguments()
     _apply_args_to_settings(args)
 
     logging_config.initialize_logger(args.verbose, args.log_file)
+
+    AutoPkgPrefs(args.autopkg_pref_file)
 
     recipe_list = _generate_recipe_list(args)
     _results = await _process_recipe_list(recipe_list)

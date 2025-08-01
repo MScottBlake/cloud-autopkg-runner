@@ -25,17 +25,15 @@ class RecipeFinder:
 
     def __init__(
         self,
-        autopkg_preferences: AutoPkgPrefs | None = None,
         max_recursion_depth: int = 3,
     ) -> None:
         """Initializes a RecipeFinder instance."""
         self.logger = logging_config.get_logger(__name__)
-        self.autopkg_preferences = autopkg_preferences or AutoPkgPrefs()
         self.max_recursion_depth = max_recursion_depth
 
+        autopkg_prefs = AutoPkgPrefs()
         self.lookup_dirs: list[Path] = (
-            self.autopkg_preferences.recipe_override_dirs
-            + self.autopkg_preferences.recipe_search_dirs
+            autopkg_prefs.recipe_override_dirs + autopkg_prefs.recipe_search_dirs
         )
 
     async def find_recipe(self, recipe_name: str) -> Path:

@@ -17,12 +17,16 @@ Key preferences managed include:
 - Recipe override directories (`RECIPE_OVERRIDE_DIRS`)
 """
 
+import asyncio
+import json
 import plistlib
+import tempfile
 from pathlib import Path
 from typing import Any
 
+from cloud_autopkg_runner import logging_config
 from cloud_autopkg_runner.exceptions import (
-    InvalidPlistContents,
+    InvalidFileContents,
     PreferenceFileNotFoundError,
     PreferenceKeyNotFoundError,
 )
@@ -47,7 +51,35 @@ class AutoPkgPrefs:
     for known preference keys.
     """
 
-    def __init__(self, plist_path: Path | None = None) -> None:
+    _instance: "AutoPkgPrefs | None" = None
+    _temp_json_file_path: Path | None = None
+    _DEFAULT_PREF_FILE_PATH = Path(
+        "~/Library/Preferences/com.github.autopkg.plist"
+    ).expanduser()
+
+    def __new__(cls, file_path: Path = _DEFAULT_PREF_FILE_PATH) -> "AutoPkgPrefs":
+        """Create a new instance of AutoPkgPrefs if one doesn't exist.
+
+        This `__new__` method implements the Singleton pattern, ensuring
+        that only one instance of the `AutoPkgPrefs` class is ever created.
+        If an instance already exists, it is returned; otherwise, a new
+        instance is created and stored for future use.
+
+        Args:
+            file_path: The path to the preference file. Defaults to
+                `~/Library/Preferences/com.github.autopkg.plist`. This file can be in
+                JSON or Plist format. This argument is only used on the
+                initial creation of the singleton instance.
+
+        Returns:
+            The AutoPkgPrefs instance.
+        """
+        if not cls._instance:
+            cls._instance = super().__new__(cls)
+            cls._instance.initializer(file_path)
+        return cls._instance
+
+    def __init__(self, file_path: Path = _DEFAULT_PREF_FILE_PATH) -> None:
         """Creates an AutoPkgPrefs object from a plist file.
 
         Loads the contents of the plist file, separates the known preferences
@@ -55,59 +87,52 @@ class AutoPkgPrefs:
         AutoPkgPrefs object.
 
         Args:
-            plist_path: The path to the plist file. If None, defaults to
-                `~/Library/Preferences/com.github.autopkg.plist`.
-
-        Raises:
-            AutoPkgRunnerException: If the specified plist file does not exist.
-            InvalidPlistContents: If the specified plist file is invalid.
+            file_path: The path to the preference file. Defaults to
+                `~/Library/Preferences/com.github.autopkg.plist`. This file can be in
+                JSON or Plist format.
         """
-        if not plist_path:
-            plist_path = Path(
-                "~/Library/Preferences/com.github.autopkg.plist"
-            ).expanduser()
+        if hasattr(self, "_initialized"):
+            return  # Prevent re-initialization
 
-        # Set defaults
-        self._prefs: dict[str, Any] = {
-            "CACHE_DIR": Path("~/Library/AutoPkg/Cache").expanduser(),
-            "RECIPE_SEARCH_DIRS": [
-                Path(),
-                Path("~/Library/AutoPkg/Recipes").expanduser(),
-                Path("/Library/AutoPkg/Recipes"),
-            ],
-            "RECIPE_OVERRIDE_DIRS": [
-                Path("~/Library/AutoPkg/RecipeOverrides").expanduser()
-            ],
-            "RECIPE_REPO_DIR": Path("~/Library/AutoPkg/RecipeRepos").expanduser(),
-        }
+        self.initializer(file_path)
 
-        try:
-            prefs: dict[str, Any] = plistlib.loads(plist_path.read_bytes())
-        except FileNotFoundError as exc:
-            raise PreferenceFileNotFoundError(plist_path) from exc
-        except plistlib.InvalidFileException as exc:
-            raise InvalidPlistContents(plist_path) from exc
+    def initializer(self, file_path: Path) -> None:
+        """Creates an AutoPkgPrefs object from a plist file.
 
-        # Convert `str` to `Path`
-        if "CACHE_DIR" in prefs:
-            prefs["CACHE_DIR"] = Path(prefs["CACHE_DIR"]).expanduser()
-        if "RECIPE_REPO_DIR" in prefs:
-            prefs["RECIPE_REPO_DIR"] = Path(prefs["RECIPE_REPO_DIR"]).expanduser()
-        if "MUNKI_REPO" in prefs:
-            prefs["MUNKI_REPO"] = Path(prefs["MUNKI_REPO"]).expanduser()
+        Loads the contents of the plist file, separates the known preferences
+        from the extra preferences, and creates a new
+        AutoPkgPrefs object.
 
-        if "RECIPE_SEARCH_DIRS" in prefs:
-            prefs["RECIPE_SEARCH_DIRS"] = self._convert_to_list_of_paths(
-                prefs["RECIPE_SEARCH_DIRS"]
+        Args:
+            file_path: The path to the preference file. This file can be in
+                JSON or Plist format.
+        """
+        self._prefs: dict[str, Any] = (
+            self._default_preferences()
+            | self._normalize_preference_values(
+                self._get_preference_file_contents(file_path)
             )
-        if "RECIPE_OVERRIDE_DIRS" in prefs:
-            prefs["RECIPE_OVERRIDE_DIRS"] = self._convert_to_list_of_paths(
-                prefs["RECIPE_OVERRIDE_DIRS"]
-            )
+        )
 
-        self._prefs.update(prefs)
+        self._initialized = True
 
-    def _convert_to_list_of_paths(self, value: str | list[str]) -> list[Path]:
+    @staticmethod
+    def _convert_to_path(string: str) -> Path:
+        """Converts a string to a Path object.
+
+        Converts a string into a Path object that is expanded to include the user's home
+        directory.
+
+        Args:
+            string: A string representing a single path.
+
+        Returns:
+            A Path object representing the expanded path.
+        """
+        return Path(string).expanduser()
+
+    @staticmethod
+    def _convert_to_list_of_paths(value: str | list[str]) -> list[Path]:
         """Converts a string or a list of strings to a list of Path objects.
 
         If the input is a string, it is treated as a single path and converted
@@ -123,9 +148,104 @@ class AutoPkgPrefs:
             A list of Path objects, where each Path object represents a path
             from the input.
         """
-        if isinstance(value, str):
-            value = [value]
-        return [Path(x).expanduser() for x in value]
+        paths = [value] if isinstance(value, str) else value
+        return [Path(p).expanduser() for p in paths]
+
+    @staticmethod
+    def _default_preferences() -> dict[str, Path | list[Path]]:
+        """Provides a dictionary of default AutoPkg preferences.
+
+        These defaults are used if no preference file is found or if specific
+        preferences are not defined in the loaded file. Paths are
+        automatically expanded to include the user's home directory.
+
+        Returns:
+            A dictionary containing default AutoPkg preference keys and their
+            corresponding Path or list of Path values.
+        """
+        return {
+            "CACHE_DIR": Path("~/Library/AutoPkg/Cache").expanduser(),
+            "RECIPE_SEARCH_DIRS": [
+                Path(),
+                Path("~/Library/AutoPkg/Recipes").expanduser(),
+                Path("/Library/AutoPkg/Recipes"),
+            ],
+            "RECIPE_OVERRIDE_DIRS": [
+                Path("~/Library/AutoPkg/RecipeOverrides").expanduser()
+            ],
+            "RECIPE_REPO_DIR": Path("~/Library/AutoPkg/RecipeRepos").expanduser(),
+        }
+
+    @staticmethod
+    def _get_preference_file_contents(file_path: Path) -> dict[str, Any]:
+        """Reads and parses the contents of the AutoPkg preference file.
+
+        Attempts to read the preference file from the specified path. If no path
+        is provided, it defaults to `~/Library/Preferences/com.github.autopkg.plist`.
+        The file is first attempted to be parsed as JSON, and if that fails,
+        as a macOS plist.
+
+        Args:
+            file_path: The path to the preference file.
+
+        Returns:
+            A dictionary representing the parsed preferences from the file.
+
+        Raises:
+            PreferenceFileNotFoundError: If the specified `file_path` does not exist.
+            InvalidFileContents: If the file exists but cannot be parsed as
+                either JSON or a plist.
+        """
+        try:
+            file_contents = file_path.read_bytes()
+        except FileNotFoundError as exc:
+            raise PreferenceFileNotFoundError(file_path) from exc
+
+        prefs: dict[str, Any] = {}
+        try:
+            prefs = json.loads(file_contents.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            try:
+                prefs = plistlib.loads(file_contents)
+            except plistlib.InvalidFileException as exc:
+                raise InvalidFileContents(file_path) from exc
+
+        return prefs
+
+    def _normalize_preference_values(
+        self, preferences: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Normalizes certain preference values to appropriate Python types.
+
+        Specifically, converts string representations of paths to `pathlib.Path` objects
+        and lists of string paths to lists of `pathlib.Path` objects.
+
+        Args:
+            preferences: A dictionary of preferences to normalize.
+
+        Returns:
+            A new dictionary with specified preference values converted to
+            their appropriate types.
+        """
+        if "CACHE_DIR" in preferences:
+            preferences["CACHE_DIR"] = self._convert_to_path(preferences["CACHE_DIR"])
+        if "RECIPE_REPO_DIR" in preferences:
+            preferences["RECIPE_REPO_DIR"] = self._convert_to_path(
+                preferences["RECIPE_REPO_DIR"]
+            )
+        if "MUNKI_REPO" in preferences:
+            preferences["MUNKI_REPO"] = self._convert_to_path(preferences["MUNKI_REPO"])
+
+        if "RECIPE_SEARCH_DIRS" in preferences:
+            preferences["RECIPE_SEARCH_DIRS"] = self._convert_to_list_of_paths(
+                preferences["RECIPE_SEARCH_DIRS"]
+            )
+        if "RECIPE_OVERRIDE_DIRS" in preferences:
+            preferences["RECIPE_OVERRIDE_DIRS"] = self._convert_to_list_of_paths(
+                preferences["RECIPE_OVERRIDE_DIRS"]
+            )
+
+        return preferences
 
     def __getattr__(self, name: str) -> object:
         """Retrieves a preference value by attribute name.
@@ -159,6 +279,111 @@ class AutoPkgPrefs:
             The value of the preference, or the default value if the key is not found.
         """
         return self._prefs.get(key, default)
+
+    def to_json(self, indent: int | None = None) -> str:
+        """Serializes the preferences to a JSON-formatted string.
+
+        Converts all Path objects and lists of Path objects to strings.
+
+        Args:
+            indent: Number of spaces for indentation in the output JSON.
+                    If None, the JSON will be compact.
+
+        Returns:
+            A JSON string representation of the preferences.
+        """
+
+        def _serialize(
+            *,
+            value: str | int | float | bool | Path | list[Any] | dict[str, Any] | None,
+        ) -> str | int | float | bool | None | list[Any] | dict[str, Any]:
+            if isinstance(value, Path):
+                return str(value)
+            if isinstance(value, list):
+                # Recursively apply serialize to each item in the list
+                return [_serialize(value=item) for item in value]
+            if isinstance(value, dict):
+                # Recursively apply serialize to each value in the dictionary
+                return {k: _serialize(value=v) for k, v in value.items()}
+            # For all other types (str, int, bool, None, etc.), return as is
+            return value
+
+        serializable_prefs = {
+            key: _serialize(value=value) for key, value in self._prefs.items()
+        }
+        return json.dumps(serializable_prefs, indent=indent)
+
+    async def to_json_file(self, indent: int | None = None) -> Path:
+        """Serializes the preferences to a temporary JSON file.
+
+        This method generates a JSON string representation of the preferences
+        (converting Path objects to strings) and then asynchronously writes
+        this string to a temporary file. The file is created with a unique name
+        and is configured to *not* be deleted automatically upon closure of its
+        file object, allowing it to persist for external processes.
+
+        It uses `asyncio.to_thread` to offload the blocking file writing
+        operation to a separate thread, preventing the main event loop from
+        being blocked.
+
+        The path to the created temporary file is stored in `_temp_pref_file_path`.
+        It is the responsibility of the caller (or the application's lifecycle
+        management) to eventually call `cleanup_temp_file()` to delete this file.
+
+        Args:
+            indent: Number of spaces for indentation in the output JSON.
+                    If None, the JSON will be compact.
+
+        Returns:
+            The Path object pointing to the created temporary JSON file.
+        """
+
+        def _write_and_get_path(data: str) -> Path:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False, encoding="utf-8"
+            ) as tmp:
+                tmp.write(data)
+            return Path(tmp.name)
+
+        # Offload the file write operation to a separate thread
+        self._temp_json_file_path = await asyncio.to_thread(
+            _write_and_get_path, self.to_json(indent)
+        )
+
+        return self._temp_json_file_path
+
+    def cleanup_temp_file(self) -> None:
+        """Cleans up (deletes) the temporary preference file if it exists.
+
+        This method should be called explicitly when the temporary preferences
+        file is no longer needed by external processes. It checks if a temporary
+        file path has been stored and, if so, attempts to delete the file.
+        Errors during deletion (e.g., file not found, permission denied) are caught
+        and logged, preventing the application from crashing.
+        """
+        if self._temp_json_file_path:
+            if self._temp_json_file_path.exists():
+                try:
+                    self._temp_json_file_path.unlink()
+                except OSError as exc:
+                    logger = logging_config.get_logger(__name__)
+                    logger.warning(
+                        "Could not delete temporary prefs file %s: %s",
+                        self._temp_json_file_path,
+                        exc,
+                    )
+            self._temp_json_file_path = None
+
+    def __del__(self) -> None:
+        """Attempts to clean up the temporary preference file during garbage collection.
+
+        This method is a fallback for cleanup. It calls `cleanup_temp_file()`.
+        However, relying solely on `__del__` for critical resource management
+        (like file deletion) is generally discouraged in Python due to
+        unpredictable execution times and potential issues during program shutdown.
+        It is highly recommended to call `cleanup_temp_file()` explicitly.
+        """
+        self.cleanup_temp_file()
 
     @property
     def cache_dir(self) -> Path:
