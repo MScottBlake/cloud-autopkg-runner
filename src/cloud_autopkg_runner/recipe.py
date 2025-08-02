@@ -521,6 +521,7 @@ class Recipe:
             "update-trust-info",
             self.name,
             f"--override-dir={self._path.parent}",
+            f"--prefs={await AutoPkgPrefs().to_json_file(indent=2)}",
         ]
 
         returncode, stdout, _stderr = await shell.run_cmd(cmd)
@@ -552,6 +553,7 @@ class Recipe:
                 "verify-trust-info",
                 self.name,
                 f"--override-dir={self._path.parent}",
+                f"--prefs={await AutoPkgPrefs().to_json_file(indent=2)}",
             ]
 
             if self._settings.verbosity_int() > 0:
