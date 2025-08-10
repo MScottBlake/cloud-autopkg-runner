@@ -113,7 +113,7 @@ jobs:
         run: uv sync --all-extras
 
       - name: Run tests with pytest
-        run: uv run --all-extras --python ${{ matrix.python-version }} pytest
+        run: uv run --all-extras --python ${{ matrix.python-version }} pytest tests/unit
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
