@@ -205,3 +205,153 @@ class ShellCommandException(AutoPkgRunnerException):
     This exception serves as a base class for more specific exceptions
     related to shell command execution.
     """
+
+
+# Git
+class GitError(AutoPkgRunnerException):
+    """Base exception for all Git-related errors.
+
+    This class serves as a parent for more specific exceptions that
+    can occur during Git operations.
+    """
+
+
+class GitRepoDoesNotExistError(GitError):
+    """Exception raised when a specified Git repository path does not exist.
+
+    This indicates that the directory provided as a repository path
+    does not exist on the file system.
+    """
+
+    def __init__(self, path: Path) -> None:
+        """Initializes GitRepoDoesNotExistError.
+
+        Args:
+            path: The path that was expected to be a Git repository
+                but does not exist.
+        """
+        super().__init__(f"Repository path does not exist: {path}")
+
+
+class PathNotGitRepoError(GitError):
+    """Exception raised when a specified path is not a Git repository.
+
+    This indicates that the directory exists, but it does not contain
+    the necessary Git repository structure (e.g., a `.git` directory).
+    """
+
+    def __init__(self, path: Path) -> None:
+        """Initializes PathNotGitRepoError.
+
+        Args:
+            path: The path that was expected to be a Git repository
+                but lacks the Git repository structure.
+        """
+        super().__init__(f"Path does not appear to be a Git repository: {path}")
+
+
+class GitDefaultBranchError(GitError):
+    """Exception raised when the default branch for a remote cannot be determined.
+
+    This can occur if the remote does not exist, or its `HEAD` reference is not
+    clearly defined in `git remote show` output.
+    """
+
+    def __init__(self, remote_name: str) -> None:
+        """Initializes GitDefaultBranchError.
+
+        Args:
+            remote_name: The name of the remote for which the default branch
+                         could not be determined.
+        """
+        super().__init__(
+            f"Could not determine default branch for remote '{remote_name}'."
+        )
+
+
+class GitMergeError(GitError):
+    """Exception raised when a Git merge operation fails.
+
+    This typically indicates a conflict, or that the target branch was not
+    currently checked out when the merge was attempted.
+    """
+
+    def __init__(self, target_branch: str, current_branch: str) -> None:
+        """Initializes GitMergeError.
+
+        Args:
+            target_branch: The branch that was intended to be the merge target.
+            current_branch: The branch that was actually checked out when the merge was
+                attempted.
+        """
+        super().__init__(
+            f"Cannot merge: '{target_branch}' is not currently checked out. "
+            f"Current branch is '{current_branch}'."
+        )
+
+
+class GitWorktreeError(GitError):
+    """Base exception for errors specific to Git worktree operations.
+
+    This exception is raised when a generic failure occurs during
+    a `git worktree` command execution.
+    """
+
+    def __init__(self, cmd_str: str) -> None:
+        """Initializes GitWorktreeError.
+
+        Args:
+            cmd_str: The string representation of the Git command that failed.
+        """
+        super().__init__(f"Git worktree command failed: '{cmd_str}'")
+
+
+class GitWorktreeCreationError(GitWorktreeError):
+    """Exception raised when a Git worktree fails to be created.
+
+    This indicates that the `git worktree add` command did not result
+    in a valid new worktree at the specified path.
+    """
+
+    def __init__(self, path: Path) -> None:
+        """Initializes GitWorktreeCreationError.
+
+        Args:
+            path: The intended path for the new worktree where creation failed.
+        """
+        super().__init__(f"Failed to create worktree at {path}")
+
+
+class GitWorktreeMissingPathError(GitWorktreeError):
+    """Exception raised when a specified worktree path does not exist.
+
+    This is typically used when attempting to operate on an existing worktree
+    (e.g., `remove`, `move`, `lock`, `unlock`) and the path provided
+    does not point to an existing directory.
+    """
+
+    def __init__(self, path: Path) -> None:
+        """Initializes GitWorktreeMissingPathError.
+
+        Args:
+            path: The path that was expected to point to an existing worktree
+                but does not exist.
+        """
+        super().__init__(f"Worktree directory does not exist: {path}")
+
+
+class GitWorktreeMoveError(GitWorktreeError):
+    """Exception raised when a Git worktree fails to be moved.
+
+    This indicates that the `git worktree move` command did not
+    successfully relocate the worktree from its old path to the new one.
+    """
+
+    def __init__(self, old_path: Path, new_path: Path) -> None:
+        """Initializes GitWorktreeMoveError.
+
+        Args:
+            old_path: The original path of the worktree.
+            new_path: The intended new path for the worktree.
+        """
+        super().__init__(f"Failed to move worktree from {old_path} to {new_path}")
