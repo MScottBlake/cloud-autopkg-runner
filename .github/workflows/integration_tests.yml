@@ -132,7 +132,7 @@ jobs:
         if: matrix.cloud_provider == 'azure'
         run: |
           # Use curl to check if the blob endpoint is reachable
-          curl -f http://azurite:10000/devstoreaccount1 || exit 1
+          curl -f http://localhost:10000/devstoreaccount1 || exit 1
         timeout-minutes: 1
         shell: bash
 
