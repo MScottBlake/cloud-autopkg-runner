@@ -39,7 +39,7 @@ def generate_unique_name(prefix: str) -> str:
     return full_name[:63].strip("-")
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="package")
 async def azure_blob_service_client() -> AsyncGenerator[BlobServiceClient, None]:
     """Provides a low-level Azure Blob Service Client for session-scoped operations.
 
