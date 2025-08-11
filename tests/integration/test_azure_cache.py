@@ -39,7 +39,7 @@ def generate_unique_name(prefix: str) -> str:
     return full_name[:63].strip("-")
 
 
-@pytest_asyncio.fixture(scope="package")
+@pytest_asyncio.fixture(scope="session")
 async def azure_blob_service_client() -> AsyncGenerator[BlobServiceClient, None]:
     """Provides a low-level Azure Blob Service Client for session-scoped operations.
 
@@ -62,9 +62,8 @@ async def azure_test_container(
     """
     container_name = generate_unique_name("cloud-autopkg-test-azure")
     print(f"Creating Azure container: {container_name}")
-
     container_client = azure_blob_service_client.get_container_client(container_name)
-    await container_client.create_container()
+    container_client.create_container()
 
     yield container_name
 
