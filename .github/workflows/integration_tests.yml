@@ -117,10 +117,10 @@ jobs:
           npm install -g azurite
 
           nohup azurite \
-            --blobPort 10000 \
             --oauth basic \
             --cert ${{ github.workspace }}/tests/integration/cert/cert.pem \
             --key ${{ github.workspace }}/tests/integration/cert/key.pem \
+            --silent \
             &
 
           for i in {1..30}; do
@@ -132,10 +132,15 @@ jobs:
           done
 
       - name: Configure Azure SDK for Azurite
-        if: matrix.cloud_provider == 'azure'
         run: |
           # The default connection string for Azurite running in a Docker container
           echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBhgCzFETQlEqw==;BlobEndpoint=https://localhost:10000/;" >> $GITHUB_ENV
+          echo "AZURE_CLIENT_ID=f47ac10b-58cc-4372-a567-0e02b2c3d479" >> $GITHUB_ENV
+          echo "AZURE_TENANT_ID=8a35c6b1-9e0e-4d2f-8c1a-55d7b9e4f1a2" >> $GITHUB_ENV
+          echo "AZURE_AUTHORITY_HOST=https://login.microsoftonline.com" >> $GITHUB_ENV
+          echo "AZURE_USERNAME=username@localhost" >> $GITHUB_ENV
+          # This tells DefaultAzureCredential to use EnvironmentCredential >> $GITHUB_ENV
+          echo "AZURE_IDENTITY_DISABLE_INSTANCE_DISCOVERY=true" >> $GITHUB_ENV
         shell: bash
 
       - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
