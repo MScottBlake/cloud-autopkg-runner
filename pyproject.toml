@@ -53,7 +53,7 @@ s3 = "cloud_autopkg_runner.cache.s3_cache:AsyncS3Cache"
 sqlite = "cloud_autopkg_runner.cache.sqlite_cache:AsyncSQLiteCache"
 
 [project.optional-dependencies]
-azure = ["azure-identity", "azure-storage-blob"]
+azure = ["azure-identity", "azure-storage-blob[aio]"]
 gcs = ["google-cloud-storage"]
 json = []
 s3 = ["aioboto3"]
