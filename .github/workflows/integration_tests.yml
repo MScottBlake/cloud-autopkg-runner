@@ -1,4 +1,4 @@
-name: Integration Tests (Emulators)
+name: Integration Tests
 
 on:
   push:
@@ -86,22 +86,22 @@ jobs:
           - cloud_provider: azure
             install_extras: azure
             test_path: tests/integration/test_azure_cache.py
-            emulator_service: azurite
-    services:
-      azurite:
-        image: mcr.microsoft.com/azure-storage/azurite:latest
-        ports:
-          - 10000:10000 # Blob storage
-          # - 10001:10001 # Queue storage
-          # - 10002:10002 # Table storage
-        options: >-
-          --cert cert.pem
-          --key key.pem
-          --oauth basic
-          --health-cmd "ls /usr/local/bin/azurite-blob"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+            # emulator_service: azurite
+    # services:
+    #   azurite:
+    #     image: mcr.microsoft.com/azure-storage/azurite:latest
+    #     ports:
+    #       - 10000:10000 # Blob storage
+    #       # - 10001:10001 # Queue storage
+    #       # - 10002:10002 # Table storage
+    #     options: >-
+    #       --cert cert.pem
+    #       --key key.pem
+    #       --oauth basic
+    #       --health-cmd "ls /usr/local/bin/azurite-blob"
+    #       --health-interval 5s
+    #       --health-timeout 5s
+    #       --health-retries 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -111,6 +111,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
+
+      - name: Install Azurite
+        id: azuright
+        uses: potatoqualitee/azuright@v1.1
+        with:
+          self-signed-cert: true
 
       - name: Configure Azure SDK for Azurite
         if: matrix.cloud_provider == 'azure'
