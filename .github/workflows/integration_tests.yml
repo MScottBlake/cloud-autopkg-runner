@@ -113,16 +113,15 @@ jobs:
           enable-cache: true
 
       - name: Install Azurite
-        id: azuright
-        uses: potatoqualitee/azuright@v1.1
-        with:
-          self-signed-cert: true
+        run: |
+          npm install -g azurite
+          azurite --blobPort 10000 --oauth basic --cert cert.pem --key key.pem
 
       - name: Configure Azure SDK for Azurite
         if: matrix.cloud_provider == 'azure'
         run: |
           # The default connection string for Azurite running in a Docker container
-          echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBhgCzFETQlEqw==;BlobEndpoint=http://localhost:10000/;QueueEndpoint=http://localhost:10001;TableEndpoint=http://localhost:10002;" >> $GITHUB_ENV
+          echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBhgCzFETQlEqw==;BlobEndpoint=https://localhost:10000/;" >> $GITHUB_ENV
         shell: bash
 
       - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
