@@ -15,6 +15,7 @@ from cloud_autopkg_runner.cache.azure_blob_cache import AsyncAzureBlobCache
 from cloud_autopkg_runner.metadata_cache import (
     MetadataCachePlugin,
     RecipeCache,
+    get_cache_plugin,
     # get_cache_plugin,
 )
 
@@ -102,10 +103,11 @@ async def azure_cache_plugin(
     settings.cache_plugin = "azure"
     settings.cloud_container_name = azure_test_container
     settings.cache_file = "metadata_cache.json"
+    settings.azure_account_url = "http://127.0.0.1:10000/devstoreaccount1"
 
     # get_cache_plugin() should return AsyncAzureBlobCache due to settings.cache_plugin
-    # plugin = get_cache_plugin()
-    plugin = AsyncAzureBlobCache()
+    plugin = get_cache_plugin()
+    # plugin = AsyncAzureBlobCache()
     await plugin.open()
     await plugin.clear_cache()
     yield plugin
