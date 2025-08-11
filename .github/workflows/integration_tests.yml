@@ -145,8 +145,5 @@ jobs:
       #   timeout-minutes: 1
       #   shell: bash
 
-      - name: Sync UV
-        run: uv sync --extra "${{ matrix.install_extras }}"
-
       - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
-        run: uv run --extra "${{ matrix.install_extras }}" pytest ${{ matrix.test_path }} --no-cov
+        run: uv run --all-extras pytest ${{ matrix.test_path }} --no-cov

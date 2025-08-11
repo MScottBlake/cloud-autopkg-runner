@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -44,9 +45,12 @@ def generate_unique_name(prefix: str) -> str:
 @pytest_asyncio.fixture(scope="session")
 async def s3_session_client() -> AsyncGenerator[S3Client, None]:
     """Provides a low-level S3 client for session-scoped operations."""
+    endpoint_url = os.environ.get("AWS_ENDPOINT_URL", None)
+    region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+
     session = aioboto3.Session()
     async with session.client(
-        "s3", endpoint_url="http://localhost:4566", region_name="us-east-1"
+        "s3", endpoint_url=endpoint_url, region_name=region
     ) as s3_client:
         yield s3_client
 
