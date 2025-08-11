@@ -28,16 +28,10 @@ TEST_TIMESTAMP_STR = datetime(2023, 10, 26, 10, 30, 0, tzinfo=timezone.utc).isof
 
 def generate_unique_name(prefix: str) -> str:
     """Generates a unique name for cloud resources, sanitized for S3 bucket names."""
-    # S3 bucket names have strict rules: no underscores, must be lowercase, max 63 chars
     unique_part = uuid.uuid4().hex[:8]
     timestamp_part = str(int(time.time()))
     sanitized_prefix = prefix.lower().replace("_", "-").replace(".", "-")
-
     full_name = f"{sanitized_prefix}-{unique_part}-{timestamp_part}"
-
-    # S3 bucket names must start and end with an alphanumeric character
-    # and contain only lowercase letters, numbers, and hyphens.
-    # Max length 63 characters.
     return full_name[:63].strip("-")
 
 

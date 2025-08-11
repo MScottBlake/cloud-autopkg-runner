@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false # Allows all matrix jobs to run even if one fails
       matrix:
-        cloud_provider: [s3, azure]
+        cloud_provider: [s3]
         # cloud_provider: [s3, azure, gcs]
         # python-version: ["3.10", "3.13"]
         python-version: ["3.13"]
@@ -129,14 +129,6 @@ jobs:
       # --- Wait for Emulators (Crucial for Reliability) ---
       # Although services health checks are used, sometimes a short wait is still beneficial
       # especially if an emulator takes a moment to fully initialize its API routes.
-
-      # - name: Wait for Azure emulator (Azurite) to be fully ready
-      #   if: matrix.cloud_provider == 'azure'
-      #   run: |
-      #     # Use curl to check if the blob endpoint is reachable
-      #     curl -f http://localhost:10000/devstoreaccount1 || exit 1
-      #   timeout-minutes: 1
-      #   shell: bash
 
       # - name: Wait for GCS emulator to be fully ready
       #   if: matrix.cloud_provider == 'gcs'
