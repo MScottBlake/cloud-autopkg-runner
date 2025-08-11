@@ -11,7 +11,7 @@ import asyncio
 import json
 from types import TracebackType
 
-# from azure.identity.aio import DefaultAzureCredential
+from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob.aio import BlobClient, BlobServiceClient
 
 from cloud_autopkg_runner import Settings, logging_config
@@ -73,7 +73,9 @@ class AsyncAzureBlobCache:
 
     async def open(self) -> None:
         """Open the connection to Azure Blob Storage."""
-        blob_service_client: BlobServiceClient = BlobServiceClient(self._account_url)
+        blob_service_client: BlobServiceClient = BlobServiceClient(
+            self._account_url, DefaultAzureCredential()
+        )
         self._client: BlobClient = blob_service_client.get_blob_client(
             container=self._container_name, blob=self._blob_name
         )
