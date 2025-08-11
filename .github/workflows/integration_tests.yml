@@ -104,8 +104,8 @@ jobs:
         command: >
           azurite
             --blobPort 10000
-            --cert cert.pem
-            --key key.pem
+            --cert /cert/cert.pem
+            --key /cert/key.pem
             --oauth basic
             --silent
             --loose
