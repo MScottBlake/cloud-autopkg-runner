@@ -95,6 +95,9 @@ jobs:
           # - 10001:10001 # Queue storage
           # - 10002:10002 # Table storage
         options: >-
+          --cert cert.pem
+          --key key.pem
+          --oauth basic
           --health-cmd "ls /usr/local/bin/azurite-blob"
           --health-interval 5s
           --health-timeout 5s
@@ -113,8 +116,7 @@ jobs:
         if: matrix.cloud_provider == 'azure'
         run: |
           # The default connection string for Azurite running in a Docker container
-          # echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBhgCzFETQlEqw==;BlobEndpoint=http://0.0.0.0:10000/devstoreaccount1;QueueEndpoint=http://0.0.0.0:10001/devstoreaccount1;TableEndpoint=http://0.0.0.0:10002/devstoreaccount1;" >> $GITHUB_ENV
-          echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBhgCzFETQlEqw==;BlobEndpoint=http://localhost:10000/;QueueEndpoint=http://0.0.0.0:10001;TableEndpoint=http://0.0.0.0:10002;" >> $GITHUB_ENV
+          echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBhgCzFETQlEqw==;BlobEndpoint=http://localhost:10000/;QueueEndpoint=http://localhost:10001;TableEndpoint=http://localhost:10002;" >> $GITHUB_ENV
         shell: bash
 
       - name: Run Pytest for ${{ matrix.cloud_provider }} Cache

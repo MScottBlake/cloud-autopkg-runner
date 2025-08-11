@@ -103,7 +103,7 @@ async def azure_cache_plugin(
     settings.cache_plugin = "azure"
     settings.cloud_container_name = azure_test_container
     settings.cache_file = "metadata_cache.json"
-    settings.azure_account_url = "http://127.0.0.1:10000/devstoreaccount1"
+    settings.azure_account_url = "https://localhost:10000/devstoreaccount1"
 
     # get_cache_plugin() should return AsyncAzureBlobCache due to settings.cache_plugin
     plugin = get_cache_plugin()
