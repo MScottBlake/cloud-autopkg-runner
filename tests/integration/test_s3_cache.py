@@ -35,9 +35,9 @@ async def test_save_cache_file(
     await s3_cache_plugin.save()
 
     # Retrieve data with a new plugin (no stored data)
-    new_plugin = AsyncS3Cache()
-    contents = await new_plugin.get_item(TEST_RECIPE_NAME)
-    assert contents == test_data
+    async with AsyncS3Cache() as new_plugin:
+        loaded_data = await new_plugin.get_item(TEST_RECIPE_NAME)
+        assert loaded_data == test_data
 
     # Retrieve full file with s3 client
     response = await s3_session_client.get_object(

@@ -45,10 +45,10 @@ jobs:
             install_extras: s3
             test_path: tests/integration/test_s3_cache.py
 
-          # - cloud_provider: azure
-          #   install_extras: azure
-          #   test_path: tests/integration/test_azure_cache.py
-          #   emulator_service: azurite
+          - cloud_provider: azure
+            install_extras: azure
+            test_path: tests/integration/test_azure_cache.py
+            emulator_service: azurite
 
           # - cloud_provider: gcs
           #   install_extras: gcs
@@ -56,18 +56,18 @@ jobs:
           #   emulator_service: gcs_emulator
 
     # Define the emulator services for each job. GitHub Actions will start these Docker containers.
-    # services:
-      # azurite:
-      #   image: mcr.microsoft.com/azure-storage/azurite:latest
-      #   ports:
-      #     - 10000:10000 # Blob storage
-      #     # - 10001:10001 # Queue storage
-      #     # - 10002:10002 # Table storage
-      #   options: >-
-      #     --health-cmd "ls /usr/local/bin/azurite-blob"
-      #     --health-interval 5s
-      #     --health-timeout 5s
-      #     --health-retries 10
+    services:
+      azurite:
+        image: mcr.microsoft.com/azure-storage/azurite:latest
+        ports:
+          - 10000:10000 # Blob storage
+          # - 10001:10001 # Queue storage
+          # - 10002:10002 # Table storage
+        options: >-
+          --health-cmd "ls /usr/local/bin/azurite-blob"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
       # gcs_emulator:
       #   image: fsouza/fake-gcs-server:latest
@@ -94,7 +94,7 @@ jobs:
 
       - name: Start LocalStack
         if: matrix.cloud_provider == 's3'
-        uses: LocalStack/setup-localstack@v0.2.2
+        uses: LocalStack/setup-localstack@v0.2.4
         with:
           image-tag: 'latest'
           install-awslocal: false
@@ -108,12 +108,12 @@ jobs:
           echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
         shell: bash
 
-      # - name: Configure Azure SDK for Azurite
-      #   if: matrix.cloud_provider == 'azure'
-      #   run: |
-      #     # The default connection string for Azurite running in a Docker container
-      #     echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBhgCzFETQlEqw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;" >> $GITHUB_ENV
-      #   shell: bash
+      - name: Configure Azure SDK for Azurite
+        if: matrix.cloud_provider == 'azure'
+        run: |
+          # The default connection string for Azurite running in a Docker container
+          echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBhgCzFETQlEqw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;" >> $GITHUB_ENV
+        shell: bash
 
       # - name: Configure GCS SDK for Emulator
       #   if: matrix.cloud_provider == 'gcs'
@@ -128,25 +128,13 @@ jobs:
       # Although services health checks are used, sometimes a short wait is still beneficial
       # especially if an emulator takes a moment to fully initialize its API routes.
 
-      # - name: Wait for S3 emulator (LocalStack) to be fully ready
-      #   if: matrix.cloud_provider == 's3'
-      #   run: |
-      #     # Use aws cli (part of localstack image) to wait for S3
-      #     uv run --all-extras aws --endpoint-url=http://localstack:4566 s3api list-buckets
-      #   timeout-minutes: 2 # Give it a bit more time if needed.
-      #   shell: bash
-      #   # uv run is used to ensure the `aws` CLI is available from `uv sync`'s installation.
-      #   # This requires `awscli` to be a dependency (e.g., in `dev` or optional group).
-      #   # If not, you might need to install `pip install awscli` in an earlier step or
-      #   # adjust the `run` command to use a bare `aws` if it's pre-installed on runner.
-
-      # - name: Wait for Azure emulator (Azurite) to be fully ready
-      #   if: matrix.cloud_provider == 'azure'
-      #   run: |
-      #     # Use curl to check if the blob endpoint is reachable
-      #     curl -f http://azurite:10000/devstoreaccount1 || exit 1
-      #   timeout-minutes: 1
-      #   shell: bash
+      - name: Wait for Azure emulator (Azurite) to be fully ready
+        if: matrix.cloud_provider == 'azure'
+        run: |
+          # Use curl to check if the blob endpoint is reachable
+          curl -f http://azurite:10000/devstoreaccount1 || exit 1
+        timeout-minutes: 1
+        shell: bash
 
       # - name: Wait for GCS emulator to be fully ready
       #   if: matrix.cloud_provider == 'gcs'
