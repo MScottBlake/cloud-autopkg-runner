@@ -130,13 +130,13 @@ jobs:
       # Although services health checks are used, sometimes a short wait is still beneficial
       # especially if an emulator takes a moment to fully initialize its API routes.
 
-      - name: Wait for Azure emulator (Azurite) to be fully ready
-        if: matrix.cloud_provider == 'azure'
-        run: |
-          # Use curl to check if the blob endpoint is reachable
-          curl -f http://localhost:10000/devstoreaccount1 || exit 1
-        timeout-minutes: 1
-        shell: bash
+      # - name: Wait for Azure emulator (Azurite) to be fully ready
+      #   if: matrix.cloud_provider == 'azure'
+      #   run: |
+      #     # Use curl to check if the blob endpoint is reachable
+      #     curl -f http://localhost:10000/devstoreaccount1 || exit 1
+      #   timeout-minutes: 1
+      #   shell: bash
 
       # - name: Wait for GCS emulator to be fully ready
       #   if: matrix.cloud_provider == 'gcs'
