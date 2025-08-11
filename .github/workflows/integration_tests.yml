@@ -115,7 +115,7 @@ jobs:
       - name: Install Azurite
         run: |
           npm install -g azurite
-          azurite --blobPort 10000 --oauth basic --cert cert.pem --key key.pem
+          azurite --blobPort 10000 --oauth basic --cert ./tests/integration/cert.pem --key ./tests/integration/key.pem
 
       - name: Configure Azure SDK for Azurite
         if: matrix.cloud_provider == 'azure'
