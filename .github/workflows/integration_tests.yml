@@ -37,6 +37,8 @@ jobs:
     strategy:
       fail-fast: false # Allows all matrix jobs to run even if one fails
       matrix:
+        cloud_provider: [s3, azure]
+        # cloud_provider: [s3, azure, gcs]
         # python-version: ["3.10", "3.13"]
         python-version: ["3.13"]
 
