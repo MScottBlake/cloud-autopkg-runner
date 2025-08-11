@@ -86,29 +86,22 @@ jobs:
           - cloud_provider: azure
             install_extras: azure
             test_path: tests/integration/test_azure_cache.py
-            emulator_service: azurite
-    services:
-      azurite:
-        image: mcr.microsoft.com/azure-storage/azurite:latest
-        ports:
-          - 10000:10000 # Blob storage
-          # - 10001:10001 # Queue storage
-          # - 10002:10002 # Table storage
-        volumes:
-          - ${{ github.workspace }}tests/integration/cert:/cert
-        options: >-
-          --health-cmd "ls /usr/local/bin/azurite-blob"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-        command: >
-          azurite
-            --blobPort 10000
-            --cert /cert/cert.pem
-            --key /cert/key.pem
-            --oauth basic
-            --silent
-            --loose
+    #         emulator_service: azurite
+    # services:
+    #   azurite:
+    #     image: mcr.microsoft.com/azure-storage/azurite:latest
+    #     ports:
+    #       - 10000:10000 # Blob storage
+    #       # - 10001:10001 # Queue storage
+    #       # - 10002:10002 # Table storage
+    #     volumes:
+    #       - ${{ github.workspace }}tests/integration/cert:/cert
+    #     options: >-
+    #       --health-cmd "ls /usr/local/bin/azurite-blob"
+    #       --health-interval 5s
+    #       --health-timeout 5s
+    #       --health-retries 10
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -119,10 +112,24 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
-      # - name: Install Azurite
-      #   run: |
-      #     npm install -g azurite
-      #     azurite --blobPort 10000 --oauth basic --cert ./tests/integration/cert.pem --key ./tests/integration/key.pem
+      - name: Install Azurite
+        run: |
+          npm install -g azurite
+
+          nohup azurite \
+            --blobPort 10000 \
+            --oauth basic \
+            --cert ${{ github.workspace }}/tests/integration/cert/cert.pem \
+            --key ${{ github.workspace }}/tests/integration/cert/key.pem \
+            &
+
+          for i in {1..30}; do
+            if curl -k -s https://localhost:10000/; then
+              echo "Azurite is ready"
+              break
+            fi
+            sleep 2
+          done
 
       - name: Configure Azure SDK for Azurite
         if: matrix.cloud_provider == 'azure'
