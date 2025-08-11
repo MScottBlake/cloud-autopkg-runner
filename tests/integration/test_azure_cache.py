@@ -15,7 +15,7 @@ from cloud_autopkg_runner.cache.azure_blob_cache import AsyncAzureBlobCache
 from cloud_autopkg_runner.metadata_cache import (
     MetadataCachePlugin,
     RecipeCache,
-    get_cache_plugin,
+    # get_cache_plugin,
 )
 
 # Define test data outside of a class
@@ -104,7 +104,8 @@ async def azure_cache_plugin(
     settings.cache_file = "metadata_cache.json"
 
     # get_cache_plugin() should return AsyncAzureBlobCache due to settings.cache_plugin
-    plugin = get_cache_plugin()
+    # plugin = get_cache_plugin()
+    plugin = AsyncAzureBlobCache()
     await plugin.open()
     await plugin.clear_cache()
     yield plugin
