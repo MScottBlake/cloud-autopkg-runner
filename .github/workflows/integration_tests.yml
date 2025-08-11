@@ -63,7 +63,7 @@ jobs:
       - name: Configure AWS SDK for LocalStack
         if: matrix.cloud_provider == 's3'
         run: |
-          echo "AWS_ENDPOINT_URL=http://localstack:4566" >> $GITHUB_ENV
+          echo "AWS_ENDPOINT_URL=http://localhost:4566" >> $GITHUB_ENV
           echo "AWS_ACCESS_KEY_ID=test" >> $GITHUB_ENV
           echo "AWS_SECRET_ACCESS_KEY=test" >> $GITHUB_ENV
           echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
