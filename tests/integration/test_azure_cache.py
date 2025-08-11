@@ -28,6 +28,10 @@ TEST_TIMESTAMP_STR = datetime(2023, 10, 26, 10, 30, 0, tzinfo=timezone.utc).isof
 
 def generate_unique_name(prefix: str) -> str:
     """Generates a unique name for cloud resources, sanitized for S3 bucket names."""
+    # Container names can be between 3 and 63 characters long.
+    # Container names must start with a letter or number, and can contain only lowercase
+    # letters, numbers, and the dash (-) character.
+    # Consecutive dash characters aren't permitted in container names.
     unique_part = uuid.uuid4().hex[:8]
     timestamp_part = str(int(time.time()))
     sanitized_prefix = prefix.lower().replace("_", "-").replace(".", "-")
@@ -56,19 +60,10 @@ async def azure_test_container(
     This async generator yields the name of a uniquely generated Azure container,
     then deletes all blobs within it and removes the container upon completion.
     """
-    container_name = (
-        generate_unique_name("cloud-autopkg-test-azure").replace("-", "").lower()
-    )
-    if not container_name[0].isalpha() or not container_name[-1].isalnum():
-        container_name = "az" + container_name
-    container_name = container_name[:63]
-
+    container_name = generate_unique_name("cloud-autopkg-test-azure")
     print(f"Creating Azure container: {container_name}")
     try:
-        container_client = azure_blob_service_client.get_container_client(
-            container_name
-        )
-        await container_client.create_container()
+        await azure_blob_service_client.create_container(name=container_name)
         yield container_name
     finally:
         print(f"Cleaning up Azure container: {container_name}")

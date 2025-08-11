@@ -108,7 +108,7 @@ async def s3_cache_plugin(
 
 
 @pytest.mark.asyncio
-async def test_save_cache_file(
+async def test_save_and_read_s3_cache_file(
     s3_session_client: S3Client,
     s3_test_bucket: str,
     s3_cache_plugin: MetadataCachePlugin,
