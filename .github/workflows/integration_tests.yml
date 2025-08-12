@@ -115,6 +115,7 @@ jobs:
       - name: Install Azurite
         run: |
           npm install -g mkcert azurite
+          mkcert create-ca
           mkcert create-cert
           nohup azurite --oauth basic --cert cert.crt --key cert.key --silent --loose &
 
