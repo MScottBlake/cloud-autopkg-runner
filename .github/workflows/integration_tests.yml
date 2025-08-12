@@ -107,7 +107,7 @@ jobs:
 
       - name: Start Azurite
         run: |
-          nohup azurite --oauth basic --cert cert.crt --key cert.key --silent --loose --disableProductStyleUrl &
+          nohup azurite --oauth basic --cert cert.crt --key cert.key --silent --loose --disableProductStyleUrl --debug azurite.log 2>&1 &
 
           for i in {1..30}; do
             if curl -k -s https://127.0.0.1:10000/devstoreaccount1; then
@@ -125,6 +125,11 @@ jobs:
           AZURE_STORAGE_ACCOUNT: devstoreaccount1
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: azurite.log
 
   # gcs_integration_tests:
   #   name: "🧪 Integration Test: Azure Emulator (Python ${{ matrix.python-version }})"
