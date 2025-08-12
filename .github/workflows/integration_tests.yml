@@ -117,7 +117,7 @@ jobs:
           npm install -g mkcert azurite
           mkcert create-ca
           mkcert create-cert
-          nohup azurite --oauth basic --cert cert.crt --key cert.key --silent --loose &
+          nohup azurite --oauth basic --cert cert.crt --key cert.key --silent --loose --disableProductStyleUrl &
 
       - name: Wait for Azurite to be ready
         run: |
