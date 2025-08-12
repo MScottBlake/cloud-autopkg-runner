@@ -47,7 +47,7 @@ async def azure_blob_service_client() -> AsyncGenerator[BlobServiceClient, None]
     This client is configured to connect to Azurite using its default connection string.
     """
     host = os.environ.get("AZURE_STORAGE_HOST", "127.0.0.1:10000")
-    account = os.environ.get("AZURE_STORAGE_ACCOUNT")
+    account = os.environ.get("AZURE_STORAGE_ACCOUNT", "devstoreaccount1")
     url = f"https://{host}/{account}"
 
     async with BlobServiceClient(url, DefaultAzureCredential()) as client:
