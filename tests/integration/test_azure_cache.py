@@ -40,7 +40,7 @@ def generate_unique_name(prefix: str) -> str:
     return full_name[:63].strip("-")
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest_asyncio.fixture(scope="session")
 async def azure_blob_service_client() -> AsyncGenerator[BlobServiceClient, None]:
     """Provides a low-level Azure Blob Service Client for session-scoped operations.
 
@@ -54,7 +54,7 @@ async def azure_blob_service_client() -> AsyncGenerator[BlobServiceClient, None]
         yield client
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="session")
 async def azure_test_container(
     azure_blob_service_client: BlobServiceClient,
 ) -> AsyncGenerator[str, None]:
