@@ -76,7 +76,7 @@ jobs:
     name: "🧪 Integration Test: Azure Emulator (Python ${{ matrix.python-version }})"
     runs-on: ubuntu-latest
     needs: [lock_file]
-    timeout-minutes: 3
+    timeout-minutes: 10
     strategy:
       fail-fast: false # Allows all matrix jobs to run even if one fails
       matrix:
@@ -116,16 +116,17 @@ jobs:
         run: |
           npm install -g azurite
 
-          azurite \
+          nohup azurite \
             --oauth basic \
             --cert ${{ github.workspace }}/tests/integration/cert/cert.pem \
             --key ${{ github.workspace }}/tests/integration/cert/key.pem \
-            --loose \
-            --debug \
-            > azurite.log 2>&1 &
+            --silent \
+            --loose &
 
+      - name: Wait for Azurite to be ready
+        run: |
           for i in {1..30}; do
-            if curl -k -s https://127.0.0.1:10000/; then
+            if curl -k -s https://127.0.0.1:10000/devstoreaccount1; then
               echo "Azurite is ready"
               break
             fi
@@ -135,11 +136,11 @@ jobs:
       - name: Configure Azure SDK for Azurite
         run: |
           # The default connection string for Azurite running in a Docker container
-          # echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBhgCzFETQlEqw==;BlobEndpoint=https://localhost:10000/;" >> $GITHUB_ENV
+          echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBhgCzFETQlEqw==;BlobEndpoint=https://localhost:10000/;" >> $GITHUB_ENV
 
-          echo "AZURE_CLIENT_ID=f47ac10b-58cc-4372-a567-0e02b2c3d479" >> $GITHUB_ENV
-          echo "AZURE_CLIENT_SECRET=Bb2Cc~3Dd4.-Ee5Ff6Gg7Hh8Ii9Jj0_Kk1Ll2Mm3" >> $GITHUB_ENV
-          echo "AZURE_TENANT_ID=8a35c6b1-9e0e-4d2f-8c1a-55d7b9e4f1a2" >> $GITHUB_ENV
+          # echo "AZURE_CLIENT_ID=f47ac10b-58cc-4372-a567-0e02b2c3d479" >> $GITHUB_ENV
+          # echo "AZURE_CLIENT_SECRET=Bb2Cc~3Dd4.-Ee5Ff6Gg7Hh8Ii9Jj0_Kk1Ll2Mm3" >> $GITHUB_ENV
+          # echo "AZURE_TENANT_ID=8a35c6b1-9e0e-4d2f-8c1a-55d7b9e4f1a2" >> $GITHUB_ENV
           echo "AZURE_STORAGE_HOST=127.0.0.1:10000" >> $GITHUB_ENV
           echo "AZURE_STORAGE_ACCOUNT=devstoreaccount1" >> $GITHUB_ENV
 

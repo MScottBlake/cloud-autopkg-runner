@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 import pytest
 import pytest_asyncio
+from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob import StorageErrorCode
 from azure.storage.blob.aio import BlobServiceClient
 
@@ -16,7 +17,6 @@ from cloud_autopkg_runner.metadata_cache import (
     MetadataCachePlugin,
     RecipeCache,
     get_cache_plugin,
-    # get_cache_plugin,
 )
 
 # Define test data outside of a class
@@ -46,9 +46,11 @@ async def azure_blob_service_client() -> AsyncGenerator[BlobServiceClient, None]
 
     This client is configured to connect to Azurite using its default connection string.
     """
-    connection_string = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
+    host = os.environ.get("AZURE_STORAGE_HOST", "127.0.0.1:10000")
+    account = os.environ.get("AZURE_STORAGE_ACCOUNT")
+    url = f"https://{host}/{account}"
 
-    async with BlobServiceClient.from_connection_string(connection_string) as client:
+    async with BlobServiceClient(url, DefaultAzureCredential()) as client:
         yield client
 
 
