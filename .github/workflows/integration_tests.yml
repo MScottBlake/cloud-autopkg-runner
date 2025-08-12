@@ -112,10 +112,15 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
+      - name: Install mkcert
+        run: |
+          npm install -g mkcert
+          mkcert -install
+          mkcert 127.0.0.1
+
       - name: Install Azurite
         run: |
-          npm install -g mkcert azurite
-          mkcert 127.0.0.1
+          npm install -g azurite
           nohup azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1.pem --silent --loose &
 
       - name: Wait for Azurite to be ready
