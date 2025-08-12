@@ -90,6 +90,8 @@ async def azure_test_container(
                 print(f"Error during container cleanup {container_name}: {e}")
                 raise
 
+        container_client.close()
+
 
 @pytest_asyncio.fixture
 async def azure_cache_plugin(
