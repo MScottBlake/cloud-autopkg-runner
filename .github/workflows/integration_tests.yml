@@ -115,7 +115,7 @@ jobs:
       - name: Install mkcert
         run: |
           npm install -g mkcert
-          mkcert
+          mkcert create-cert
 
       - name: Install Azurite
         run: |
