@@ -136,6 +136,7 @@ jobs:
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AWS_SUBSCRIPTION_ID }}
 
       - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
         env:
