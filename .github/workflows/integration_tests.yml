@@ -120,7 +120,7 @@ jobs:
       - name: Install Azurite
         run: |
           npm install -g azurite
-          nohup azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1.pem --silent --loose &
+          nohup azurite --oauth basic --cert cert.crt --key cert.key --silent --loose &
 
       - name: Wait for Azurite to be ready
         run: |
