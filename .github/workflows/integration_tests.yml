@@ -100,13 +100,13 @@ jobs:
         run: |
           npm install -g mkcert azurite
 
-      - name: Create server certificates
-        run: |
-          mkcert create-ca
-          mkcert create-cert
+      # - name: Create server certificates
+      #   run: |
 
       - name: Start Azurite
         run: |
+          mkcert create-ca
+          mkcert create-cert
           nohup azurite --oauth basic --cert cert.crt --key cert.key --loose --debug azurite.log &
 
           for i in {1..30}; do
