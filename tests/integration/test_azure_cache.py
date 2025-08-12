@@ -54,7 +54,7 @@ async def azure_blob_service_client() -> AsyncGenerator[BlobServiceClient, None]
         yield client
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture
 async def azure_test_container(
     azure_blob_service_client: BlobServiceClient,
 ) -> AsyncGenerator[str, None]:
