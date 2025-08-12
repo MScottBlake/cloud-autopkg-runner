@@ -76,9 +76,7 @@ async def azure_test_container(
     print(f"Cleaning up Azure container: {container_name}")
 
     # List and delete all blobs
-    # container_client = azure_blob_service_client.get_container_client(
-    #     container_name
-    # )
+    container_client = azure_blob_service_client.get_container_client(container_name)
     async for blob_item in container_client.list_blobs():
         try:
             await container_client.delete_blob(blob_item.name)
