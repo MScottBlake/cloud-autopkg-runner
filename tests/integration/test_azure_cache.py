@@ -69,7 +69,7 @@ async def azure_test_container(
     container_name = generate_unique_name("cloud-autopkg-test-azure")
     print(f"Creating Azure container: {container_name}")
     container_client = azure_blob_service_client.get_container_client(container_name)
-    container_client.create_container()
+    await container_client.create_container()
 
     yield container_name
 
