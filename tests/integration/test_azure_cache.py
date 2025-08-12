@@ -51,9 +51,6 @@ async def azure_blob_service_client() -> AsyncGenerator[BlobServiceClient, None]
     url = f"https://{host}/{account}"
 
     async with BlobServiceClient(url, DefaultAzureCredential()) as client:
-        # async with BlobServiceClient(
-        #     url, DefaultAzureCredential(), connection_verify=False
-        # ) as client:
         yield client
 
 
@@ -68,29 +65,30 @@ async def azure_test_container(
     """
     container_name = generate_unique_name("cloud-autopkg-test-azure")
     print(f"Creating Azure container: {container_name}")
-    container_client = azure_blob_service_client.get_container_client(container_name)
-    await container_client.create_container()
+    async with azure_blob_service_client.get_container_client(
+        container_name
+    ) as container_client:
+        await container_client.create_container()
 
-    yield container_name
+        yield container_name
 
-    print(f"Cleaning up Azure container: {container_name}")
+        print(f"Cleaning up Azure container: {container_name}")
 
-    # List and delete all blobs
-    container_client = azure_blob_service_client.get_container_client(container_name)
-    async for blob_item in container_client.list_blobs():
+        # List and delete all blobs
+        async for blob_item in container_client.list_blobs():
+            try:
+                await container_client.delete_blob(blob_item.name)
+            except Exception as e:  # noqa: BLE001
+                print(f"Warning: Failed to delete blob {blob_item.name}: {e}")
+
+        # Delete the container itself
         try:
-            await container_client.delete_blob(blob_item.name)
-        except Exception as e:  # noqa: BLE001
-            print(f"Warning: Failed to delete blob {blob_item.name}: {e}")
-
-    # Delete the container itself
-    try:
-        await azure_blob_service_client.delete_container(container_name)
-    except Exception as e:
-        # Handle cases where container might not exist or be empty during cleanup
-        if not isinstance(e, type(StorageErrorCode.CONTAINER_NOT_FOUND)):
-            print(f"Error during container cleanup {container_name}: {e}")
-            raise
+            await azure_blob_service_client.delete_container(container_name)
+        except Exception as e:
+            # Handle cases where container might not exist or be empty during cleanup
+            if not isinstance(e, type(StorageErrorCode.CONTAINER_NOT_FOUND)):
+                print(f"Error during container cleanup {container_name}: {e}")
+                raise
 
 
 @pytest_asyncio.fixture
