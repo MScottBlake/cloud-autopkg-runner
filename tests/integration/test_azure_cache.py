@@ -51,6 +51,9 @@ async def azure_blob_service_client() -> AsyncGenerator[BlobServiceClient, None]
     url = f"https://{host}/{account}"
 
     async with BlobServiceClient(url, DefaultAzureCredential()) as client:
+        # async with BlobServiceClient(
+        #     url, DefaultAzureCredential(), connection_verify=False
+        # ) as client:
         yield client
 
 

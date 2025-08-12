@@ -73,6 +73,9 @@ class AsyncAzureBlobCache:
 
     async def open(self) -> None:
         """Open the connection to Azure Blob Storage."""
+        self._logger.warning(
+            "Account URL from AsyncAzureBlobCache: %s", self._account_url
+        )
         blob_service_client: BlobServiceClient = BlobServiceClient(
             self._account_url, DefaultAzureCredential()
         )
