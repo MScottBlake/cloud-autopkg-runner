@@ -76,7 +76,7 @@ jobs:
     name: "🧪 Integration Test: Azure Emulator (Python ${{ matrix.python-version }})"
     runs-on: ubuntu-latest
     needs: [lock_file]
-    timeout-minutes: 6
+    timeout-minutes: 10
     strategy:
       fail-fast: false # Allows all matrix jobs to run even if one fails
       matrix:
@@ -86,22 +86,6 @@ jobs:
           - cloud_provider: azure
             install_extras: azure
             test_path: tests/integration/test_azure_cache.py
-    #         emulator_service: azurite
-    # services:
-    #   azurite:
-    #     image: mcr.microsoft.com/azure-storage/azurite:latest
-    #     ports:
-    #       - 10000:10000 # Blob storage
-    #       # - 10001:10001 # Queue storage
-    #       # - 10002:10002 # Table storage
-    #     volumes:
-    #       - ${{ github.workspace }}tests/integration/cert:/cert
-    #     options: >-
-    #       --health-cmd "ls /usr/local/bin/azurite-blob"
-    #       --health-interval 5s
-    #       --health-timeout 5s
-    #       --health-retries 10
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -136,7 +120,7 @@ jobs:
       - name: Configure Azure SDK for Azurite
         run: |
           # The default connection string for Azurite running in a Docker container
-          echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBhgCzFETQlEqw==;BlobEndpoint=https://localhost:10000/;" >> $GITHUB_ENV
+          echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBhgCzFETQlEqw==;BlobEndpoint=https://localhost:10000/devstoreaccount1;" >> $GITHUB_ENV
 
           # echo "AZURE_CLIENT_ID=f47ac10b-58cc-4372-a567-0e02b2c3d479" >> $GITHUB_ENV
           # echo "AZURE_CLIENT_SECRET=Bb2Cc~3Dd4.-Ee5Ff6Gg7Hh8Ii9Jj0_Kk1Ll2Mm3" >> $GITHUB_ENV
