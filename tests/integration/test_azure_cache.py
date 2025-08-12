@@ -68,7 +68,9 @@ async def azure_test_container(
     async with azure_blob_service_client.get_container_client(
         container_name
     ) as container_client:
+        print("-=-=-=-=- FOO -=-=-=-=-")
         await container_client.create_container()
+        print("-=-=-=-=- BAR -=-=-=-=-")
 
         yield container_name
 
@@ -89,8 +91,6 @@ async def azure_test_container(
             if not isinstance(e, type(StorageErrorCode.CONTAINER_NOT_FOUND)):
                 print(f"Error during container cleanup {container_name}: {e}")
                 raise
-
-        container_client.close()
 
 
 @pytest_asyncio.fixture
