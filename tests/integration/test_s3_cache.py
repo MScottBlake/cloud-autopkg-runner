@@ -91,9 +91,12 @@ async def test_save_cache_file(
     expected_content = {TEST_RECIPE_NAME: test_data}
 
     # Retrieve with standard tooling
-    actual_content = await s3_client.get_object(
+    response = await s3_client.get_object(
         Bucket=settings.cloud_container_name, Key=settings.cache_file
     )
+    async with response["Body"] as stream:
+        content = await stream.read()
+    actual_content = json.loads(content.decode("utf-8"))
 
     assert actual_content == expected_content
 
