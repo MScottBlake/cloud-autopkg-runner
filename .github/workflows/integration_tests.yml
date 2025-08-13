@@ -117,7 +117,8 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          SSL_CERT_FILE: ca.crt
+          REQUESTS_CA_BUNDLE: ca.crt
+          # SSL_CERT_FILE: ca.crt
         run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
 
 
