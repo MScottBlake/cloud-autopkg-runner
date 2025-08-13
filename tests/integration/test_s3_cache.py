@@ -64,11 +64,14 @@ async def s3_client(settings: Settings) -> AsyncGenerator[S3Client, None]:
     session = aioboto3.Session()
     s3_client: S3Client
     async with session.client("s3") as s3_client:
+        await s3_client.create_bucket(Bucket=settings.cloud_container_name)
+
         yield s3_client
 
         await s3_client.delete_object(
             Bucket=settings.cloud_container_name, Key=settings.cache_file
         )
+        await s3_client.delete_bucket(Bucket=settings.cloud_container_name)
 
 
 # Tests
