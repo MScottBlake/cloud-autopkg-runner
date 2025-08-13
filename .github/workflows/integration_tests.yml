@@ -104,7 +104,7 @@ jobs:
 
       - name: Start Azurite
         run: |
-          nohup azurite --oauth basic --cert cert.crt --key cert.key &
+          nohup azurite --oauth basic --cert cert.crt --key cert.key --loose &
 
           for i in {1..30}; do
             if curl -k -s https://127.0.0.1:10000/devstoreaccount1; then
