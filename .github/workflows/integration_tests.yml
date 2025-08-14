@@ -95,7 +95,7 @@ jobs:
 
       - name: Download mkcert
         run: |
-          curl -L "https://dl.filippo.io/mkcert/latest?for=linux/amd64" -o mkcert
+          curl -Ls "https://dl.filippo.io/mkcert/latest?for=linux/amd64" -o mkcert
           chmod +x mkcert
           sudo mv mkcert /usr/local/bin/
 
