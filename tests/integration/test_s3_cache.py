@@ -29,7 +29,7 @@ def generate_unique_name(prefix: str) -> str:
     return full_name[:63].strip("-")
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def settings() -> Settings:
     """Setup the Settings class."""
     settings = Settings()
