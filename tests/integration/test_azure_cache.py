@@ -35,7 +35,8 @@ def settings() -> Settings:
     """Setup the Settings class."""
     settings = Settings()
     settings.cache_plugin = "azure"
-    settings.cloud_container_name = generate_unique_name("cloud-autopkg-test-azure")
+    # settings.cloud_container_name = generate_unique_name("cloud-autopkg-test-azure")
+    settings.cloud_container_name = "devstoreaccount1"
     settings.cache_file = "metadata_cache.json"
     settings.azure_account_url = os.environ.get(
         "AZURE_ACCOUNT_URL", "https://127.0.0.1:10000/devstoreaccount1"
