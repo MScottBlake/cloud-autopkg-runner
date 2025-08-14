@@ -93,20 +93,13 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
-      # Install mkcert
-      - name: Install mkcert (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            sudo apt-get update
-            sudo apt-get install -y libnss3-tools
-          fi
-          brew install mkcert || (sudo apt-get install -y mkcert || true)
 
-      - name: Install mkcert (Windows)
-        if: runner.os == 'Windows'
+
+      # Install mkcert
+      - name: Install mkcert (Linux)
         run: |
-          choco install mkcert -y
+          apt-get update
+          apt-get install -y libnss3-tools mkcert
 
       # Create and install local CA
       - name: Create local CA
