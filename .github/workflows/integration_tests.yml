@@ -110,7 +110,7 @@ jobs:
 
       - name: Start Azurite
         run: |
-          azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem --loose --disableProductStyleUrl &
+          azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem &
 
           for i in {1..30}; do
             if curl -k -s https://127.0.0.1:10000/devstoreaccount1; then
