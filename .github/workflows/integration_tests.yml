@@ -157,7 +157,7 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-          -scheme http -host 0.0.0.0 -backend memory
+          --scheme http -host 0.0.0.0 -backend memory
 
     steps:
       - name: Checkout repository
