@@ -72,11 +72,11 @@ async def azure_blob_client(settings: Settings) -> AsyncGenerator[BlobClient, No
         ) as azure_blob_service_client,
         azure_blob_service_client.get_blob_client(
             container=settings.cloud_container_name, blob=settings.cache_file
-        ) as blob_client,
+        ) as azure_blob_client,
     ):
-        yield blob_client
+        yield azure_blob_client
 
-        await blob_client.delete_blob(delete_snapshots="include")
+        await azure_blob_client.delete_blob(delete_snapshots="include")
 
 
 # Tests
