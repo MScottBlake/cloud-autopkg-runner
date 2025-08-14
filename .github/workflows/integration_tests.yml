@@ -93,10 +93,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
-      - name: Install mkcert (Linux)
+      - name: Download mkcert
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libnss3-tools mkcert
+          curl -L "https://dl.filippo.io/mkcert/latest?for=linux/amd64" -o mkcert
+          chmod +x mkcert
+          sudo mv mkcert /usr/local/bin/
 
       - name: Create local CA
         run: mkcert -install
