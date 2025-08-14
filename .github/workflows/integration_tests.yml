@@ -110,7 +110,7 @@ jobs:
 
       - name: Start Azurite
         run: |
-          azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem &
+          azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem --silent &
 
           for i in {1..30}; do
             if curl -k -s https://127.0.0.1:10000/devstoreaccount1; then
@@ -123,7 +123,6 @@ jobs:
       - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
         env:
           AZURE_ACCOUNT_URL: https://127.0.0.1:10000/cloudautopkgrunner/
-          # AZURE_ACCOUNT_URL: https://127.0.0.1:10000/devstoreaccount1/
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
