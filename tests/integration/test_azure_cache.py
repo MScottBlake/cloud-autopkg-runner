@@ -1,3 +1,4 @@
+import json
 import os
 import time
 import uuid
@@ -84,7 +85,7 @@ async def azure_blob_client(settings: Settings) -> AsyncGenerator[BlobClient, No
 
 @pytest.mark.asyncio
 async def test_save_cache_file(
-    # azure_blob_client: BlobClient,
+    azure_blob_client: BlobClient,
     test_data: RecipeCache,
 ) -> None:
     """Test writing a cache file to Azure Blob Storage."""
@@ -94,14 +95,14 @@ async def test_save_cache_file(
         await plugin.set_item(TEST_RECIPE_NAME, test_data)
         await plugin.save()
 
-    # expected_content = {TEST_RECIPE_NAME: test_data}
+    expected_content = {TEST_RECIPE_NAME: test_data}
 
-    # # Retrieve with standard tooling
-    # download_stream = await azure_blob_client.download_blob()
-    # content = await download_stream.readall()
-    # actual_content = json.loads(content.decode("utf-8"))
+    # Retrieve with standard tooling
+    download_stream = await azure_blob_client.download_blob()
+    content = await download_stream.readall()
+    actual_content = json.loads(content.decode("utf-8"))
 
-    # assert actual_content == expected_content
+    assert actual_content == expected_content
 
 
 @pytest.mark.asyncio
