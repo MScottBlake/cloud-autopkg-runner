@@ -151,13 +151,15 @@ jobs:
       gcs_emulator:
         image: fsouza/fake-gcs-server:latest
         ports:
-          - 9000:9000
+          - 4443:4443
         options: >-
-          --health-cmd "curl -f http://localhost:9000/storage/v1/b || exit 1"
+          --health-cmd "curl --fail https://localhost:4443 || exit 1"
           --health-interval 5s
-          --health-timeout 5s
+          --health-timeout 2s
           --health-retries 10
-          --scheme http -host 0.0.0.0 -backend memory
+        env:
+          STORAGE_BACKEND: memory
+          SCHEMA: /data/buckets.json
 
     steps:
       - name: Checkout repository
