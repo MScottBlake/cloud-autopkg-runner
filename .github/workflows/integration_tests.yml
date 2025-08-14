@@ -121,7 +121,8 @@ jobs:
 
       - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
         env:
-          AZURE_ACCOUNT_URL: https://127.0.0.1:10000/cloudautopkgrunner/
+          # AZURE_ACCOUNT_URL: https://127.0.0.1:10000/cloudautopkgrunner/
+          AZURE_ACCOUNT_URL: https://127.0.0.1:10000/devstoreaccount1/
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
