@@ -110,7 +110,7 @@ async def test_retrieve_cache_file(
     """Test retrieving a cache file from Azure Blob Storage."""
     # Store with standard tooling
     content = json.dumps({TEST_RECIPE_NAME: test_data})
-    await azure_blob_client.upload_blob(data=content)
+    await azure_blob_client.upload_blob(data=content.encode("utf-8"), overwrite=True)
 
     # Retrieve with plugin
     plugin = get_cache_plugin()
