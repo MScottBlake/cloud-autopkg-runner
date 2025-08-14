@@ -102,32 +102,6 @@ jobs:
           mkcert create-ca
           mkcert create-cert
 
-      - name: Determine system CA bundle
-        id: cabundle
-        shell: bash
-        run: |
-          case "$(uname -s)" in
-            Linux*)
-              # Debian/Ubuntu path
-              echo "path=/etc/ssl/certs/ca-certificates.crt" >> "$GITHUB_OUTPUT"
-              ;;
-            Darwin*)
-              # macOS path from Homebrew's OpenSSL (GitHub Actions runner default)
-              SYS_CA=$(python3 -m certifi)
-              echo "path=$SYS_CA" >> "$GITHUB_OUTPUT"
-              ;;
-            MINGW*|MSYS*|CYGWIN*|Windows_NT)
-              # Windows: use certifi's CA bundle
-              SYS_CA=$(python -m certifi)
-              echo "path=$SYS_CA" >> "$GITHUB_OUTPUT"
-              ;;
-          esac
-
-      - name: Merge CA bundles
-        shell: bash
-        run: |
-          cat "${{ steps.cabundle.outputs.path }}" ca.crt > combined-ca.crt
-
       - name: Start Azurite
         run: |
           azurite --oauth basic --cert cert.crt --key cert.key &
@@ -146,7 +120,6 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          SSL_CERT_FILE: combined-ca.crt
         run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
 
 
