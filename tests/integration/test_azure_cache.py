@@ -76,7 +76,7 @@ async def azure_blob_client(settings: Settings) -> AsyncGenerator[BlobClient, No
     ):
         yield blob_client
 
-        await blob_client.delete_blob(delete_snapshots="include")
+        # await blob_client.delete_blob(delete_snapshots="include")
 
 
 # Tests
