@@ -187,5 +187,5 @@ jobs:
       - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
         env:
           GCS_EMULATOR_HOST: http://storage.gcs.127.0.0.1.nip.io:4443
-          GOOGLE_CLOUD_PROJECT: cloud-autopkg-runner
+          PROJECT: cloud-autopkg-runner
         run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
