@@ -1,3 +1,4 @@
+import contextlib
 import json
 import os
 import time
@@ -7,6 +8,7 @@ from datetime import datetime, timezone
 
 import pytest
 import pytest_asyncio
+from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob.aio import BlobClient, BlobServiceClient
 
@@ -72,11 +74,20 @@ async def azure_blob_client(settings: Settings) -> AsyncGenerator[BlobClient, No
         ) as azure_blob_service_client,
         azure_blob_service_client.get_blob_client(
             container=settings.cloud_container_name, blob=settings.cache_file
-        ) as azure_blob_client,
+        ) as blob_client,
     ):
-        yield azure_blob_client
+        with contextlib.suppress(ResourceExistsError):
+            await azure_blob_service_client.create_container(
+                name=settings.cloud_container_name
+            )
 
-        await azure_blob_client.delete_blob(delete_snapshots="include")
+        yield blob_client
+
+        with contextlib.suppress(ResourceNotFoundError):
+            await blob_client.delete_blob(delete_snapshots="include")
+            await azure_blob_service_client.delete_container(
+                container=settings.cloud_container_name
+            )
 
 
 # Tests
