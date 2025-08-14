@@ -93,18 +93,36 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
-      - name: Install mkcert and Azurite
+      # Install mkcert
+      - name: Install mkcert (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
-          npm install -g mkcert azurite
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update
+            sudo apt-get install -y libnss3-tools
+          fi
+          brew install mkcert || (sudo apt-get install -y mkcert || true)
 
-      - name: Generate Certificates
+      - name: Install mkcert (Windows)
+        if: runner.os == 'Windows'
         run: |
-          mkcert create-ca
-          mkcert create-cert
+          choco install mkcert -y
+
+      # Create and install local CA
+      - name: Create local CA
+        run: mkcert -install
+
+      # Create cert for Azurite
+      - name: Generate HTTPS cert for Azurite
+        run: mkcert 127.0.0.1
+
+      - name: Install Azurite
+        run: |
+          npm install -g azurite
 
       - name: Start Azurite
         run: |
-          azurite --oauth basic --cert cert.crt --key cert.key --loose &
+          azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem --loose &
 
           for i in {1..30}; do
             if curl -k -s https://127.0.0.1:10000/devstoreaccount1; then
