@@ -1,4 +1,3 @@
-import json
 import os
 import time
 import uuid
@@ -101,7 +100,7 @@ async def test_save_cache_file(
     # download_stream = await azure_blob_client.download_blob()
     # content = await download_stream.readall()
     # actual_content = json.loads(content.decode("utf-8"))
-    actual_content = json.loads(test_data)
+    actual_content = test_data
 
     assert actual_content == expected_content
 
