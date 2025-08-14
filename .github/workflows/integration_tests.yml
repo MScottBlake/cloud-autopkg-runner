@@ -160,7 +160,7 @@ jobs:
         with:
           # version: "1.37.2"
           backend: memory
-          data: testdata
+          # data: testdata
           public-host: "storage.gcs.127.0.0.1.nip.io:4443"
           external-url: "http://storage.gcs.127.0.0.1.nip.io:4443"
           scheme: http
