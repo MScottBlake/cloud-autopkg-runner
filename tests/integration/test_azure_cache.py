@@ -68,7 +68,7 @@ async def azure_blob_client(settings: Settings) -> AsyncGenerator[BlobClient, No
     async with (
         DefaultAzureCredential() as credential,
         BlobServiceClient(
-            account_url=settings.azure_account_url, credential=credential
+            account_url=settings.azure_account_url, credential=credential, verify=False
         ) as azure_blob_service_client,
         azure_blob_service_client.get_blob_client(
             container=settings.cloud_container_name, blob=settings.cache_file
@@ -110,7 +110,7 @@ async def test_retrieve_cache_file(
     """Test retrieving a cache file from Azure Blob Storage."""
     # Store with standard tooling
     content = json.dumps({TEST_RECIPE_NAME: test_data})
-    await azure_blob_client.upload_blob(content)
+    await azure_blob_client.upload_blob(data=content)
 
     # Retrieve with plugin
     plugin = get_cache_plugin()
