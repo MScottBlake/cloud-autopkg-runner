@@ -1,3 +1,4 @@
+import json
 import os
 import time
 import uuid
@@ -34,8 +35,7 @@ def settings() -> Settings:
     """Setup the Settings class."""
     settings = Settings()
     settings.cache_plugin = "azure"
-    # settings.cloud_container_name = generate_unique_name("cloud-autopkg-test-azure")
-    settings.cloud_container_name = "devstoreaccount1"
+    settings.cloud_container_name = generate_unique_name("cloud-autopkg-test-azure")
     settings.cache_file = "metadata_cache.json"
     settings.azure_account_url = os.environ.get(
         "AZURE_ACCOUNT_URL", "https://127.0.0.1:10000/devstoreaccount1"
@@ -84,8 +84,7 @@ async def azure_blob_client(settings: Settings) -> AsyncGenerator[BlobClient, No
 
 @pytest.mark.asyncio
 async def test_save_cache_file(
-    azure_blob_client: BlobClient,
-    test_data: RecipeCache,
+    azure_blob_client: BlobClient, test_data: RecipeCache
 ) -> None:
     """Test writing a cache file to Azure Blob Storage."""
     # Store with plugin
@@ -94,25 +93,24 @@ async def test_save_cache_file(
         await plugin.set_item(TEST_RECIPE_NAME, test_data)
         await plugin.save()
 
-    # expected_content = {TEST_RECIPE_NAME: test_data}
+    expected_content = {TEST_RECIPE_NAME: test_data}
 
     # Retrieve with standard tooling
-    _download_stream = await azure_blob_client.download_blob()
-    # content = await download_stream.readall()
-    # actual_content = json.loads(content.decode("utf-8"))
+    download_stream = await azure_blob_client.download_blob()
+    content = await download_stream.readall()
+    actual_content = json.loads(content.decode("utf-8"))
 
-    # assert actual_content == expected_content
+    assert actual_content == expected_content
 
 
 @pytest.mark.asyncio
 async def test_retrieve_cache_file(
-    # azure_blob_client: BlobClient,
-    test_data: RecipeCache,
+    azure_blob_client: BlobClient, test_data: RecipeCache
 ) -> None:
     """Test retrieving a cache file from Azure Blob Storage."""
     # Store with standard tooling
-    # content = json.dumps({TEST_RECIPE_NAME: test_data})
-    # await azure_blob_client.upload_blob(data=content.encode("utf-8"), overwrite=True)
+    content = json.dumps({TEST_RECIPE_NAME: test_data})
+    await azure_blob_client.upload_blob(data=content.encode("utf-8"), overwrite=True)
 
     # Retrieve with plugin
     plugin = get_cache_plugin()

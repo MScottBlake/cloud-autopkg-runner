@@ -93,36 +93,37 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
-      - name: Download mkcert
-        run: |
-          curl -Ls "https://dl.filippo.io/mkcert/latest?for=linux/amd64" -o mkcert
-          chmod +x mkcert
-          sudo mv mkcert /usr/local/bin/
+      # - name: Download mkcert
+      #   run: |
+      #     curl -Ls "https://dl.filippo.io/mkcert/latest?for=linux/amd64" -o mkcert
+      #     chmod +x mkcert
+      #     sudo mv mkcert /usr/local/bin/
 
-      - name: Create local CA
-        run: mkcert -install
+      # - name: Create local CA
+      #   run: mkcert -install
 
-      - name: Generate HTTPS cert for Azurite
-        run: mkcert 127.0.0.1
+      # - name: Generate HTTPS cert for Azurite
+      #   run: mkcert 127.0.0.1
 
-      - name: Install Azurite
-        run: npm install -g azurite
+      # - name: Install Azurite
+      #   run: npm install -g azurite
 
-      - name: Start Azurite
-        run: |
-          azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem --silent &
+      # - name: Start Azurite
+      #   run: |
+      #     azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem --silent &
 
-          for i in {1..30}; do
-            if curl -k -s https://127.0.0.1:10000/devstoreaccount1; then
-              echo "Azurite is ready"
-              break
-            fi
-            sleep 1
-          done
+      #     for i in {1..30}; do
+      #       if curl -k -s https://127.0.0.1:10000/devstoreaccount1; then
+      #         echo "Azurite is ready"
+      #         break
+      #       fi
+      #       sleep 1
+      #     done
 
       - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
         env:
-          AZURE_ACCOUNT_URL: https://127.0.0.1:10000/cloudautopkgrunner/
+          # AZURE_ACCOUNT_URL: https://127.0.0.1:10000/cloudautopkgrunner/
+          AZURE_ACCOUNT_URL: https://cloudautopkgrunner.blob.core.windows.net/cloudautopkgrunner
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
