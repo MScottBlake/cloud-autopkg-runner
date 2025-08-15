@@ -175,18 +175,10 @@ jobs:
     services:
       fake-gcs:
         image: fsouza/fake-gcs-server:latest
-        env:
-          EAGER_SERVICE_LOADING: "1"
-          LS_LOG: warn
-          SKIP_INFRA_DOWNLOADS: "1"
         ports:
           - 4443:4443
         options: >-
-          --scheme https
-          --generate-key
-          --no-auth
-          --external-url https://127.0.0.1:4443
-          --health-cmd="curl --silent --insecure --fail https://127.0.0.1:4443/storage/v1/b || exit 1"
+          --health-cmd="curl --silent --insecure --fail http://127.0.0.1:4443/storage/v1/b || exit 1"
           --health-interval=1s
           --health-timeout=3s
           --health-retries=20
