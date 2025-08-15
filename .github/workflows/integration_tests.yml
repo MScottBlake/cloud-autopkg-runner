@@ -49,14 +49,14 @@ jobs:
         image: localstack/localstack:latest
         env:
           SERVICES: s3
-          LOCALSTACK_SSL: "1"          # set to "1" if you want HTTPS
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
           AWS_DEFAULT_REGION: us-east-1
-          EAGER_SERVICE_LOADING: "1"    # pre-init services to reduce latency
-          SKIP_INFRA_DOWNLOADS: "1"     # speed up boot (use bundled assets)
-          LS_LOG: warn                  # quieter logs
+          EAGER_SERVICE_LOADING: "1"
           ENDPOINT_PROTO: https
+          LOCALSTACK_SSL: "1"
+          LS_LOG: warn
+          SKIP_INFRA_DOWNLOADS: "1"
         ports:
           - 4566:4566
 
@@ -69,13 +69,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
-
-      # - name: Start LocalStack
-      #   if: matrix.cloud_provider == 's3'
-      #   uses: LocalStack/setup-localstack@v0.2.4
-      #   with:
-      #     image-tag: 'latest'
-      #     install-awslocal: false
 
       - name: Wait for LocalStack to be ready
         run: |
@@ -114,6 +107,22 @@ jobs:
           - cloud_provider: azure
             install_extras: azure
             test_path: tests/integration/test_azure_cache.py
+
+    services:
+      fake-gcs:
+        image: fsouza/fake-gcs-server:latest
+        ports:
+          - 4443:4443
+        options: >-
+          -scheme https
+          -generate-key
+          -no-auth
+          -external-url https://127.0.0.1:4443
+          --health-cmd="curl --silent --insecure --fail https://127.0.0.1:4443/storage/v1/b || exit 1"
+          --health-interval=1s
+          --health-timeout=3s
+          --health-retries=20
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -139,10 +148,12 @@ jobs:
       - name: Install Azurite
         run: npm install -g azurite
 
-      - name: Start Azurite
-        run: |
-          azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem --silent &
+      # - name: Start Azurite
+      #   run: |
+      #     azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem --silent &
 
+      - name: Wait for Azurite to be ready
+        run: |
           for i in {1..30}; do
             if curl -ks https://127.0.0.1:10000/devstoreaccount1; then
               echo "Azurite is ready"
