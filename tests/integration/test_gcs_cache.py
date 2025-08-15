@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 
 import pytest
 import pytest_asyncio
-from google.cloud.exceptions import NotFound
 from google.cloud.storage import Client
 
 from cloud_autopkg_runner import Settings
@@ -64,18 +63,12 @@ async def gcs_client(settings: Settings) -> AsyncGenerator[Client, None]:
     client = await loop.run_in_executor(None, Client)
     bucket_name = settings.cloud_container_name
 
-    # Create bucket if it doesn't exist
-    try:
-        await loop.run_in_executor(None, client.get_bucket, bucket_name)
-    except NotFound:
-        await loop.run_in_executor(None, client.create_bucket, bucket_name)
+    bucket = await loop.run_in_executor(None, client.create_bucket, bucket_name)
 
     yield client
 
-    # Cleanup
-    bucket = await loop.run_in_executor(None, client.get_bucket, bucket_name)
     blob = bucket.blob(settings.cache_file)
-    await loop.run_in_executor(None, blob.delete, if_exists=True)
+    await loop.run_in_executor(None, blob.delete)
     await loop.run_in_executor(None, bucket.delete)
 
 
