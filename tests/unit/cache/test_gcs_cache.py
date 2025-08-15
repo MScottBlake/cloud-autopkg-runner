@@ -32,7 +32,7 @@ async def gcs_cache() -> Generator[AsyncGCSCache, Any, None]:
         cache._client.bucket.return_value = mock_bucket
         mock_blob = MagicMock(spec=Blob)
         mock_bucket.blob.return_value = mock_blob
-        mock_blob.download_as_string = MagicMock(
+        mock_blob.download_as_bytes = MagicMock(
             return_value=json.dumps({"recipe1": {"timestamp": "test"}}).encode("utf-8")
         )
 
@@ -49,7 +49,7 @@ async def test_load_cache_success(gcs_cache: AsyncGCSCache) -> None:
 
     gcs_cache._client.bucket.assert_called_once_with("test-container")
     gcs_cache._client.bucket().blob.assert_called_once_with("metadata_cache.json")
-    gcs_cache._client.bucket().blob().download_as_string.assert_called_once()
+    gcs_cache._client.bucket().blob().download_as_bytes.assert_called_once()
 
 
 @pytest.mark.asyncio

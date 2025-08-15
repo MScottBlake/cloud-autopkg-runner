@@ -4,6 +4,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "localstack>=4.7.0",
     "pre-commit>=4.1.0",
     "pyright>=1.1.397",
     "pytest-asyncio>=0.26.0",
@@ -14,7 +15,7 @@ dev = [
 
 [project]
 name = "cloud-autopkg-runner"
-version = "0.17.0"
+version = "0.18.0"
 description = "A Python library designed to level-up your AutoPkg automations with a focus on CI/CD performance."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
@@ -52,7 +53,7 @@ s3 = "cloud_autopkg_runner.cache.s3_cache:AsyncS3Cache"
 sqlite = "cloud_autopkg_runner.cache.sqlite_cache:AsyncSQLiteCache"
 
 [project.optional-dependencies]
-azure = ["azure-identity", "azure-storage-blob"]
+azure = ["azure-identity", "azure-storage-blob[aio]"]
 gcs = ["google-cloud-storage"]
 json = []
 s3 = ["aioboto3"]
@@ -146,7 +147,7 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*" = ["S101", "S108", "D100", "PLR2004", "PLC2701", "ANN401", "SLF001"]
+"tests/**/*" = ["S101", "S108", "D100", "PLR2004", "PLC2701", "ANN401", "SLF001", "T201"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

@@ -73,10 +73,14 @@ class AsyncAzureBlobCache:
 
     async def open(self) -> None:
         """Open the connection to Azure Blob Storage."""
-        blob_service_client: BlobServiceClient = BlobServiceClient(
-            self._account_url, DefaultAzureCredential()
+        if hasattr(self, "_client"):
+            return
+
+        self._credential = DefaultAzureCredential()
+        self._blob_service_client = BlobServiceClient(
+            account_url=self._account_url, credential=self._credential
         )
-        self._client: BlobClient = blob_service_client.get_blob_client(
+        self._client = self._blob_service_client.get_blob_client(
             container=self._container_name, blob=self._blob_name
         )
 
@@ -154,6 +158,12 @@ class AsyncAzureBlobCache:
         if hasattr(self, "_client"):
             await self._client.close()
             del self._client
+        if hasattr(self, "_blob_service_client"):
+            await self._blob_service_client.close()
+            del self._blob_service_client
+        if hasattr(self, "_credential"):
+            await self._credential.close()
+            del self._credential
 
     async def clear_cache(self) -> None:
         """Clear all data from the cache."""
