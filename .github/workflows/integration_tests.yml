@@ -158,34 +158,25 @@ jobs:
       - name: Start Fake GCS Server
         uses: fsouza/fake-gcs-action@v0.4.1
         with:
-          # version: "1.37.2"
           backend: memory
-          # data: testdata
-          public-host: "storage.gcs.127.0.0.1.nip.io:4443"
-          external-url: "http://storage.gcs.127.0.0.1.nip.io:4443"
+          external-url: http://127.0.0.1:4443
           scheme: http
 
-      # - name: Configure GCS SDK for Emulator
-      #   run: |
-      #     # GCS_EMULATOR_HOST makes the google-cloud-storage client talk to the emulator
-      #     echo "GCS_EMULATOR_HOST=http://gcs_emulator:9000" >> $GITHUB_ENV
-      #     # Set a dummy project ID as it might be required by the SDK even for emulators
-      #     echo "GOOGLE_CLOUD_PROJECT=test-project" >> $GITHUB_ENV
-      #   shell: bash
-
-      # --- Wait for Emulators (Crucial for Reliability) ---
-      # Although services health checks are used, sometimes a short wait is still beneficial
-      # especially if an emulator takes a moment to fully initialize its API routes.
-
-      # - name: Wait for GCS emulator to be fully ready
-      #   if: matrix.cloud_provider == 'gcs'
-      #   run: |
-      #     curl -f http://gcs_emulator:9000/storage/v1/b || exit 1
-      #   timeout-minutes: 1
-      #   shell: bash
+      - name: Wait for Fake GCS Server to be ready
+        run: |
+          for i in {1..20}; do
+            if curl -s http://127.0.0.1:4443/storage/v1/b >/dev/null; then
+              echo "Fake GCS Server is up!"
+              exit 0
+            fi
+            echo "Waiting for Fake GCS Server..."
+            sleep 1
+          done
+          echo "Fake GCS Server failed to start" >&2
+          exit 1
 
       - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
         env:
-          GCS_EMULATOR_HOST: http://storage.gcs.127.0.0.1.nip.io:4443
-          PROJECT: cloud-autopkg-runner
+          STORAGE_EMULATOR_HOST: http://127.0.0.1:4443
+          GOOGLE_CLOUD_PROJECT: cloud-autopkg-runner
         run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
