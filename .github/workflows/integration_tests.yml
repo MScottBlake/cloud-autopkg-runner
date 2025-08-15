@@ -49,11 +49,14 @@ jobs:
         image: localstack/localstack:latest
         env:
           SERVICES: s3
+          LOCALSTACK_SSL: "1"          # set to "1" if you want HTTPS
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
           AWS_DEFAULT_REGION: us-east-1
-          # Optional: Force HTTPS and skip cert verification
-          LOCALSTACK_SSL: "1"
+          EAGER_SERVICE_LOADING: "1"    # pre-init services to reduce latency
+          SKIP_INFRA_DOWNLOADS: "1"     # speed up boot (use bundled assets)
+          LS_LOG: warn                  # quieter logs
+          ENDPOINT_PROTO: https
         ports:
           - 4566:4566
 
