@@ -99,9 +99,9 @@ class AsyncGCSCache:
                 blob = bucket.blob(self._blob_name)  # pyright: ignore[reportUnknownMemberType]
 
                 loop = asyncio.get_event_loop()
-                content = await loop.run_in_executor(None, blob.download_as_string)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
+                content = await loop.run_in_executor(None, blob.download_as_bytes)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
 
-                self._cache_data = json.loads(content.decode("utf-8"))
+                self._cache_data = json.loads(content)
                 self._logger.info(
                     "Loaded metadata from gcs://%s/%s",
                     self._bucket_name,
