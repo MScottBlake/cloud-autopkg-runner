@@ -182,10 +182,10 @@ jobs:
         ports:
           - 4443:4443
         options: >-
-          -scheme https
-          -generate-key
-          -no-auth
-          -external-url https://127.0.0.1:4443
+          --scheme https
+          --generate-key
+          --no-auth
+          --external-url https://127.0.0.1:4443
           --health-cmd="curl --silent --insecure --fail https://127.0.0.1:4443/storage/v1/b || exit 1"
           --health-interval=1s
           --health-timeout=3s
@@ -201,12 +201,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
-      - name: Start Fake GCS Server
-        uses: fsouza/fake-gcs-action@v0.4.1
-        with:
-          backend: memory
-          external-url: http://127.0.0.1:4443
-          scheme: http
+      # - name: Start Fake GCS Server
+      #   uses: fsouza/fake-gcs-action@v0.4.1
+      #   with:
+      #     backend: memory
+      #     external-url: http://127.0.0.1:4443
+      #     scheme: http
 
       - name: Wait for Fake GCS Server to be ready
         run: |
