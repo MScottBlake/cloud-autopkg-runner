@@ -29,105 +29,105 @@ jobs:
       - run: uv lock --locked
 
 
-  # s3_integration_tests:
-  #   name: "🧪 Integration Test: S3 Emulator (Python ${{ matrix.python-version }})"
-  #   runs-on: ubuntu-latest
-  #   needs: [lock_file]
-  #   timeout-minutes: 10
-  #   strategy:
-  #     fail-fast: false # Allows all matrix jobs to run even if one fails
-  #     matrix:
-  #       # python-version: ["3.10", "3.13"]
-  #       python-version: ["3.13"]
-  #       include:
-  #         - cloud_provider: s3
-  #           install_extras: s3
-  #           test_path: tests/integration/test_s3_cache.py
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
+  s3_integration_tests:
+    name: "🧪 Integration Test: S3 Emulator (Python ${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    needs: [lock_file]
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false # Allows all matrix jobs to run even if one fails
+      matrix:
+        # python-version: ["3.10", "3.13"]
+        python-version: ["3.13"]
+        include:
+          - cloud_provider: s3
+            install_extras: s3
+            test_path: tests/integration/test_s3_cache.py
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  #     - name: Install uv
-  #       uses: astral-sh/setup-uv@v5
-  #       with:
-  #         python-version: ${{ matrix.python-version }}
-  #         enable-cache: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
 
-  #     - name: Start LocalStack
-  #       if: matrix.cloud_provider == 's3'
-  #       uses: LocalStack/setup-localstack@v0.2.4
-  #       with:
-  #         image-tag: 'latest'
-  #         install-awslocal: false
+      - name: Start LocalStack
+        if: matrix.cloud_provider == 's3'
+        uses: LocalStack/setup-localstack@v0.2.4
+        with:
+          image-tag: 'latest'
+          install-awslocal: false
 
-  #     - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
-  #       env:
-  #         AWS_ENDPOINT_URL: http://localhost:4566
-  #         AWS_ACCESS_KEY_ID: test
-  #         AWS_SECRET_ACCESS_KEY: test
-  #         AWS_DEFAULT_REGION: us-east-1
-  #       run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
+      - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
+        env:
+          AWS_ENDPOINT_URL: http://localhost:4566
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+        run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
 
 
-  # azure_integration_tests:
-  #   name: "🧪 Integration Test: Azure Emulator (Python ${{ matrix.python-version }})"
-  #   runs-on: ubuntu-latest
-  #   needs: [lock_file]
-  #   timeout-minutes: 10
-  #   strategy:
-  #     fail-fast: false # Allows all matrix jobs to run even if one fails
-  #     matrix:
-  #       # python-version: ["3.10", "3.13"]
-  #       python-version: ["3.13"]
-  #       include:
-  #         - cloud_provider: azure
-  #           install_extras: azure
-  #           test_path: tests/integration/test_azure_cache.py
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
+  azure_integration_tests:
+    name: "🧪 Integration Test: Azure Emulator (Python ${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    needs: [lock_file]
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false # Allows all matrix jobs to run even if one fails
+      matrix:
+        # python-version: ["3.10", "3.13"]
+        python-version: ["3.13"]
+        include:
+          - cloud_provider: azure
+            install_extras: azure
+            test_path: tests/integration/test_azure_cache.py
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  #     - name: Install uv
-  #       uses: astral-sh/setup-uv@v5
-  #       with:
-  #         python-version: ${{ matrix.python-version }}
-  #         enable-cache: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
 
-  #     - name: Download mkcert
-  #       run: |
-  #         curl -Ls "https://dl.filippo.io/mkcert/latest?for=linux/amd64" -o mkcert
-  #         chmod +x mkcert
-  #         sudo mv mkcert /usr/local/bin/
+      - name: Download mkcert
+        run: |
+          curl -Ls "https://dl.filippo.io/mkcert/latest?for=linux/amd64" -o mkcert
+          chmod +x mkcert
+          sudo mv mkcert /usr/local/bin/
 
-  #     - name: Create local CA
-  #       run: mkcert -install
+      - name: Create local CA
+        run: mkcert -install
 
-  #     - name: Generate HTTPS cert for Azurite
-  #       run: mkcert 127.0.0.1
+      - name: Generate HTTPS cert for Azurite
+        run: mkcert 127.0.0.1
 
-  #     - name: Install Azurite
-  #       run: npm install -g azurite
+      - name: Install Azurite
+        run: npm install -g azurite
 
-  #     - name: Start Azurite
-  #       run: |
-  #         azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem --silent &
+      - name: Start Azurite
+        run: |
+          azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem --silent &
 
-  #         for i in {1..30}; do
-  #           if curl -ks https://127.0.0.1:10000/devstoreaccount1; then
-  #             echo "Azurite is ready"
-  #             break
-  #           fi
-  #           sleep 1
-  #         done
+          for i in {1..30}; do
+            if curl -ks https://127.0.0.1:10000/devstoreaccount1; then
+              echo "Azurite is ready"
+              break
+            fi
+            sleep 1
+          done
 
-  #     - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
-  #       env:
-  #         AZURE_ACCOUNT_URL: https://127.0.0.1:10000/devstoreaccount1
-  #         # AZURE_ACCOUNT_URL: https://cloudautopkgrunner.blob.core.windows.net/cloudautopkgrunner
-  #         AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-  #         AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-  #         AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-  #       run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
+      - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
+        env:
+          AZURE_ACCOUNT_URL: https://127.0.0.1:10000/devstoreaccount1
+          # AZURE_ACCOUNT_URL: https://cloudautopkgrunner.blob.core.windows.net/cloudautopkgrunner
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
 
 
   gcs_integration_tests:
