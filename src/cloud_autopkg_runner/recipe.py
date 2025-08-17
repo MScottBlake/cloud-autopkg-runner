@@ -36,9 +36,9 @@ from cloud_autopkg_runner.exceptions import (
     RecipeInputException,
 )
 from cloud_autopkg_runner.models import (
-    DownloadMetadata,
     RecipeCache,
     RecipeContents,
+    URLDownloaderMetadata,
 )
 from cloud_autopkg_runner.recipe_report import ConsolidatedReport
 
@@ -333,9 +333,9 @@ class Recipe:
 
         Returns:
             A RecipeCache dictionary containing a timestamp and a list of
-            DownloadMetadata dictionaries, one for each downloaded item.
+            URLDownloaderMetadata dictionaries, one for each downloaded item.
         """
-        metadata_list: list[DownloadMetadata] = await asyncio.gather(
+        metadata_list: list[URLDownloaderMetadata] = await asyncio.gather(
             *[
                 self._get_metadata_for_item(downloaded_item)
                 for downloaded_item in self._extract_download_paths(download_items)
@@ -347,19 +347,19 @@ class Recipe:
         }
 
     @staticmethod
-    async def _get_metadata_for_item(downloaded_item: str) -> DownloadMetadata:
+    async def _get_metadata_for_item(downloaded_item: str) -> URLDownloaderMetadata:
         """Retrieves metadata for a single downloaded item.
 
         This method takes the path to a downloaded item and asynchronously
         retrieves its ETag, file size, and last modified date using
         `get_file_metadata` and `get_file_size`. The collected metadata is then
-        returned in a `DownloadMetadata` dictionary.
+        returned in a `URLDownloaderMetadata` dictionary.
 
         Args:
             downloaded_item: The path to the downloaded item.
 
         Returns:
-            A DownloadMetadata dictionary containing the ETag, file size, last
+            A URLDownloaderMetadata dictionary containing the ETag, file size, last
             modified date, and file path of the downloaded item.
         """
         downloaded_item_path = Path(downloaded_item)
@@ -376,7 +376,7 @@ class Recipe:
             etag_task, file_size_task, last_modified_task
         )
 
-        return DownloadMetadata(
+        return URLDownloaderMetadata(
             etag=etag,
             file_size=file_size,
             last_modified=last_modified,

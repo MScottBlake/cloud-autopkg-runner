@@ -1,7 +1,7 @@
 """Module defining structured data used throughout Cloud AutoPkg Runner.
 
 It provides strongly typed structures for:
-- Metadata related to downloaded files (`DownloadMetadata`).
+- Metadata related to downloaded files (`URLDownloaderMetadata`).
 - Cached data for recipes (`RecipeCache`).
 - The expected structure of AutoPkg recipe files (`RecipeContents`).
 - Reporting structures for recipe run failures and summaries (`RecipeReportFailedItem`,
@@ -15,7 +15,7 @@ data structures passed between different components.
 from typing import Any, TypeAlias, TypedDict
 
 
-class DownloadMetadata(TypedDict, total=False):
+class URLDownloaderMetadata(TypedDict, total=False):
     """Represents metadata for a downloaded file.
 
     Attributes:
@@ -36,12 +36,12 @@ class RecipeCache(TypedDict):
 
     Attributes:
         timestamp: The timestamp when the cache data was created.
-        metadata: A list of `DownloadMetadata` dictionaries, one for each
+        metadata: A list of `URLDownloaderMetadata` dictionaries, one for each
             downloaded file associated with the recipe.
     """
 
     timestamp: str
-    metadata: list[DownloadMetadata]
+    metadata: list[URLDownloaderMetadata]
 
 
 RecipeName: TypeAlias = str

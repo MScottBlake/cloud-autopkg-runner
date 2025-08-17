@@ -28,10 +28,12 @@ from cloud_autopkg_runner import (
     metadata_cache,
     recipe_finder,
 )
-from cloud_autopkg_runner.models import DownloadMetadata
+from cloud_autopkg_runner.models import URLDownloaderMetadata
 
 
-def _create_and_set_attrs(file_path: Path, metadata_cache: DownloadMetadata) -> None:
+def _create_and_set_attrs(
+    file_path: Path, metadata_cache: URLDownloaderMetadata
+) -> None:
     """Create the file, set its size, and set extended attributes."""
     # Create parent directory if needed
     file_path.parent.mkdir(parents=True, exist_ok=True)
