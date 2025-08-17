@@ -2,76 +2,16 @@
 
 import plistlib
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any
 
 from cloud_autopkg_runner import logging_config
 from cloud_autopkg_runner.exceptions import InvalidPlistContents
-
-
-class RecipeReportFailedItem(TypedDict):
-    """Represents a failed item in a recipe report.
-
-    Attributes:
-        message: A string containing the error message.
-        recipe: A string containing the name of the recipe that failed.
-        traceback: A string containing the traceback information.
-    """
-
-    message: str
-    recipe: str
-    traceback: str
-
-
-class RecipeReportSummaryResults(TypedDict):
-    """Represents summary results in a recipe report.
-
-    Attributes:
-        header: A list of strings representing the header row of the summary table.
-        summary_text: A string containing a summary of the results.
-        data_rows: A list of dictionaries, where each dictionary represents a row
-            in the summary table.
-    """
-
-    header: list[str]
-    summary_text: str
-    data_rows: list[dict[str, Any]]
-
-
-class RecipeReportContents(TypedDict):
-    """Represents the contents of a recipe report.
-
-    Attributes:
-        failures: A list of RecipeReportFailedItem dictionaries, representing
-            the items that failed during the recipe run.
-        summary_results: A dictionary mapping summary result keys to
-            RecipeReportSummaryResults dictionaries.
-    """
-
-    failures: list[RecipeReportFailedItem]
-    summary_results: dict[str, RecipeReportSummaryResults]
-
-
-class ConsolidatedReport(TypedDict):
-    """Represents a consolidated report of a recipe run.
-
-    This TypedDict combines information from various parts of the
-    RecipeReport to provide a summary of the recipe's execution.
-
-    Attributes:
-        failed_items: A list of RecipeReportFailedItem dictionaries, representing
-            the items that failed during the recipe run.
-        downloaded_items: A list of dictionaries representing the files that
-            were downloaded during the recipe run.
-        pkg_built_items: A list of dictionaries representing the packages
-            that were built during the recipe run.
-        munki_imported_items: A list of dictionaries representing the items
-            that were imported into Munki during the recipe run.
-    """
-
-    failed_items: list[RecipeReportFailedItem]
-    downloaded_items: list[dict[str, Any]]
-    pkg_built_items: list[dict[str, Any]]
-    munki_imported_items: list[dict[str, Any]]
+from cloud_autopkg_runner.models import (
+    ConsolidatedReport,
+    RecipeReportContents,
+    RecipeReportFailedItem,
+    RecipeReportSummaryResults,
+)
 
 
 class RecipeReport:

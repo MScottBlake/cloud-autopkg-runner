@@ -28,7 +28,7 @@ from cloud_autopkg_runner import (
     metadata_cache,
     recipe_finder,
 )
-from cloud_autopkg_runner.metadata_cache import DownloadMetadata
+from cloud_autopkg_runner.models import DownloadMetadata
 
 
 def _create_and_set_attrs(file_path: Path, metadata_cache: DownloadMetadata) -> None:

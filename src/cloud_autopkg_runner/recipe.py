@@ -16,7 +16,7 @@ import plistlib
 from datetime import datetime, timezone
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any
 
 import yaml
 
@@ -35,33 +35,12 @@ from cloud_autopkg_runner.exceptions import (
     RecipeFormatException,
     RecipeInputException,
 )
-from cloud_autopkg_runner.metadata_cache import DownloadMetadata, RecipeCache
+from cloud_autopkg_runner.models import (
+    DownloadMetadata,
+    RecipeCache,
+    RecipeContents,
+)
 from cloud_autopkg_runner.recipe_report import ConsolidatedReport
-
-
-class RecipeContents(TypedDict):
-    """Represents the structure of a recipe's contents.
-
-    This dictionary represents the parsed contents of an AutoPkg recipe file,
-    including its description, identifier, input variables, minimum version,
-    parent recipe, and process steps.
-
-    Attributes:
-        Description: A brief description of the recipe.
-        Identifier: A unique identifier for the recipe.
-        Input: A dictionary of input variables used by the recipe.
-        MinimumVersion: The minimum AutoPkg version required to run the recipe.
-        ParentRecipe: The identifier of the recipe's parent recipe (if any).
-        Process: A list of dictionaries, where each dictionary defines a step
-            in the recipe's processing workflow.
-    """
-
-    Description: str | None
-    Identifier: str
-    Input: dict[str, Any]
-    MinimumVersion: str | None
-    ParentRecipe: str | None
-    Process: list[dict[str, Any]]
 
 
 class RecipeFormat(Enum):
@@ -397,12 +376,12 @@ class Recipe:
             etag_task, file_size_task, last_modified_task
         )
 
-        return {
-            "etag": etag,
-            "file_size": file_size,
-            "last_modified": last_modified,
-            "file_path": downloaded_item,
-        }
+        return DownloadMetadata(
+            etag=etag,
+            file_size=file_size,
+            last_modified=last_modified,
+            file_path=downloaded_item,
+        )
 
     def compile_report(self) -> ConsolidatedReport:
         """Compiles a consolidated report from the recipe report file.

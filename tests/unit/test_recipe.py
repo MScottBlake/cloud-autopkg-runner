@@ -1,5 +1,6 @@
 import plistlib
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,7 +11,10 @@ from cloud_autopkg_runner.exceptions import (
     RecipeFormatException,
     RecipeInputException,
 )
-from cloud_autopkg_runner.recipe import RecipeContents, RecipeFormat
+from cloud_autopkg_runner.recipe import RecipeFormat
+
+if TYPE_CHECKING:
+    from cloud_autopkg_runner.models import RecipeContents
 
 
 def create_test_file(path: Path, content: str) -> None:

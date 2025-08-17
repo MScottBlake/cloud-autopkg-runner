@@ -11,7 +11,7 @@ from cloud_autopkg_runner import (
     Settings,
     file_utils,
 )
-from cloud_autopkg_runner.metadata_cache import MetadataCache
+from cloud_autopkg_runner.models import MetadataCache
 
 
 @pytest.fixture

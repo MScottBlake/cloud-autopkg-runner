@@ -10,7 +10,7 @@ from cloud_autopkg_runner.cache.azure_blob_cache import AsyncAzureBlobCache, Blo
 from cloud_autopkg_runner.settings import Settings
 
 if TYPE_CHECKING:
-    from cloud_autopkg_runner.metadata_cache import RecipeCache
+    from cloud_autopkg_runner.models import RecipeCache
 
 
 @pytest_asyncio.fixture

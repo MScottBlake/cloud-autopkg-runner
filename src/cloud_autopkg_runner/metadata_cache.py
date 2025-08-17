@@ -12,56 +12,14 @@ to avoid unnecessary downloads.
 """
 
 from importlib.metadata import entry_points
-from typing import Protocol, TypeAlias, TypedDict, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from cloud_autopkg_runner import Settings, logging_config
 from cloud_autopkg_runner.exceptions import (
     PluginManagerEntryPointError,
     PluginManagerError,
 )
-
-
-class DownloadMetadata(TypedDict, total=False):
-    """Represents metadata for a downloaded file.
-
-    Attributes:
-        etag: The ETag of the downloaded file.
-        file_path: The path to the downloaded file.
-        file_size: The size of the downloaded file in bytes.
-        last_modified: The last modified date of the downloaded file.
-    """
-
-    etag: str
-    file_path: str
-    file_size: int
-    last_modified: str
-
-
-class RecipeCache(TypedDict):
-    """Represents the cache data for a recipe.
-
-    Attributes:
-        timestamp: The timestamp when the cache data was created.
-        metadata: A list of `DownloadMetadata` dictionaries, one for each
-            downloaded file associated with the recipe.
-    """
-
-    timestamp: str
-    metadata: list[DownloadMetadata]
-
-
-RecipeName: TypeAlias = str
-"""Type alias for a recipe name.
-
-This type alias represents a recipe name, which is a string.
-"""
-
-MetadataCache: TypeAlias = dict[RecipeName, RecipeCache]
-"""Type alias for the metadata cache dictionary.
-
-This type alias represents the structure of the metadata cache, which is a
-dictionary mapping recipe names to `RecipeCache` objects.
-"""
+from cloud_autopkg_runner.models import MetadataCache, RecipeCache, RecipeName
 
 
 @runtime_checkable
