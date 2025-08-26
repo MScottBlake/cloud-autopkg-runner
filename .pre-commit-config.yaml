@@ -6,7 +6,7 @@ default_install_hook_types:
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v5.0.0
+  rev: v6.0.0
   hooks:
   - id: check-added-large-files
   - id: check-case-conflict
@@ -18,19 +18,19 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/uv-pre-commit
-  rev: 0.6.3
+  rev: 0.8.13
   hooks:
   - id: uv-lock
   - id: uv-sync
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.9.7
+  rev: v0.12.10
   hooks:
   - id: ruff
     args: [ --fix ]
   - id: ruff-format
 
 - repo: https://github.com/RobertCraigie/pyright-python
-  rev: v1.1.394
+  rev: v1.1.404
   hooks:
   - id: pyright
