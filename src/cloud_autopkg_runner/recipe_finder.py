@@ -11,8 +11,10 @@ class RecipeFinder:
     """Locates AutoPkg recipes within configured search paths.
 
     This class encapsulates the logic for finding AutoPkg recipe files based
-    on a given recipe name and a set of pre-defined search directories,
-    including support for recursive searching and limiting recursion depth.
+    on a given recipe name and a set of pre-defined search directories. It supports
+    both direct file lookup and recursive searching within those directories,
+    with an optional limit on recursion depth to optimize performance and prevent
+    excessive searching.
     """
 
     # https://github.com/autopkg/autopkg/wiki/Recipe-Format#recipe-file-extensions
@@ -25,34 +27,51 @@ class RecipeFinder:
 
     def __init__(
         self,
+        autopkg_prefs: AutoPkgPrefs | None = None,
         max_recursion_depth: int = 3,
     ) -> None:
-        """Initializes a RecipeFinder instance."""
-        self.logger = logging_config.get_logger(__name__)
-        self.max_recursion_depth = max_recursion_depth
+        """Initializes a RecipeFinder instance.
 
-        autopkg_prefs = AutoPkgPrefs()
+        Args:
+            autopkg_prefs: An optional AutoPkgPrefs instance containing the
+                configured recipe override and search directories. If None,
+                a default AutoPkgPrefs instance will be created.
+            max_recursion_depth: The maximum number of directory levels to
+                descend when performing a recursive search for a recipe.
+                Defaults to 3.
+        """
+        self.logger = logging_config.get_logger(__name__)
+        self.max_recursion_depth: int = max_recursion_depth
+
+        if not autopkg_prefs:
+            autopkg_prefs = AutoPkgPrefs()
+
         self.lookup_dirs: list[Path] = (
             autopkg_prefs.recipe_override_dirs + autopkg_prefs.recipe_search_dirs
         )
 
     async def find_recipe(self, recipe_name: str) -> Path:
-        """Locates the recipe path.
+        """Locates the path to an AutoPkg recipe.
 
-        Finds the path to the AutoPkg recipe with the given name, searching through the
-        recipe override directory, search directory and recursively if required.
+        This method searches for an AutoPkg recipe with the given name across all
+        configured `lookup_dirs`. It first attempts a direct lookup in each
+        directory and then, if not found, performs a recursive search within
+        that directory up to `max_recursion_depth`. The search order prioritizes
+        override directories and direct matches for efficiency.
 
         Args:
-            recipe_name: The name of the AutoPkg recipe.
+            recipe_name: The name of the AutoPkg recipe to find. This can be
+                a simple name (e.g., "GoogleChrome.pkg") or include a valid
+                AutoPkg recipe extension (e.g., "GoogleChrome.pkg.recipe").
 
         Returns:
-            The Path to a given recipe if successful
+            The `Path` object corresponding to the located AutoPkg recipe file.
 
         Raises:
-            RecipeLookupException: If no matching file is found after searching all
-                directories and recursive paths.
+            RecipeLookupException: If no matching recipe file is found after
+                searching all configured directories and their recursive paths.
         """
-        possible_filenames = self.possible_file_names(recipe_name)
+        possible_filenames: list[str] = self.possible_file_names(recipe_name)
 
         for lookup_path in self.lookup_dirs:
             if recipe_path := await self._search_directory(
@@ -66,38 +85,45 @@ class RecipeFinder:
         raise RecipeLookupException(recipe_name)
 
     def possible_file_names(self, recipe_name: str) -> list[str]:
-        """Generate a list of possible AutoPkg recipe file names.
+        """Generates a list of possible AutoPkg recipe file names.
 
-        Given a recipe name, this function returns a list of possible file names
-        by appending valid AutoPkg recipe file extensions. If the recipe name
-        already ends with a valid extension, it returns a list containing only the
-        original recipe name.
+        This utility function takes a base recipe name and constructs a list
+        of potential filenames by appending all `VALID_EXTENSIONS`. If the
+        provided `recipe_name` already ends with one of the valid extensions,
+        it is assumed to be a complete filename and returned as the sole
+        element in the list.
 
         Args:
-            recipe_name: The name of the AutoPkg recipe.
+            recipe_name: The base name of the AutoPkg recipe (e.g., "GoogleChrome.pkg")
+                or a full recipe filename (e.g., "GoogleChrome.pkg.recipe").
 
         Returns:
-            A list of possible file names for the recipe.
+            A `list` of strings, where each string is a possible filename
+            for the AutoPkg recipe.
         """
         if recipe_name.endswith(self.VALID_EXTENSIONS):
             return [recipe_name]
         return [recipe_name + ext for ext in self.VALID_EXTENSIONS]
 
     def _find_in_directory(self, directory: Path, filenames: list[str]) -> Path | None:
-        """Attempts to find a match for a recipe in the given directory.
+        """Attempts to find a matching recipe file directly within a given directory.
 
-        This function does not search subdirectories.
+        This private helper method performs a non-recursive search. It checks
+        if any of the provided `filenames` exist directly within the `directory`.
 
         Args:
-            directory: The directory to search in.
-            filenames: A list of possible filenames.
+            directory: The `Path` object representing the directory to search in.
+                This path will be expanded using `expanduser()`.
+            filenames: A `list` of strings, where each string is a possible
+                filename for the recipe.
 
         Returns:
-            The Path to the recipe if a direct match is found, otherwise None.
+            The `Path` object to the recipe file if a direct match is found,
+            otherwise `None`.
         """
-        expanded_directory = directory.expanduser()
+        expanded_directory: Path = directory.expanduser()
         for filename in filenames:
-            direct_path = expanded_directory / filename
+            direct_path: Path = expanded_directory / filename
             if direct_path.exists():
                 self.logger.info("Found recipe at: %s", direct_path)
                 return direct_path
@@ -108,14 +134,21 @@ class RecipeFinder:
     ) -> Path | None:
         """Searches recursively for a recipe within the given directory.
 
+        This private helper method initiates a recursive search for any of the
+        provided `filenames` starting from the `directory`. The recursion depth
+        is limited by `self.max_recursion_depth`.
+
         Args:
-            directory: The directory to start the recursive search from.
-            filenames: A list of possible filenames to search for.
+            directory: The `Path` object representing the directory to start
+                the recursive search from. This path will be expanded using
+                `expanduser()`.
+            filenames: A `list` of strings, where each string is a possible
+                filename to search for.
 
         Returns:
-            The Path to the recipe if found recursively, otherwise None.
+            The `Path` object to the recipe file if found recursively, otherwise `None`.
         """
-        expanded_directory = directory.expanduser()
+        expanded_directory: Path = directory.expanduser()
         for filename in filenames:
             if match := await self._find_recursively(
                 expanded_directory, filename, self.max_recursion_depth
@@ -129,22 +162,30 @@ class RecipeFinder:
     ) -> Path | None:
         """Recursively searches for a file with a specific name within a directory.
 
-        Limits the search depth to prevent excessive recursion. This method helps
-        locate recipe files that may be located in subdirectories within the
-        configured search paths.
+        This private helper method leverages `Path.rglob()` to efficiently
+        search for a `target_filename` within the `root` directory and its
+        subdirectories. It limits the search depth to `max_depth` to prevent
+        excessive recursion and improve performance. The file system traversal
+        is offloaded to a separate thread using `asyncio.to_thread` to avoid
+        blocking the event loop.
 
         Args:
-            root: The directory to start the recursive search from.
-            target_filename: The name of the file to search for.
-            max_depth: The maximum recursion depth.
+            root: The `Path` object representing the directory to start the
+                recursive search from.
+            target_filename: The exact name of the file to search for (e.g.,
+                "GoogleChrome.recipe").
+            max_depth: The maximum number of directory levels to descend during
+                the recursive search.
 
         Returns:
-            The Path to the found file, or None if the file is not found within
-            the specified depth.
+            The `Path` object to the found file, or `None` if the file is not
+            found within the specified depth or an `OSError` occurs.
         """
         try:
             # Use asyncio.to_thread since this is a potentially long-running operation
-            paths = await asyncio.to_thread(list, root.rglob(target_filename))
+            paths: list[Path] = await asyncio.to_thread(
+                list, root.rglob(target_filename)
+            )
 
             for path in paths:
                 if not path.is_file():
@@ -164,19 +205,23 @@ class RecipeFinder:
     async def _search_directory(
         self, directory: Path, filenames: list[str]
     ) -> Path | None:
-        """Searches for a recipe within a single directory.
+        """Searches for a recipe within a single directory, prioritizing direct match.
 
-        First, it attempts to find the recipe in the top-level of the directory. If
-        that fails, it attempts a recursive search of the directory. The two stage
-        search is performed to increase performance when specifying the specific
-        directory to search.
+        This private helper method orchestrates the search within a given
+        `directory`. It first attempts to find the recipe files specified by
+        `filenames` directly within the `directory`. If no direct match is
+        found, it then proceeds with a recursive search within the same `directory`.
+        This two-stage approach optimizes for common cases where recipes are
+        expected at the top level of search paths.
 
         Args:
-            directory: The directory to search within.
-            filenames: A list of possible filenames to search for.
+            directory: The `Path` object representing the directory to search within.
+            filenames: A `list` of strings, where each string is a possible
+                filename to search for.
 
         Returns:
-            The Path to the recipe if found, otherwise None.
+            The `Path` object to the recipe file if found (either directly or
+            recursively), otherwise `None`.
         """
         if recipe_path := self._find_in_directory(directory, filenames):
             return recipe_path
@@ -190,18 +235,27 @@ class RecipeFinder:
 
     @staticmethod
     def _path_within_depth(base: Path, candidate: Path, max_depth: int) -> bool:
-        """Checks if a path is within the maximum allowed depth from the base path.
+        """Checks if a candidate path is within the maximum depth from a base path.
+
+        This static private helper method calculates the relative depth of
+        `candidate` path with respect to the `base` path. It helps in enforcing
+        the `max_recursion_depth` constraint during recursive file searches.
 
         Args:
-            base: The base directory path.
-            candidate: The path to the candidate file or directory.
-            max_depth: The maximum allowed depth (number of directory levels).
+            base: The `Path` object representing the base directory path.
+            candidate: The `Path` object to the candidate file or directory
+                whose depth is to be checked.
+            max_depth: The maximum allowed depth (number of directory levels)
+                from the `base` path. A `max_depth` of 0 means only the `base`
+                directory itself.
 
         Returns:
-            True if the candidate path is within the allowed depth, False otherwise.
+            `True` if the `candidate` path is within or equal to the allowed
+            `max_depth` from the `base` path, `False` otherwise or if `candidate`
+            is not a child of `base`.
         """
         try:
-            relative = candidate.relative_to(base)
+            relative: Path = candidate.relative_to(base)
             return len(relative.parts) <= max_depth
         except ValueError:
             return False
