@@ -33,11 +33,11 @@ from typing import NoReturn
 
 from cloud_autopkg_runner import (
     AutoPkgPrefs,
+    Recipe,
+    RecipeFinder,
     Settings,
     logging_config,
     metadata_cache,
-    recipe,
-    recipe_finder,
 )
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
@@ -78,7 +78,7 @@ def _apply_args_to_settings(args: Namespace) -> None:
 
 async def _create_recipe(
     recipe_name: str, autopkg_prefs: AutoPkgPrefs
-) -> recipe.Recipe | None:
+) -> Recipe | None:
     """Create a `Recipe` object, handling potential exceptions during initialization.
 
     This private asynchronous helper function attempts to create a `Recipe` object
@@ -99,7 +99,7 @@ async def _create_recipe(
     try:
         settings = Settings()
         recipe_path = await _get_recipe_path(recipe_name, autopkg_prefs)
-        return recipe.Recipe(recipe_path, settings.report_dir, autopkg_prefs)
+        return Recipe(recipe_path, settings.report_dir, autopkg_prefs)
     except (InvalidFileContents, RecipeException):
         logger = logging_config.get_logger(__name__)
         logger.exception("Failed to create recipe: %s", recipe_name)
@@ -164,7 +164,7 @@ async def _get_recipe_path(recipe_name: str, autopkg_prefs: AutoPkgPrefs) -> Pat
     Returns:
         The `Path` object to the located recipe file.
     """
-    finder = recipe_finder.RecipeFinder(autopkg_prefs)
+    finder = RecipeFinder(autopkg_prefs)
     return await finder.find_recipe(recipe_name)
 
 
@@ -301,7 +301,7 @@ async def _process_recipe_list(
     settings = Settings()
 
     # Create Recipe objects concurrently
-    recipes: list[recipe.Recipe] = [
+    recipes: list[Recipe] = [
         recipe
         for recipe in await asyncio.gather(
             *[_create_recipe(recipe_name, autopkg_prefs) for recipe_name in recipe_list]
@@ -323,7 +323,7 @@ async def _process_recipe_list(
 
 
 async def _run_recipe(
-    recipe_obj: recipe.Recipe,
+    recipe_obj: Recipe,
     semaphore: asyncio.Semaphore,
 ) -> tuple[str, ConsolidatedReport]:
     """Run a single AutoPkg recipe with a concurrency limit.
