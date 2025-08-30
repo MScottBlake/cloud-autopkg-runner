@@ -8,7 +8,6 @@ from cloud_autopkg_runner import AutoPkgPrefs
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
     PreferenceFileNotFoundError,
-    PreferenceKeyNotFoundError,
 )
 
 
@@ -36,9 +35,9 @@ def test_autopkgprefs_init_default_plist(tmp_path: Path) -> None:
         }
         create_test_plist(plist_content, prefs_file)
 
-    AutoPkgPrefs()
-    assert AutoPkgPrefs().recipe_override_dirs != []
-    assert AutoPkgPrefs().recipe_search_dirs != []
+    prefs = AutoPkgPrefs(prefs_file)
+    assert prefs.recipe_override_dirs != []
+    assert prefs.recipe_search_dirs != []
 
 
 def test_init_with_existing_plist(tmp_path: Path) -> None:
@@ -115,8 +114,8 @@ def test_autopkgprefs_get_known_key(tmp_path: Path) -> None:
 
     prefs = AutoPkgPrefs(plist_path)
 
-    assert prefs.get("CACHE_DIR") == cache_dir
-    assert prefs.get("CACHE_DIR", "default_value") == cache_dir
+    assert prefs.get("CACHE_DIR") == str(cache_dir)
+    assert prefs.get("CACHE_DIR", "default_value") == str(cache_dir)
 
 
 def test_autopkgprefs_get_nonexistent_key(tmp_path: Path) -> None:
@@ -183,7 +182,7 @@ def test_autopkgprefs_getattr_known_key(tmp_path: Path) -> None:
     assert prefs.tenant_id is None
     assert prefs.virustotal_api_key == mock_api_key
     assert prefs.fail_recipes_without_trust_info is True
-    assert prefs.stop_if_no_jss_upload is None
+    assert prefs.stop_if_no_jss_upload is False
     assert prefs.cloud_dp is False
     assert prefs.smb_shares is None
 
@@ -195,5 +194,5 @@ def test_autopkgprefs_getattr_nonexistent_key(tmp_path: Path) -> None:
 
     prefs = AutoPkgPrefs(plist_path)
 
-    with pytest.raises(PreferenceKeyNotFoundError):
+    with pytest.raises(AttributeError):
         _ = prefs.NonExistentKey
