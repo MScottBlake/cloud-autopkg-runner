@@ -1,20 +1,22 @@
 """Module for managing AutoPkg preferences in cloud-autopkg-runner.
 
 This module provides the `AutoPkgPrefs` class, which encapsulates
-the logic for loading, accessing, and managing AutoPkg preferences
-from a plist file (typically `~/Library/Preferences/com.github.autopkg.plist`).
+the logic for loading, accessing, and managing AutoPkg preferences.
 
 The `AutoPkgPrefs` class supports type-safe access to well-known AutoPkg
 preference keys, while also allowing access to arbitrary preferences
 defined in the plist file. It handles the conversion of preference
 values to the appropriate Python types (e.g., strings to Paths).
 
-Key preferences managed include:
-- Cache directory (`CACHE_DIR`)
-- Recipe repository directory (`RECIPE_REPO_DIR`)
-- Munki repository directory (`MUNKI_REPO`)
-- Recipe search directories (`RECIPE_SEARCH_DIRS`)
-- Recipe override directories (`RECIPE_OVERRIDE_DIRS`)
+The `AutoPkgPrefs` class offers a hybrid interface:
+- Attribute-based access: For well-known, type-safe preferences,
+  using Pythonic `snake_case` names. Each property has an explicit getter and setter
+  that handles type conversions (e.g., str to Path). This ensures strong static
+  type checking.
+- Method-based access (get()/set()): For all preferences, including arbitrary
+  ones not explicitly defined as properties, using their original, usually
+  `UPPERCASE_KEY` names. These methods provide direct access to the raw (string or
+  primitive) stored values and the ability to specify default values.
 """
 
 import asyncio
@@ -22,13 +24,13 @@ import json
 import plistlib
 import tempfile
 from pathlib import Path
+from types import TracebackType
 from typing import Any
 
 from cloud_autopkg_runner import logging_config
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
     PreferenceFileNotFoundError,
-    PreferenceKeyNotFoundError,
 )
 
 # Known Preference sources:
@@ -46,142 +48,119 @@ from cloud_autopkg_runner.exceptions import (
 class AutoPkgPrefs:
     """Manages AutoPkg preferences loaded from a plist file.
 
-    Provides methods for accessing known AutoPkg preferences and arbitrary
-    preferences defined in the plist file. Handles type conversions
-    for known preference keys.
+    Provides a hybrid interface for accessing and modifying preferences:
+    attribute-based for known, type-safe preferences, and method-based (get/set)
+    for all preferences including arbitrary ones.
     """
 
-    _instance: "AutoPkgPrefs | None" = None
     _temp_json_file_path: Path | None = None
     _DEFAULT_PREF_FILE_PATH = Path(
         "~/Library/Preferences/com.github.autopkg.plist"
     ).expanduser()
 
-    def __new__(cls, file_path: Path = _DEFAULT_PREF_FILE_PATH) -> "AutoPkgPrefs":
-        """Create a new instance of AutoPkgPrefs if one doesn't exist.
-
-        This `__new__` method implements the Singleton pattern, ensuring
-        that only one instance of the `AutoPkgPrefs` class is ever created.
-        If an instance already exists, it is returned; otherwise, a new
-        instance is created and stored for future use.
-
-        Args:
-            file_path: The path to the preference file. Defaults to
-                `~/Library/Preferences/com.github.autopkg.plist`. This file can be in
-                JSON or Plist format. This argument is only used on the
-                initial creation of the singleton instance.
-
-        Returns:
-            The AutoPkgPrefs instance.
-        """
-        if not cls._instance:
-            cls._instance = super().__new__(cls)
-            cls._instance.initializer(file_path)
-        return cls._instance
-
     def __init__(self, file_path: Path = _DEFAULT_PREF_FILE_PATH) -> None:
-        """Creates an AutoPkgPrefs object from a plist file.
+        """Loads the contents of `file_path` and initializes preferences.
 
-        Loads the contents of the plist file, separates the known preferences
-        from the extra preferences, and creates a new
-        AutoPkgPrefs object.
+        The `_prefs` dictionary is populated with default preferences in their raw
+        string/primitive format. Any preferences loaded from `file_path` will then
+        override or add to these defaults.
 
         Args:
             file_path: The path to the preference file. Defaults to
                 `~/Library/Preferences/com.github.autopkg.plist`. This file can be in
                 JSON or Plist format.
         """
-        if hasattr(self, "_initialized"):
-            return  # Prevent re-initialization
+        self._prefs: dict[str, Any] = self._get_default_preferences()
 
-        self.initializer(file_path)
+        file_contents = self._get_preference_file_contents(file_path)
+        self._prefs.update(file_contents)
 
-    def initializer(self, file_path: Path) -> None:
-        """Creates an AutoPkgPrefs object from a plist file.
-
-        Loads the contents of the plist file, separates the known preferences
-        from the extra preferences, and creates a new
-        AutoPkgPrefs object.
-
-        Args:
-            file_path: The path to the preference file. This file can be in
-                JSON or Plist format.
-        """
-        self._prefs: dict[str, Any] = (
-            self._default_preferences()
-            | self._normalize_preference_values(
-                self._get_preference_file_contents(file_path)
-            )
-        )
-
-        self._initialized = True
-
-    @staticmethod
-    def _convert_to_path(string: str) -> Path:
-        """Converts a string to a Path object.
-
-        Converts a string into a Path object that is expanded to include the user's home
-        directory.
-
-        Args:
-            string: A string representing a single path.
+    def __enter__(self) -> "AutoPkgPrefs":
+        """Enter the runtime context related to this object.
 
         Returns:
-            A Path object representing the expanded path.
+            The AutoPkgPrefs instance itself.
         """
-        return Path(string).expanduser()
+        return self
 
-    @staticmethod
-    def _convert_to_list_of_paths(value: str | list[str]) -> list[Path]:
-        """Converts a string or a list of strings to a list of Path objects.
+    def __exit__(
+        self,
+        _exc_type: type[BaseException] | None,
+        _exc_value: BaseException | None,
+        _traceback: TracebackType | None,
+    ) -> None:
+        """Exit the runtime context and clean up temporary files.
 
-        If the input is a string, it is treated as a single path and converted
-        into a list containing that path. If the input is already a list of
-        strings, each string is converted into a Path object. All paths are
-        expanded to include the user's home directory.
+        This method ensures that the temporary JSON file created by
+        `to_json_file()` is deleted. Exceptions inside the block are
+        propagated after cleanup.
+        """
+        self.cleanup_temp_file()
 
-        Args:
-            value: A string representing a single path or a list of strings
-                representing multiple paths.
+    def __del__(self) -> None:
+        """Destructor that attempts to clean up temporary files.
+
+        Calls `cleanup_temp_file()` to remove any temporary JSON file created.
+        This is a best-effort cleanup mechanism; relying on `__del__` alone
+        for resource management is discouraged because it may not run
+        predictably during interpreter shutdown. Explicit calls to
+        `cleanup_temp_file()` are strongly recommended.
+        """
+        self.cleanup_temp_file()
+
+    def __repr__(self) -> str:
+        """Return a string representation of the AutoPkgPrefs object for debugging.
+
+        Sensitive values such as passwords and tokens are redacted in the output
+        to prevent accidental exposure in logs or console output.
 
         Returns:
-            A list of Path objects, where each Path object represents a path
-            from the input.
+            str: A string showing the class name and a preview of preference keys
+            and values, with sensitive values replaced by "<redacted>".
         """
-        paths = [value] if isinstance(value, str) else value
-        return [Path(p).expanduser() for p in paths]
+        redacted_keys = {
+            "GITHUB_TOKEN",
+            "PATCH_TOKEN",
+            "SMB_PASSWORD",
+            "TITLE_PASS",
+            "FW_ADMIN_PASSWORD",
+            "BES_PASSWORD",
+        }
+        prefs_preview = {
+            k: ("<redacted>" if k in redacted_keys else v)
+            for k, v in self._prefs.items()
+        }
+        return f"{self.__class__.__name__}({prefs_preview})"
 
     @staticmethod
-    def _default_preferences() -> dict[str, Path | list[Path]]:
+    def _get_default_preferences() -> dict[str, Any]:
         """Provides a dictionary of default AutoPkg preferences.
 
-        These defaults are used if no preference file is found or if specific
-        preferences are not defined in the loaded file. Paths are
-        automatically expanded to include the user's home directory.
+        These preferences will always be present in `_prefs` and thus in the
+        JSON output unless explicitly unset (if applicable). Other preferences
+        will only be present in `_prefs` if loaded from the file or explicitly
+        set.
 
         Returns:
-            A dictionary containing default AutoPkg preference keys and their
-            corresponding Path or list of Path values.
+            A dictionary containing default AutoPkg preference keys
+            and their corresponding raw values.
         """
         return {
-            "CACHE_DIR": Path("~/Library/AutoPkg/Cache").expanduser(),
+            "CACHE_DIR": "~/Library/AutoPkg/Cache",
             "RECIPE_SEARCH_DIRS": [
-                Path(),
-                Path("~/Library/AutoPkg/Recipes").expanduser(),
-                Path("/Library/AutoPkg/Recipes"),
+                ".",
+                "~/Library/AutoPkg/Recipes",
+                "/Library/AutoPkg/Recipes",
             ],
-            "RECIPE_OVERRIDE_DIRS": [
-                Path("~/Library/AutoPkg/RecipeOverrides").expanduser()
-            ],
-            "RECIPE_REPO_DIR": Path("~/Library/AutoPkg/RecipeRepos").expanduser(),
+            "RECIPE_OVERRIDE_DIRS": ["~/Library/AutoPkg/RecipeOverrides"],
+            "RECIPE_REPO_DIR": "~/Library/AutoPkg/RecipeRepos",
         }
 
     @staticmethod
     def _get_preference_file_contents(file_path: Path) -> dict[str, Any]:
         """Reads and parses the contents of the AutoPkg preference file.
 
-        Attempts to read the preference file from the specified path. If no path
-        is provided, it defaults to `~/Library/Preferences/com.github.autopkg.plist`.
+        Attempts to read the preference file from the specified path.
         The file is first attempted to be parsed as JSON, and if that fails,
         as a macOS plist.
 
@@ -212,140 +191,76 @@ class AutoPkgPrefs:
 
         return prefs
 
-    def _normalize_preference_values(
-        self, preferences: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Normalizes certain preference values to appropriate Python types.
-
-        Specifically, converts string representations of paths to `pathlib.Path` objects
-        and lists of string paths to lists of `pathlib.Path` objects.
-
-        Args:
-            preferences: A dictionary of preferences to normalize.
-
-        Returns:
-            A new dictionary with specified preference values converted to
-            their appropriate types.
-        """
-        if "CACHE_DIR" in preferences:
-            preferences["CACHE_DIR"] = self._convert_to_path(preferences["CACHE_DIR"])
-        if "RECIPE_REPO_DIR" in preferences:
-            preferences["RECIPE_REPO_DIR"] = self._convert_to_path(
-                preferences["RECIPE_REPO_DIR"]
-            )
-        if "MUNKI_REPO" in preferences:
-            preferences["MUNKI_REPO"] = self._convert_to_path(preferences["MUNKI_REPO"])
-
-        if "RECIPE_SEARCH_DIRS" in preferences:
-            preferences["RECIPE_SEARCH_DIRS"] = self._convert_to_list_of_paths(
-                preferences["RECIPE_SEARCH_DIRS"]
-            )
-        if "RECIPE_OVERRIDE_DIRS" in preferences:
-            preferences["RECIPE_OVERRIDE_DIRS"] = self._convert_to_list_of_paths(
-                preferences["RECIPE_OVERRIDE_DIRS"]
-            )
-
-        return preferences
-
-    def __getattr__(self, name: str) -> object:
-        """Retrieves a preference value by attribute name.
-
-        This method allows accessing preferences as attributes of the
-        AutoPkgPrefs object.
-
-        Args:
-            name: The name of the attribute to retrieve.
-
-        Returns:
-            The value of the preference, if found.
-
-        Raises:
-            PreferenceKeyNotFoundError: If the attribute name does not
-                correspond to a preference.
-        """
-        try:
-            return self._prefs[name]
-        except KeyError as exc:
-            raise PreferenceKeyNotFoundError(name) from exc
-
     def get(self, key: str, default: object = None) -> object:
-        """Return the preference value for `key`, or `default` if not set.
+        """Retrieves the value of a preference by key.
 
         Args:
-            key: The name of the preference to retrieve.
-            default: The value to return if the key is not found.
+            key (str): The name of the preference to retrieve.
+            default (object, optional): The value to return if the key is not found.
+                Defaults to None.
 
         Returns:
-            The value of the preference, or the default value if the key is not found.
+            object: The preference value if found, otherwise the provided default.
         """
         return self._prefs.get(key, default)
+
+    def set(self, key: str, value: object) -> None:
+        """Stores a preference value by its uppercase key.
+
+        This method assigns the raw `value` directly to the internal dictionary
+        without performing type conversion (e.g., Path → str). For well-known
+        preferences with dedicated property setters, prefer using those setters
+        to ensure correct internal storage format.
+
+        Args:
+            key (str): The uppercase name of the preference to set.
+            value (object): The value to assign to the preference.
+        """
+        self._prefs[key] = value
 
     def to_json(self, indent: int | None = None) -> str:
         """Serializes the preferences to a JSON-formatted string.
 
-        Converts all Path objects and lists of Path objects to strings.
+        This method serializes only the preferences present in the `_prefs` dictionary.
+        Keys that were never present will not appear in the output.
 
         Args:
             indent: Number of spaces for indentation in the output JSON.
-                    If None, the JSON will be compact.
+                If None, the JSON will be compact.
 
         Returns:
             A JSON string representation of the preferences.
         """
-
-        def _serialize(
-            *,
-            value: str | int | float | bool | Path | list[Any] | dict[str, Any] | None,
-        ) -> str | int | float | bool | None | list[Any] | dict[str, Any]:
-            if isinstance(value, Path):
-                return str(value)
-            if isinstance(value, list):
-                # Recursively apply serialize to each item in the list
-                return [_serialize(value=item) for item in value]
-            if isinstance(value, dict):
-                # Recursively apply serialize to each value in the dictionary
-                return {k: _serialize(value=v) for k, v in value.items()}
-            # For all other types (str, int, bool, None, etc.), return as is
-            return value
-
-        serializable_prefs = {
-            key: _serialize(value=value) for key, value in self._prefs.items()
-        }
-        return json.dumps(serializable_prefs, indent=indent)
+        return json.dumps(self._prefs, indent=indent)
 
     async def to_json_file(self, indent: int | None = None) -> Path:
-        """Serializes the preferences to a temporary JSON file.
+        """Serialize preferences to a temporary JSON file.
 
-        This method generates a JSON string representation of the preferences
-        (converting Path objects to strings) and then asynchronously writes
-        this string to a temporary file. The file is created with a unique name
-        and is configured to *not* be deleted automatically upon closure of its
-        file object, allowing it to persist for external processes.
-
-        It uses `asyncio.to_thread` to offload the blocking file writing
-        operation to a separate thread, preventing the main event loop from
-        being blocked.
-
-        The path to the created temporary file is stored in `_temp_pref_file_path`.
-        It is the responsibility of the caller (or the application's lifecycle
-        management) to eventually call `cleanup_temp_file()` to delete this file.
+        Deletes any previous temporary file associated with this instance
+        before creating a new one. The file is stored in
+        `self._temp_json_file_path` and will be cleaned up automatically
+        if the instance is used as a context manager.
 
         Args:
             indent: Number of spaces for indentation in the output JSON.
-                    If None, the JSON will be compact.
+                If None, the JSON will be compact.
 
         Returns:
             The Path object pointing to the created temporary JSON file.
         """
 
         def _write_and_get_path(data: str) -> Path:
+            """Synchronously writes data to a temporary file and returns its path."""
+            # Remove previous temp file if exists
+            if self._temp_json_file_path and self._temp_json_file_path.exists():
+                self._temp_json_file_path.unlink()
+
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".json", delete=False, encoding="utf-8"
             ) as tmp:
                 tmp.write(data)
             return Path(tmp.name)
 
-        # Offload the file write operation to a separate thread
         self._temp_json_file_path = await asyncio.to_thread(
             _write_and_get_path, self.to_json(indent)
         )
@@ -374,168 +289,691 @@ class AutoPkgPrefs:
                     )
             self._temp_json_file_path = None
 
-    def __del__(self) -> None:
-        """Attempts to clean up the temporary preference file during garbage collection.
+    @staticmethod
+    def _convert_to_list_of_paths(
+        value: str | list[str] | Path | list[Path],
+    ) -> list[Path]:
+        """Converts string(s) or Path(s) to a list of expanded Path objects.
 
-        This method is a fallback for cleanup. It calls `cleanup_temp_file()`.
-        However, relying solely on `__del__` for critical resource management
-        (like file deletion) is generally discouraged in Python due to
-        unpredictable execution times and potential issues during program shutdown.
-        It is highly recommended to call `cleanup_temp_file()` explicitly.
+        If the input is a string or Path, it is treated as a single path
+        and converted into a list containing that path. If the input is
+        already a list of strings or Paths, each item is converted into
+        a Path object. All paths are expanded to include the user's home
+        directory.
+
+        Args:
+            value: A string, Path, list of strings, or list of Paths
+                representing paths.
+
+        Returns:
+            A list of Path objects, where each Path object represents a
+            path from the input.
         """
-        self.cleanup_temp_file()
+        paths = [value] if not isinstance(value, list) else value
+        return [Path(p).expanduser() for p in paths]
+
+    # --- Internal preference helper methods ---
+
+    def _get_path_pref(self, key: str) -> Path:
+        """Retrieves a path preference and converts it to a Path object.
+
+        Args:
+            key: The name of the preference key to retrieve.
+
+        Returns:
+            A Path object representing the stored preference value.
+        """
+        return Path(self._prefs[key]).expanduser()
+
+    def _set_path_pref(self, key: str, value: str | Path) -> None:
+        """Stores a path preference as a string.
+
+        Args:
+            key: The name of the preference key to set.
+            value: The path to store. Accepts a string or Path object.
+        """
+        self._prefs[key] = str(value)
+
+    def _get_list_of_paths_pref(self, key: str) -> list[Path]:
+        """Retrieves a list-of-paths preference and converts it to Path objects.
+
+        Args:
+            key: The name of the preference key to retrieve.
+
+        Returns:
+            A list of Path objects representing the stored preference values.
+        """
+        return self._convert_to_list_of_paths(self._prefs[key])
+
+    def _set_list_of_paths_pref(
+        self, key: str, value: str | Path | list[str] | list[Path]
+    ) -> None:
+        """Stores a list-of-paths preference as a list of strings.
+
+        Args:
+            key: The name of the preference key to set.
+            value: The path(s) to store. May be a single string/Path
+                or a list of strings/Paths.
+        """
+        self._prefs[key] = [str(p) for p in self._convert_to_list_of_paths(value)]
+
+    def _get_str_pref(self, key: str) -> str | None:
+        """Retrieves a string preference.
+
+        Args:
+            key: The name of the preference key to retrieve.
+
+        Returns:
+            The stored string value, or None if not set.
+        """
+        return self._prefs.get(key)
+
+    def _set_str_pref(self, key: str, value: str | None) -> None:
+        """Stores a string preference.
+
+        Args:
+            key: The name of the preference key to set.
+            value: The string value to store, or None to unset.
+        """
+        self._prefs[key] = value
+
+    def _get_bool_pref(self, key: str, *, default: bool = False) -> bool:
+        """Retrieves a boolean preference, interpreting common string values.
+
+        Args:
+            key: The name of the preference key to retrieve.
+            default: The value to return if the key is not set.
+
+        Returns:
+            A boolean value. If the stored value is a string, it is interpreted
+            as True if it matches {"1", "true", "yes"} (case-insensitive).
+        """
+        raw = self._prefs.get(key, default)
+        if isinstance(raw, bool):
+            return raw
+        if isinstance(raw, str):
+            return raw.lower() in {"1", "true", "yes"}
+        return bool(raw)
+
+    def _set_bool_pref(self, key: str, *, value: bool) -> None:
+        """Stores a boolean preference.
+
+        Args:
+            key: The name of the preference key to set.
+            value: The boolean value to store.
+        """
+        self._prefs[key] = bool(value)
+
+    # --- Path preferences (always exist thanks to _get_default_preferences) ---
 
     @property
     def cache_dir(self) -> Path:
-        """Gets the cache directory path."""
-        return self._prefs["CACHE_DIR"]
+        """Gets the cache directory path.
+
+        Returns:
+            A Path object representing the cache directory.
+        """
+        return self._get_path_pref("CACHE_DIR")
+
+    @cache_dir.setter
+    def cache_dir(self, value: str | Path) -> None:
+        """Sets the cache directory path.
+
+        Args:
+            value: The new cache directory path as a string or Path.
+        """
+        self._set_path_pref("CACHE_DIR", value)
 
     @property
     def recipe_repo_dir(self) -> Path:
-        """Gets the recipe repository directory path."""
-        return self._prefs["RECIPE_REPO_DIR"]
+        """Gets the recipe repository directory path.
 
-    @property
-    def munki_repo(self) -> Path | None:
-        """Gets the Munki repository path, if set."""
-        return self._prefs.get("MUNKI_REPO")
+        Returns:
+            A Path object representing the recipe repository directory.
+        """
+        return self._get_path_pref("RECIPE_REPO_DIR")
+
+    @recipe_repo_dir.setter
+    def recipe_repo_dir(self, value: str | Path) -> None:
+        """Sets the recipe repository directory path.
+
+        Args:
+            value: The new recipe repository path as a string or Path.
+        """
+        self._set_path_pref("RECIPE_REPO_DIR", value)
 
     @property
     def recipe_search_dirs(self) -> list[Path]:
-        """Gets the list of recipe search directories."""
-        return self._prefs["RECIPE_SEARCH_DIRS"]
+        """Gets the list of recipe search directories.
+
+        Returns:
+            A list of Path objects representing recipe search directories.
+        """
+        return self._get_list_of_paths_pref("RECIPE_SEARCH_DIRS")
+
+    @recipe_search_dirs.setter
+    def recipe_search_dirs(self, value: str | Path | list[str] | list[Path]) -> None:
+        """Sets the list of recipe search directories.
+
+        Args:
+            value: A string, Path, or a list of strings/Paths representing
+                the directories to search.
+        """
+        self._set_list_of_paths_pref("RECIPE_SEARCH_DIRS", value)
 
     @property
     def recipe_override_dirs(self) -> list[Path]:
-        """Gets the list of recipe override directories."""
-        return self._prefs["RECIPE_OVERRIDE_DIRS"]
+        """Gets the list of recipe override directories.
+
+        Returns:
+            A list of Path objects representing recipe override directories.
+        """
+        return self._get_list_of_paths_pref("RECIPE_OVERRIDE_DIRS")
+
+    @recipe_override_dirs.setter
+    def recipe_override_dirs(self, value: str | Path | list[str] | list[Path]) -> None:
+        """Sets the list of recipe override directories.
+
+        Args:
+            value: A string, Path, or a list of strings/Paths representing
+                the override directories.
+        """
+        self._set_list_of_paths_pref("RECIPE_OVERRIDE_DIRS", value)
+
+    # --- Path preferences (optional) ---
+
+    @property
+    def munki_repo(self) -> Path | None:
+        """Gets the Munki repository path if set.
+
+        Returns:
+            Path | None: The Munki repository path as a Path object,
+            or None if not set.
+        """
+        val = self._prefs.get("MUNKI_REPO")
+        return Path(val).expanduser() if val else None
+
+    @munki_repo.setter
+    def munki_repo(self, value: str | Path | None) -> None:
+        """Sets the Munki repository path.
+
+        Args:
+            value: The new Munki repository path as a string or Path.
+                If None, the preference is unset.
+        """
+        self._prefs["MUNKI_REPO"] = str(value) if value else None
+
+    # --- String preferences (optional) ---
 
     @property
     def github_token(self) -> str | None:
-        """Gets the GitHub token, if set."""
-        return self._prefs.get("GITHUB_TOKEN")
+        """Retrieves the GitHub token preference.
+
+        Returns:
+            str | None: The GitHub token, or None if unset.
+        """
+        return self._get_str_pref("GITHUB_TOKEN")
+
+    @github_token.setter
+    def github_token(self, value: str | None) -> None:
+        """Sets the GitHub token preference.
+
+        Args:
+            value: The GitHub token string, or None to unset.
+        """
+        self._set_str_pref("GITHUB_TOKEN", value)
 
     @property
     def smb_url(self) -> str | None:
-        """Gets the SMB URL, if set."""
-        return self._prefs.get("SMB_URL")
+        """Retrieves the SMB URL preference.
+
+        Returns:
+            str | None: The SMB URL, or None if unset.
+        """
+        return self._get_str_pref("SMB_URL")
+
+    @smb_url.setter
+    def smb_url(self, value: str | None) -> None:
+        """Sets the SMB URL preference.
+
+        Args:
+            value: The SMB URL string, or None to unset.
+        """
+        self._set_str_pref("SMB_URL", value)
 
     @property
     def smb_username(self) -> str | None:
-        """Gets the SMB username, if set."""
-        return self._prefs.get("SMB_USERNAME")
+        """Retrieves the SMB username preference.
+
+        Returns:
+            str | None: The SMB username, or None if unset.
+        """
+        return self._get_str_pref("SMB_USERNAME")
+
+    @smb_username.setter
+    def smb_username(self, value: str | None) -> None:
+        """Sets the SMB username preference.
+
+        Args:
+            value: The SMB username string, or None to unset.
+        """
+        self._set_str_pref("SMB_USERNAME", value)
 
     @property
     def smb_password(self) -> str | None:
-        """Gets the SMB password, if set."""
-        return self._prefs.get("SMB_PASSWORD")
+        """Retrieves the SMB password preference.
+
+        Returns:
+            str | None: The SMB password, or None if unset.
+        """
+        return self._get_str_pref("SMB_PASSWORD")
+
+    @smb_password.setter
+    def smb_password(self, value: str | None) -> None:
+        """Sets the SMB password preference.
+
+        Args:
+            value: The SMB password string, or None to unset.
+        """
+        self._set_str_pref("SMB_PASSWORD", value)
 
     @property
     def patch_url(self) -> str | None:
-        """Gets the PATCH URL, if set."""
-        return self._prefs.get("PATCH_URL")
+        """Retrieves the PATCH URL preference.
+
+        Returns:
+            str | None: The PATCH URL, or None if unset.
+        """
+        return self._get_str_pref("PATCH_URL")
+
+    @patch_url.setter
+    def patch_url(self, value: str | None) -> None:
+        """Sets the PATCH URL preference.
+
+        Args:
+            value: The PATCH URL string, or None to unset.
+        """
+        self._set_str_pref("PATCH_URL", value)
 
     @property
     def patch_token(self) -> str | None:
-        """Gets the PATCH token, if set."""
-        return self._prefs.get("PATCH_TOKEN")
+        """Retrieves the PATCH token preference.
+
+        Returns:
+            str | None: The PATCH token, or None if unset.
+        """
+        return self._get_str_pref("PATCH_TOKEN")
+
+    @patch_token.setter
+    def patch_token(self, value: str | None) -> None:
+        """Sets the PATCH token preference.
+
+        Args:
+            value: The PATCH token string, or None to unset.
+        """
+        self._set_str_pref("PATCH_TOKEN", value)
 
     @property
     def title_url(self) -> str | None:
-        """Gets the TITLE URL, if set."""
-        return self._prefs.get("TITLE_URL")
+        """Retrieves the TITLE URL preference.
+
+        Returns:
+            str | None: The TITLE URL, or None if unset.
+        """
+        return self._get_str_pref("TITLE_URL")
+
+    @title_url.setter
+    def title_url(self, value: str | None) -> None:
+        """Sets the TITLE URL preference.
+
+        Args:
+            value: The TITLE URL string, or None to unset.
+        """
+        self._set_str_pref("TITLE_URL", value)
 
     @property
     def title_user(self) -> str | None:
-        """Gets the TITLE username, if set."""
-        return self._prefs.get("TITLE_USER")
+        """Retrieves the TITLE username preference.
+
+        Returns:
+            str | None: The TITLE username, or None if unset.
+        """
+        return self._get_str_pref("TITLE_USER")
+
+    @title_user.setter
+    def title_user(self, value: str | None) -> None:
+        """Sets the TITLE username preference.
+
+        Args:
+            value: The TITLE username string, or None to unset.
+        """
+        self._set_str_pref("TITLE_USER", value)
 
     @property
     def title_pass(self) -> str | None:
-        """Gets the TITLE password, if set."""
-        return self._prefs.get("TITLE_PASS")
+        """Retrieves the TITLE password preference.
+
+        Returns:
+            str | None: The TITLE password, or None if unset.
+        """
+        return self._get_str_pref("TITLE_PASS")
+
+    @title_pass.setter
+    def title_pass(self, value: str | None) -> None:
+        """Sets the TITLE password preference.
+
+        Args:
+            value: The TITLE password string, or None to unset.
+        """
+        self._set_str_pref("TITLE_PASS", value)
 
     @property
     def jc_api(self) -> str | None:
-        """Gets the JumpCloud API URL, if set."""
-        return self._prefs.get("JC_API")
+        """Retrieves the JumpCloud API URL preference.
+
+        Returns:
+            str | None: The JumpCloud API URL, or None if unset.
+        """
+        return self._get_str_pref("JC_API")
+
+    @jc_api.setter
+    def jc_api(self, value: str | None) -> None:
+        """Sets the JumpCloud API URL preference.
+
+        Args:
+            value: The JumpCloud API URL string, or None to unset.
+        """
+        self._set_str_pref("JC_API", value)
 
     @property
     def jc_org(self) -> str | None:
-        """Gets the JumpCloud organization ID, if set."""
-        return self._prefs.get("JC_ORG")
+        """Retrieves the JumpCloud organization ID preference.
+
+        Returns:
+            str | None: The JumpCloud organization ID, or None if unset.
+        """
+        return self._get_str_pref("JC_ORG")
+
+    @jc_org.setter
+    def jc_org(self, value: str | None) -> None:
+        """Sets the JumpCloud organization ID preference.
+
+        Args:
+            value: The JumpCloud organization ID string, or None to unset.
+        """
+        self._set_str_pref("JC_ORG", value)
 
     @property
     def fw_server_host(self) -> str | None:
-        """Gets the FileWave server host, if set."""
-        return self._prefs.get("FW_SERVER_HOST")
+        """Retrieves the FileWave server host preference.
+
+        Returns:
+            str | None: The FileWave server host, or None if unset.
+        """
+        return self._get_str_pref("FW_SERVER_HOST")
+
+    @fw_server_host.setter
+    def fw_server_host(self, value: str | None) -> None:
+        """Sets the FileWave server host preference.
+
+        Args:
+            value: The FileWave server host string, or None to unset.
+        """
+        self._set_str_pref("FW_SERVER_HOST", value)
 
     @property
     def fw_server_port(self) -> str | None:
-        """Gets the FileWave server port, if set."""
-        return self._prefs.get("FW_SERVER_PORT")
+        """Retrieves the FileWave server port preference.
+
+        Returns:
+            str | None: The FileWave server port, or None if unset.
+        """
+        return self._get_str_pref("FW_SERVER_PORT")
+
+    @fw_server_port.setter
+    def fw_server_port(self, value: str | None) -> None:
+        """Sets the FileWave server port preference.
+
+        Args:
+            value: The FileWave server port string, or None to unset.
+        """
+        self._set_str_pref("FW_SERVER_PORT", value)
 
     @property
     def fw_admin_user(self) -> str | None:
-        """Gets the FileWave admin username, if set."""
-        return self._prefs.get("FW_ADMIN_USER")
+        """Retrieves the FileWave admin username preference.
+
+        Returns:
+            str | None: The FileWave admin username, or None if unset.
+        """
+        return self._get_str_pref("FW_ADMIN_USER")
+
+    @fw_admin_user.setter
+    def fw_admin_user(self, value: str | None) -> None:
+        """Sets the FileWave admin username preference.
+
+        Args:
+            value: The FileWave admin username string, or None to unset.
+        """
+        self._set_str_pref("FW_ADMIN_USER", value)
 
     @property
     def fw_admin_password(self) -> str | None:
-        """Gets the FileWave admin password, if set."""
-        return self._prefs.get("FW_ADMIN_PASSWORD")
+        """Retrieves the FileWave admin password preference.
+
+        Returns:
+            str | None: The FileWave admin password, or None if unset.
+        """
+        return self._get_str_pref("FW_ADMIN_PASSWORD")
+
+    @fw_admin_password.setter
+    def fw_admin_password(self, value: str | None) -> None:
+        """Sets the FileWave admin password preference.
+
+        Args:
+            value: The FileWave admin password string, or None to unset.
+        """
+        self._set_str_pref("FW_ADMIN_PASSWORD", value)
 
     @property
     def bes_root_server(self) -> str | None:
-        """Gets the BigFix root server, if set."""
-        return self._prefs.get("BES_ROOT_SERVER")
+        """Retrieves the BigFix root server preference.
+
+        Returns:
+            str | None: The BigFix root server, or None if unset.
+        """
+        return self._get_str_pref("BES_ROOT_SERVER")
+
+    @bes_root_server.setter
+    def bes_root_server(self, value: str | None) -> None:
+        """Sets the BigFix root server preference.
+
+        Args:
+            value: The BigFix root server string, or None to unset.
+        """
+        self._set_str_pref("BES_ROOT_SERVER", value)
 
     @property
     def bes_username(self) -> str | None:
-        """Gets the BigFix username, if set."""
-        return self._prefs.get("BES_USERNAME")
+        """Retrieves the BigFix username preference.
+
+        Returns:
+            str | None: The BigFix username, or None if unset.
+        """
+        return self._get_str_pref("BES_USERNAME")
+
+    @bes_username.setter
+    def bes_username(self, value: str | None) -> None:
+        """Sets the BigFix username preference.
+
+        Args:
+            value: The BigFix username string, or None to unset.
+        """
+        self._set_str_pref("BES_USERNAME", value)
 
     @property
     def bes_password(self) -> str | None:
-        """Gets the BigFix password, if set."""
-        return self._prefs.get("BES_PASSWORD")
+        """Retrieves the BigFix password preference.
+
+        Returns:
+            str | None: The BigFix password, or None if unset.
+        """
+        return self._get_str_pref("BES_PASSWORD")
+
+    @bes_password.setter
+    def bes_password(self, value: str | None) -> None:
+        """Sets the BigFix password preference.
+
+        Args:
+            value: The BigFix password string, or None to unset.
+        """
+        self._set_str_pref("BES_PASSWORD", value)
 
     @property
     def client_id(self) -> str | None:
-        """Gets the Intune client ID, if set."""
-        return self._prefs.get("CLIENT_ID")
+        """Retrieves the Intune client ID preference.
+
+        Returns:
+            str | None: The Intune client ID, or None if unset.
+        """
+        return self._get_str_pref("CLIENT_ID")
+
+    @client_id.setter
+    def client_id(self, value: str | None) -> None:
+        """Sets the Intune client ID preference.
+
+        Args:
+            value: The Intune client ID string, or None to unset.
+        """
+        self._set_str_pref("CLIENT_ID", value)
 
     @property
     def client_secret(self) -> str | None:
-        """Gets the Intune client secret, if set."""
-        return self._prefs.get("CLIENT_SECRET")
+        """Retrieves the Intune client secret preference.
+
+        Returns:
+            str | None: The Intune client secret, or None if unset.
+        """
+        return self._get_str_pref("CLIENT_SECRET")
+
+    @client_secret.setter
+    def client_secret(self, value: str | None) -> None:
+        """Sets the Intune client secret preference.
+
+        Args:
+            value: The Intune client secret string, or None to unset.
+        """
+        self._set_str_pref("CLIENT_SECRET", value)
 
     @property
     def tenant_id(self) -> str | None:
-        """Gets the Intune tenant ID, if set."""
-        return self._prefs.get("TENANT_ID")
+        """Retrieves the Intune tenant ID preference.
+
+        Returns:
+            str | None: The Intune tenant ID, or None if unset.
+        """
+        return self._get_str_pref("TENANT_ID")
+
+    @tenant_id.setter
+    def tenant_id(self, value: str | None) -> None:
+        """Sets the Intune tenant ID preference.
+
+        Args:
+            value: The Intune tenant ID string, or None to unset.
+        """
+        self._set_str_pref("TENANT_ID", value)
 
     @property
     def virustotal_api_key(self) -> str | None:
-        """Gets the VirusTotal API key, if set."""
-        return self._prefs.get("VIRUSTOTAL_API_KEY")
+        """Retrieves the VirusTotal API key preference.
 
-    @property
-    def fail_recipes_without_trust_info(self) -> bool | None:
-        """Gets the flag indicating whether to fail recipes without trust info."""
-        return self._prefs.get("FAIL_RECIPES_WITHOUT_TRUST_INFO")
+        Returns:
+            str | None: The VirusTotal API key, or None if unset.
+        """
+        return self._get_str_pref("VIRUSTOTAL_API_KEY")
 
-    @property
-    def stop_if_no_jss_upload(self) -> bool | None:
-        """Gets the flag indicating whether to stop if no JSS upload occurs."""
-        return self._prefs.get("STOP_IF_NO_JSS_UPLOAD")
+    @virustotal_api_key.setter
+    def virustotal_api_key(self, value: str | None) -> None:
+        """Sets the VirusTotal API key preference.
 
-    @property
-    def cloud_dp(self) -> bool | None:
-        """Gets the cloud distribution point setting."""
-        return self._prefs.get("CLOUD_DP")
+        Args:
+            value: The VirusTotal API key string, or None to unset.
+        """
+        self._set_str_pref("VIRUSTOTAL_API_KEY", value)
+
+    # --- Complex structured preferences ---
 
     @property
     def smb_shares(self) -> list[dict[str, str]] | None:
-        """Gets the SMB shares configuration, if set."""
+        """Retrieves the SMB shares configuration preference.
+
+        Returns:
+            list[dict[str, str]] | None: The SMB shares configuration,
+            or None if unset.
+        """
         return self._prefs.get("SMB_SHARES")
+
+    @smb_shares.setter
+    def smb_shares(self, value: list[dict[str, str]] | None) -> None:
+        """Sets the SMB shares configuration preference.
+
+        Args:
+            value: A list of SMB share dictionaries, or None to unset.
+        """
+        self._prefs["SMB_SHARES"] = value
+
+    # --- Boolean preferences ---
+
+    @property
+    def fail_recipes_without_trust_info(self) -> bool:
+        """Retrieves whether the 'fail recipes without trust info' setting is enabled.
+
+        Returns:
+            bool: True if enabled, False otherwise.
+        """
+        return self._get_bool_pref("FAIL_RECIPES_WITHOUT_TRUST_INFO", default=False)
+
+    @fail_recipes_without_trust_info.setter
+    def fail_recipes_without_trust_info(self, value: bool) -> None:
+        """Set the 'fail recipes without trust info' setting.
+
+        Args:
+            value: True to fail recipes missing trust info, False otherwise.
+        """
+        self._set_bool_pref("FAIL_RECIPES_WITHOUT_TRUST_INFO", value=value)
+
+    @property
+    def stop_if_no_jss_upload(self) -> bool:
+        """Retrieves whether the 'stop if no JSS upload' setting is enabled.
+
+        Returns:
+            bool: True if enabled, False otherwise.
+        """
+        return self._get_bool_pref("STOP_IF_NO_JSS_UPLOAD", default=False)
+
+    @stop_if_no_jss_upload.setter
+    def stop_if_no_jss_upload(self, value: bool) -> None:
+        """Set the 'stop if no JSS upload' setting.
+
+        Args:
+            value: True to stop when no JSS upload occurs, False otherwise.
+        """
+        self._set_bool_pref("STOP_IF_NO_JSS_UPLOAD", value=value)
+
+    @property
+    def cloud_dp(self) -> bool:
+        """Retrieves whether the cloud distribution point is enabled.
+
+        Returns:
+            bool: True if enabled, False otherwise.
+        """
+        return self._get_bool_pref("CLOUD_DP", default=False)
+
+    @cloud_dp.setter
+    def cloud_dp(self, value: bool) -> None:
+        """Set the cloud distribution point setting.
+
+        Args:
+            value: True to enable the cloud distribution point, False to disable.
+        """
+        self._set_bool_pref("CLOUD_DP", value=value)
