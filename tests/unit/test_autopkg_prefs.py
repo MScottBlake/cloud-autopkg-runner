@@ -662,9 +662,9 @@ def test_cleanup_temp_file_error(mock_logging: Mock, tmp_path: Path) -> None:
     Verifies that `OSError` during unlink is caught and logged, and
     the internal path is still reset.
     """
-    # Create a dummy temporary file path for the test
-    dummy_temp_path = tmp_path / "dummy_temp_prefs.json"
-    dummy_temp_path.touch()  # Create a physical file
+    # Create a sample temporary file path for the test
+    sample_temp_path = tmp_path / "sample_temp_prefs.json"
+    sample_temp_path.touch()  # Create a physical file
 
     # Manually set the internal _temp_json_file_path for the instance
     # We need a new instance for isolated testing.
@@ -673,7 +673,7 @@ def test_cleanup_temp_file_error(mock_logging: Mock, tmp_path: Path) -> None:
         return_value={},
     ):
         prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
-    prefs._temp_json_file_path = dummy_temp_path
+    prefs._temp_json_file_path = sample_temp_path
 
     # Mock Path.unlink to raise an OSError
     with patch.object(Path, "unlink", side_effect=OSError("Permission denied")):
@@ -683,9 +683,9 @@ def test_cleanup_temp_file_error(mock_logging: Mock, tmp_path: Path) -> None:
         mock_logging.warning.assert_called_once()
         # Despite the error, the internal tracking path should be cleared
         assert prefs._temp_json_file_path is None
-    # The physical dummy file created initially should still exist due to the mock
-    assert dummy_temp_path.exists()
-    dummy_temp_path.unlink(missing_ok=True)  # Clean it up for real
+    # The physical sample file created initially should still exist due to the mock
+    assert sample_temp_path.exists()
+    sample_temp_path.unlink(missing_ok=True)  # Clean it up for real
 
 
 # __repr__
