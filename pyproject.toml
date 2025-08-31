@@ -4,11 +4,13 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.138.8",
     "localstack>=4.7.0",
     "pre-commit>=4.1.0",
     "pyright>=1.1.397",
     "pytest-asyncio>=0.26.0",
     "pytest-cov>=6.0.0",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.12.7",
     "types-aioboto3-lite[s3]>=1.38.10",
 ]

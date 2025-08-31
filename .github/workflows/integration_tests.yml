@@ -86,7 +86,7 @@ jobs:
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
           AWS_DEFAULT_REGION: us-east-1
-        run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
+        run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} -n auto --no-cov
 
 
   azure_integration_tests:
@@ -149,7 +149,7 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
+        run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} -n auto --no-cov
 
 
   gcs_integration_tests:
@@ -199,4 +199,4 @@ jobs:
         env:
           STORAGE_EMULATOR_HOST: http://127.0.0.1:4443
           GOOGLE_CLOUD_PROJECT: cloud-autopkg-runner
-        run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
+        run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} -n auto --no-cov
