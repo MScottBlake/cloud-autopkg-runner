@@ -26,6 +26,7 @@ async def json_cache(tmp_path: Path) -> Generator[AsyncJsonFileCache, Any, None]
 
         cache = AsyncJsonFileCache()
         yield cache
+        await cache.close()
 
 
 @pytest.mark.asyncio
