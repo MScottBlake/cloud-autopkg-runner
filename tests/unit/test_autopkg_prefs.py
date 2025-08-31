@@ -174,7 +174,7 @@ def test_init_with_invalid_file_contents_raises_error(tmp_path: Path) -> None:
 
 @given(
     key=st.text(
-        min_size=1, alphabet=st.characters(blacklist_categories=("Cs",))
+        min_size=1, alphabet=st.characters(exclude_categories=("Cs",))
     ),  # Avoid emojis, etc.
     value=st.from_type(object).filter(exclude_nans),
 )
