@@ -753,6 +753,7 @@ def test_repr_redacts_sensitive_info() -> None:
     prefs.smb_password = "super_secret_smb_pass"  # noqa: S105
     prefs.set("NON_SENSITIVE_KEY", "public_value")
     prefs.set("ANOTHER_SENSITIVE_KEY_NOT_IN_PROPERTY", "very_secret_data")
+    prefs.set("ANOTHER_SECRET", "another_secret_value")
 
     repr_output = repr(prefs)
 
@@ -763,6 +764,7 @@ def test_repr_redacts_sensitive_info() -> None:
 
     assert "secret_gh_token" not in repr_output
     assert "super_secret_smb_pass" not in repr_output
+    assert "another_secret_value" not in repr_output
 
 
 # _convert_to_list_of_paths()

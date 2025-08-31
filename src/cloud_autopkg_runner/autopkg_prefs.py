@@ -118,13 +118,11 @@ class AutoPkgPrefs:
             str: A string showing the class name and a preview of preference keys
             and values, with sensitive values replaced by "<redacted>".
         """
-        redacted_keys = {
-            "GITHUB_TOKEN",
-            "PATCH_TOKEN",
-            "SMB_PASSWORD",
-            "TITLE_PASS",
-            "FW_ADMIN_PASSWORD",
-            "BES_PASSWORD",
+        redaction_keywords = {"pass", "token", "secret"}
+        redacted_keys: set[str] = {
+            key
+            for key in self._prefs
+            if any(keyword in key.lower() for keyword in redaction_keywords)
         }
         prefs_preview = {
             k: ("<redacted>" if k in redacted_keys else v)
