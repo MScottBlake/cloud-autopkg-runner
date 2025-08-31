@@ -148,7 +148,11 @@ def test_init_with_json_and_plist_like_keys(tmp_path: Path) -> None:
     test_json_content = json.dumps({"CLOUD_DP": False})
     test_json_file.write_text(test_json_content, encoding="utf-8")
 
-    prefs = AutoPkgPrefs(test_json_file)
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs(test_json_file)
     assert prefs.cloud_dp is False
 
 
@@ -180,7 +184,11 @@ def test_get_set_arbitrary_preferences(key: str, value: Any) -> None:
     Uses Hypothesis to generate diverse keys and values to ensure the
     basic `get()` and `set()` methods are robust.
     """
-    prefs = AutoPkgPrefs()
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs()
 
     # Test setting a value
     prefs.set(key, value)
@@ -223,7 +231,11 @@ def test_cache_dir_property(path_input: str | Path) -> None:
     Uses Hypothesis to generate various path-like strings and Path objects
     to ensure robust type conversion and expansion.
     """
-    prefs = AutoPkgPrefs()
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs()
 
     prefs.cache_dir = path_input
     expected_path = Path(path_input).expanduser()
@@ -257,7 +269,11 @@ def test_recipe_search_dirs_property(paths_input: Any) -> None:
     Uses Hypothesis to generate single paths or lists of paths in various
     forms (strings, Path objects) to ensure correct conversion and storage.
     """
-    prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
 
     prefs.recipe_search_dirs = paths_input
     expected_paths = AutoPkgPrefs._convert_to_list_of_paths(paths_input)
@@ -299,7 +315,11 @@ def test_recipe_search_dirs_property(paths_input: Any) -> None:
 )
 def test_recipe_override_dirs_property(paths_input: Any) -> None:
     """Test `recipe_override_dirs` getter and setter."""
-    prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
 
     prefs.recipe_override_dirs = paths_input
     expected_paths = AutoPkgPrefs._convert_to_list_of_paths(paths_input)
@@ -324,7 +344,6 @@ def test_munki_repo_property(path_input: str | Path | None) -> None:
 
     Uses Hypothesis to generate `None`, string paths, and Path objects.
     """
-    # Create a new AutoPkgPrefs instance for each Hypothesis example
     with patch(
         "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
         return_value={},
@@ -421,7 +440,11 @@ def test_smb_shares_property(shares: list[dict[str, str]] | None) -> None:
     to ensure complex data structures are handled correctly.
     A new AutoPkgPrefs instance is created for each Hypothesis example.
     """
-    prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
 
     assert prefs.smb_shares is None  # Not a default pref
 
@@ -479,7 +502,11 @@ def test_boolean_properties_robustness(
     how the `_get_bool_pref` helper interprets different types and
     string representations for boolean properties.
     """
-    prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
 
     # Test setter with actual boolean
     setattr(prefs, prop_name, True)
@@ -526,7 +553,11 @@ def test_to_json(prefs_data: dict[str, Any]) -> None:
     Uses Hypothesis to generate diverse dictionary structures to ensure
     `to_json` handles various data types correctly.
     """
-    prefs = AutoPkgPrefs()
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs()
 
     # Start with an empty prefs object and populate it
     prefs._prefs.update(prefs_data)  # Add generated data
@@ -563,7 +594,11 @@ async def test_to_json_file() -> None:
 
     Verifies file creation, content, and the cleanup mechanism.
     """
-    prefs = AutoPkgPrefs()
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs()
     prefs.github_token = "file_token_123"  # noqa: S105
     prefs.set("ANOTHER_KEY", ["item1", "item2"])
     prefs.munki_repo = Path("/tmp/munki")
@@ -597,7 +632,11 @@ async def test_to_json_file_multiple_calls_cleans_up_old() -> None:
     Verifies that only the most recent temporary file persists until
     cleanup or context exit.
     """
-    prefs = AutoPkgPrefs()
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs()
     prefs.github_token = "first_token"  # noqa: S105
 
     temp_file_path1 = await prefs.to_json_file()
@@ -628,7 +667,11 @@ async def test_context_manager_cleanup() -> None:
 
     Ensures that `__exit__` logic properly removes the created file.
     """
-    prefs = AutoPkgPrefs()
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs()
     temp_file_path: Path | None = None
 
     with prefs:
@@ -647,7 +690,11 @@ def test_cleanup_temp_file_no_file() -> None:
 
     Ensures it runs without error and leaves state clean.
     """
-    prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
 
     # Ensure _temp_json_file_path is truly None, in case fixture setup changes it
     prefs._temp_json_file_path = None
@@ -697,7 +744,11 @@ def test_repr_redacts_sensitive_info() -> None:
     Ensures that tokens and passwords are not exposed in the string
     representation.
     """
-    prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
     prefs.github_token = "secret_gh_token"  # noqa: S105
     prefs.smb_password = "super_secret_smb_pass"  # noqa: S105
     prefs.set("NON_SENSITIVE_KEY", "public_value")
@@ -804,7 +855,11 @@ def test_get_bool_pref_manual_inputs(
 
     Ensures explicit handling of various truthy/falsy representations.
     """
-    prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
     key = "TEST_BOOL_KEY"
 
     if pref_value is not None:
@@ -824,7 +879,11 @@ def test_get_bool_pref_manual_inputs(
 
 def test_get_path_pref() -> None:
     """Test `_get_path_pref` returns an expanded Path."""
-    prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
     prefs._prefs["TEST_PATH"] = "~/Documents/test"
     assert prefs._get_path_pref("TEST_PATH") == Path("~/Documents/test").expanduser()
 
@@ -834,7 +893,11 @@ def test_get_path_pref() -> None:
 
 def test_set_path_pref() -> None:
     """Test `_set_path_pref` stores path as a string."""
-    prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
     test_path = Path("/usr/local/bin")
     prefs._set_path_pref("TEST_PATH", test_path)
     assert prefs._prefs["TEST_PATH"] == str(test_path)
@@ -847,7 +910,11 @@ def test_set_path_pref() -> None:
 
 def test_get_list_of_paths_pref() -> None:
     """Test `_get_list_of_paths_pref` returns a list of expanded Paths."""
-    prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
     prefs._prefs["TEST_PATHS"] = ["~/Downloads", "/var/log"]
     expected = [Path("~/Downloads").expanduser(), Path("/var/log").expanduser()]
     assert prefs._get_list_of_paths_pref("TEST_PATHS") == expected
@@ -858,7 +925,11 @@ def test_get_list_of_paths_pref() -> None:
 
 def test_set_list_of_paths_pref() -> None:
     """Test `_set_list_of_paths_pref` stores paths as list of strings."""
-    prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
     test_paths_input = [Path("~/Music"), "/opt/apps"]
     prefs._set_list_of_paths_pref("TEST_PATHS", test_paths_input)
     expected_stored = [
@@ -873,7 +944,11 @@ def test_set_list_of_paths_pref() -> None:
 
 def test_get_str_pref() -> None:
     """Test `_get_str_pref` returns string or None."""
-    prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
     prefs._prefs["TEST_STR"] = "hello world"
     assert prefs._get_str_pref("TEST_STR") == "hello world"
     assert prefs._get_str_pref("NON_EXISTENT") is None
@@ -884,7 +959,11 @@ def test_get_str_pref() -> None:
 
 def test_set_str_pref() -> None:
     """Test `_set_str_pref` stores string or None."""
-    prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        prefs = AutoPkgPrefs(AutoPkgPrefs._DEFAULT_PREF_FILE_PATH)
     prefs._set_str_pref("TEST_STR", "new value")
     assert prefs._prefs["TEST_STR"] == "new value"
     prefs._set_str_pref("TEST_STR", None)
