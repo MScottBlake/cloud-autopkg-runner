@@ -149,7 +149,7 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*" = ["S101", "S108", "D100", "PLR2004", "PLC2701", "ANN401", "SLF001", "T201"]
+"tests/**/*" = ["S101", "S108", "D100", "PLR2004", "PLC2701", "ANN401", "SLF001", "T201", "FBT001"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
