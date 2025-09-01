@@ -8,10 +8,25 @@ from unittest.mock import patch
 import pytest
 
 from cloud_autopkg_runner import (
+    AutoPkgPrefs,
     Settings,
     file_utils,
 )
 from cloud_autopkg_runner.metadata_cache import MetadataCache
+
+
+@pytest.fixture(autouse=True)
+def autopkg_prefs() -> AutoPkgPrefs:
+    """Fixture to create a mock AutoPkgPrefs object with search/override dirs.
+
+    Returns:
+        MagicMock: A mock AutoPkgPrefs object.
+    """
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        return AutoPkgPrefs()
 
 
 @pytest.fixture
