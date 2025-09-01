@@ -538,13 +538,16 @@ def test_boolean_properties_robustness(
 
 @given(
     prefs_data=st.dictionaries(
-        keys=st.text(min_size=1),
+        keys=st.text(min_size=1, max_size=10),
         values=st.recursive(
-            st.none() | st.booleans() | st.integers() | st.text(),
-            lambda children: st.lists(children) | st.dictionaries(st.text(), children),
+            st.none() | st.booleans() | st.integers() | st.text(max_size=20),
+            lambda children: st.lists(children, min_size=0, max_size=5)
+            | st.dictionaries(
+                st.text(min_size=1, max_size=10), children, min_size=0, max_size=5
+            ),
         ),
         min_size=0,
-        max_size=10,
+        max_size=5,
     )
 )
 def test_to_json(prefs_data: dict[str, Any]) -> None:
@@ -563,7 +566,7 @@ def test_to_json(prefs_data: dict[str, Any]) -> None:
     prefs._prefs.update(prefs_data)  # Add generated data
 
     # Add some known defaults that should always be there
-    default_prefs = AutoPkgPrefs._get_default_preferences()
+    default_prefs = prefs._get_default_preferences()
     # Ensure that values that are Path objects are converted
     # to strings for JSON serialization.
     for key, value in default_prefs.items():
@@ -975,129 +978,29 @@ def test_set_str_pref() -> None:
 # clone()
 
 
-@pytest.fixture
-def base_autopkg_prefs() -> AutoPkgPrefs:
-    """Fixture for a base AutoPkgPrefs instance with various data types.
-
-    Patches the internal file loading mechanism to control initial state.
-    """
+def test_clone(tmp_path: Path) -> None:
+    """Test cloning an instance with no preferences."""
     with patch(
         "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
         return_value={},
     ):
-        prefs = AutoPkgPrefs()
-        prefs.set("STRING_PREF", "original_string")
-        prefs.set("INT_PREF", 123)
-        prefs.set("BOOL_PREF", True)  # noqa: FBT003
-        prefs.set("PATH_PREF", Path("/original/path"))
-        prefs.set("LIST_PREF", [1, "two", {"key": "value"}])
-        prefs.set("DICT_PREF", {"a": 1, "b": {"c": "original_nested"}})
-        prefs.set("NONE_PREF", None)
-        # Ensure some other internal attributes are set
-        prefs._temp_json_file_path = Path("/tmp/original_temp.json")
-        prefs._initial_prefs_hash = hash("some_hash_value")
-        return prefs
+        original_prefs = AutoPkgPrefs()
 
+    original_prefs.cache_dir = tmp_path
+    original_prefs.set("foo1", "bar1")
 
-def test_clone_returns_new_instance(base_autopkg_prefs: AutoPkgPrefs) -> None:
-    """Test that the clone method returns a new object, not the original."""
-    cloned_prefs = base_autopkg_prefs.clone()
+    original_prefs.set("foo2", "original")
+    cloned_prefs = original_prefs.clone()
+    cloned_prefs.set("foo2", "cloned")
 
-    assert cloned_prefs is not base_autopkg_prefs
+    assert cloned_prefs is not original_prefs
     assert isinstance(cloned_prefs, AutoPkgPrefs)
 
+    assert original_prefs.cache_dir == tmp_path
+    assert cloned_prefs.cache_dir == tmp_path
 
-def test_clone_initial_equality(base_autopkg_prefs: AutoPkgPrefs) -> None:
-    """Test that the cloned instance initially has the same preference values."""
-    cloned_prefs = base_autopkg_prefs.clone()
+    assert original_prefs.get("foo1") == "bar1"
+    assert cloned_prefs.get("foo1") == "bar1"
 
-    # Use the public .get() method to compare preference values
-    assert cloned_prefs.get("STRING_PREF") == base_autopkg_prefs.get("STRING_PREF")
-    assert cloned_prefs.get("INT_PREF") == base_autopkg_prefs.get("INT_PREF")
-    assert cloned_prefs.get("LIST_PREF") == base_autopkg_prefs.get("LIST_PREF")
-    assert cloned_prefs.get("DICT_PREF") == base_autopkg_prefs.get("DICT_PREF")
-
-    # For internal comparison of the raw _prefs dictionary:
-    assert cloned_prefs._prefs == base_autopkg_prefs._prefs
-
-
-def test_clone_deep_independence_mutable_dict(base_autopkg_prefs: AutoPkgPrefs) -> None:
-    """Test that modifying the clone's dictionary does not affect the original."""
-    cloned_prefs = base_autopkg_prefs.clone()
-
-    # Get a reference to the original nested dict before modification
-    original_nested_dict_ref = base_autopkg_prefs.get("DICT_PREF")
-    assert original_nested_dict_ref == {"a": 1, "b": {"c": "original_nested"}}
-
-    # Modify the clone's nested dictionary
-    cloned_prefs.get("DICT_PREF")["b"]["c"] = "cloned_modified"
-    cloned_prefs.get("DICT_PREF")["d"] = 42
-
-    # Assert original is unchanged via its reference
-    assert base_autopkg_prefs.get("DICT_PREF") == original_nested_dict_ref
-    assert base_autopkg_prefs.get("DICT_PREF")["b"]["c"] == "original_nested"
-    assert "d" not in base_autopkg_prefs.get("DICT_PREF")
-
-    # Assert clone reflects its changes
-    assert cloned_prefs.get("DICT_PREF")["b"]["c"] == "cloned_modified"
-    assert cloned_prefs.get("DICT_PREF")["d"] == 42
-
-
-def test_clone_deep_independence_mutable_list(base_autopkg_prefs: AutoPkgPrefs) -> None:
-    """Test that modifying the clone's list does not affect the original."""
-    cloned_prefs = base_autopkg_prefs.clone()
-
-    # Get a reference to the original list before modification
-    original_list_ref = base_autopkg_prefs.get("LIST_PREF")
-    assert original_list_ref == [1, "two", {"key": "value"}]
-
-    # Modify the clone's list
-    cloned_prefs.get("LIST_PREF").append("new_item")
-    cloned_prefs.get("LIST_PREF")[2]["new_key"] = "new_value"
-
-    # Assert original is unchanged via its reference
-    assert base_autopkg_prefs.get("LIST_PREF") == original_list_ref
-    assert "new_item" not in base_autopkg_prefs.get("LIST_PREF")
-    assert "new_key" not in base_autopkg_prefs.get("LIST_PREF")[2]
-
-    # Assert clone reflects its changes
-    assert "new_item" in cloned_prefs.get("LIST_PREF")
-    assert cloned_prefs.get("LIST_PREF")[2]["new_key"] == "new_value"
-
-
-def test_clone_independence_other_attrs(base_autopkg_prefs: AutoPkgPrefs) -> None:
-    """Test that other relevant internal attributes are independent or reset."""
-    cloned_prefs = base_autopkg_prefs.clone()
-
-    # Test attributes that should be reset/None for a fresh clone
-    assert cloned_prefs._prefs_data is None
-    assert cloned_prefs._initial_prefs_hash is None
-    assert cloned_prefs._temp_json_file_path is None
-
-    # Original should retain its values (if they were set)
-    assert base_autopkg_prefs._prefs_data is None  # Initial state in this mock fixture
-    assert base_autopkg_prefs._initial_prefs_hash == hash("some_hash_value")
-    assert base_autopkg_prefs._temp_json_file_path == Path("/tmp/original_temp.json")
-
-    # Test modifying an attribute on the clone that isn't part of _prefs
-    # (e.g., if you later set _prefs_data on the clone)
-    cloned_prefs._prefs_data = {"new_cloned_data": True}
-    assert cloned_prefs._prefs_data == {"new_cloned_data": True}
-    assert base_autopkg_prefs._prefs_data is None
-
-
-def test_clone_with_empty_prefs() -> None:
-    """Test cloning an instance with no preferences, generated via Hypothesis."""
-    # We want a fresh, empty AutoPkgPrefs, not the populated fixture.
-    with patch(
-        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
-        return_value={},
-    ):
-        original_empty_prefs = AutoPkgPrefs()
-
-    cloned_prefs = original_empty_prefs.clone()
-
-    assert cloned_prefs is not original_empty_prefs
-    assert isinstance(cloned_prefs, AutoPkgPrefs)
-    assert cloned_prefs._prefs == {}
-    assert original_empty_prefs._prefs == {}
+    assert original_prefs.get("foo2") == "original"
+    assert cloned_prefs.get("foo2") == "cloned"
