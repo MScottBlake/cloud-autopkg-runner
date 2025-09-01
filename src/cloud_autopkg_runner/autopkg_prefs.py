@@ -20,6 +20,7 @@ The `AutoPkgPrefs` class offers a hybrid interface:
 """
 
 import asyncio
+import copy
 import json
 import plistlib
 import tempfile
@@ -215,6 +216,24 @@ class AutoPkgPrefs:
             value (object): The value to assign to the preference.
         """
         self._prefs[key] = value
+
+    def clone(self) -> "AutoPkgPrefs":
+        """Create a fully independent deep copy of this AutoPkgPrefs instance.
+
+        This method utilizes `copy.deepcopy()` to produce a new instance of
+        `AutoPkgPrefs`. The clone will have its own independent mutable state,
+        such as the internal preferences dictionary (`_prefs`), ensuring that
+        modifications to the clone do not affect the original object.
+
+        This is particularly useful in concurrent environments or when managing
+        isolated "git worktrees" where each operation needs to start with a
+        pristine or distinct set of settings.
+
+        Returns:
+            AutoPkgPrefs: A new, independent `AutoPkgPrefs` instance containing a
+                deep copy of all mutable preferences.
+        """
+        return copy.deepcopy(self)
 
     def to_json(self, indent: int | None = None) -> str:
         """Serializes the preferences to a JSON-formatted string.
