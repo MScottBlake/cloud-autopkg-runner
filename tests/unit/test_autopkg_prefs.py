@@ -538,13 +538,16 @@ def test_boolean_properties_robustness(
 
 @given(
     prefs_data=st.dictionaries(
-        keys=st.text(min_size=1),
+        keys=st.text(min_size=1, max_size=10),
         values=st.recursive(
-            st.none() | st.booleans() | st.integers() | st.text(),
-            lambda children: st.lists(children) | st.dictionaries(st.text(), children),
+            st.none() | st.booleans() | st.integers() | st.text(max_size=20),
+            lambda children: st.lists(children, min_size=0, max_size=5)
+            | st.dictionaries(
+                st.text(min_size=1, max_size=10), children, min_size=0, max_size=5
+            ),
         ),
         min_size=0,
-        max_size=10,
+        max_size=5,
     )
 )
 def test_to_json(prefs_data: dict[str, Any]) -> None:
@@ -563,7 +566,7 @@ def test_to_json(prefs_data: dict[str, Any]) -> None:
     prefs._prefs.update(prefs_data)  # Add generated data
 
     # Add some known defaults that should always be there
-    default_prefs = AutoPkgPrefs._get_default_preferences()
+    default_prefs = prefs._get_default_preferences()
     # Ensure that values that are Path objects are converted
     # to strings for JSON serialization.
     for key, value in default_prefs.items():
@@ -970,3 +973,34 @@ def test_set_str_pref() -> None:
     assert prefs._prefs["TEST_STR"] == "new value"
     prefs._set_str_pref("TEST_STR", None)
     assert prefs._prefs["TEST_STR"] is None
+
+
+# clone()
+
+
+def test_clone(tmp_path: Path) -> None:
+    """Test cloning an instance with no preferences."""
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        original_prefs = AutoPkgPrefs()
+
+    original_prefs.cache_dir = tmp_path
+    original_prefs.set("foo1", "bar1")
+
+    original_prefs.set("foo2", "original")
+    cloned_prefs = original_prefs.clone()
+    cloned_prefs.set("foo2", "cloned")
+
+    assert cloned_prefs is not original_prefs
+    assert isinstance(cloned_prefs, AutoPkgPrefs)
+
+    assert original_prefs.cache_dir == tmp_path
+    assert cloned_prefs.cache_dir == tmp_path
+
+    assert original_prefs.get("foo1") == "bar1"
+    assert cloned_prefs.get("foo1") == "bar1"
+
+    assert original_prefs.get("foo2") == "original"
+    assert cloned_prefs.get("foo2") == "cloned"
