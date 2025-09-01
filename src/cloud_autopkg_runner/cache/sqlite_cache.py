@@ -261,6 +261,7 @@ class AsyncSQLiteCache:
         cache data connection to the SQLite database and returns the `AsyncSQLiteCache`
         instance.
         """
+        await self.open()
         await self.load()
         return self
 

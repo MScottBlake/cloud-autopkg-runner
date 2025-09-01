@@ -44,6 +44,7 @@ async def sqlite_cache(tmp_path: Path) -> Generator[AsyncSQLiteCache, Any, None]
 
         cache = AsyncSQLiteCache()
         yield cache
+        await cache.close()
 
 
 @pytest.mark.asyncio

@@ -2,7 +2,7 @@ from collections.abc import Generator
 
 import pytest
 
-from cloud_autopkg_runner import AutoPkgPrefs, Settings
+from cloud_autopkg_runner import Settings
 
 
 @pytest.fixture(autouse=True)
@@ -13,5 +13,4 @@ def reset_singletons() -> Generator[None, None, None]:
     preventing test contamination.
     """
     yield
-    AutoPkgPrefs._instance = None
     Settings._instance = None

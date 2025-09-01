@@ -7,10 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from cloud_autopkg_runner import (
-    Settings,
-    file_utils,
-)
+from cloud_autopkg_runner import Settings, file_utils
 from cloud_autopkg_runner.metadata_cache import MetadataCache
 
 
@@ -73,6 +70,10 @@ async def test_create_placeholder_files(
     # Patch list_possible_file_names to return the recipes in metadata_cache
     with (
         patch(
+            "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+            return_value={},
+        ),
+        patch(
             "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
             return_value=recipe_list,
         ),
@@ -99,9 +100,15 @@ async def test_create_placeholder_files_skips_existing(
     file_path.touch()
 
     # Patch list_possible_file_names to return the recipes in metadata_cache
-    with patch(
-        "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
-        return_value=recipe_list,
+    with (
+        patch(
+            "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+            return_value={},
+        ),
+        patch(
+            "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
+            return_value=recipe_list,
+        ),
     ):
         await file_utils.create_placeholder_files(recipe_list)
 

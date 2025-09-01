@@ -46,11 +46,7 @@ def test_recipe_init_yaml(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None
     report_dir = tmp_path / "report_dir"
     report_dir.mkdir()
 
-    with patch(
-        "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
-        return_value=mock_autopkg_prefs,
-    ):
-        recipe = Recipe(recipe_file, report_dir)
+    recipe = Recipe(recipe_file, report_dir, mock_autopkg_prefs)
 
     assert recipe.identifier == "com.example.test"
     assert recipe.input_name == "TestRecipe"
@@ -71,17 +67,13 @@ def test_recipe_init_plist(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> Non
     recipe_file = tmp_path / "Test.recipe.plist"
     recipe_file.write_bytes(plistlib.dumps(plist_content))
 
-    with patch(
-        "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
-        return_value=mock_autopkg_prefs,
-    ):
-        report_dir = tmp_path / "report_dir"
-        report_dir.mkdir()
-        recipe = Recipe(recipe_file, report_dir)
-        assert recipe.identifier == "com.example.test"
-        assert recipe.input_name == "TestRecipe"
-        assert recipe.format() == RecipeFormat.PLIST
-        assert recipe._result.file_path().parent == report_dir
+    report_dir = tmp_path / "report_dir"
+    report_dir.mkdir()
+    recipe = Recipe(recipe_file, report_dir, mock_autopkg_prefs)
+    assert recipe.identifier == "com.example.test"
+    assert recipe.input_name == "TestRecipe"
+    assert recipe.format() == RecipeFormat.PLIST
+    assert recipe._result.file_path().parent == report_dir
 
 
 def test_recipe_invalid_format(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
@@ -102,16 +94,12 @@ def test_recipe_invalid_format(tmp_path: Path, mock_autopkg_prefs: MagicMock) ->
 
     with (
         patch(
-            "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
-            return_value=mock_autopkg_prefs,
-        ),
-        patch(
             "cloud_autopkg_runner.recipe_finder.RecipeFinder.find_recipe",
             return_value=recipe_file,
         ),
         pytest.raises(RecipeFormatException),
     ):
-        Recipe(recipe_file, report_dir)
+        Recipe(recipe_file, report_dir, mock_autopkg_prefs)
 
 
 def test_recipe_invalid_content(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
@@ -121,14 +109,8 @@ def test_recipe_invalid_content(tmp_path: Path, mock_autopkg_prefs: MagicMock) -
     report_dir = tmp_path / "report_dir"
     report_dir.mkdir()
 
-    with (
-        patch(
-            "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
-            return_value=mock_autopkg_prefs,
-        ),
-        pytest.raises(InvalidFileContents),
-    ):
-        Recipe(recipe_file, report_dir)
+    with pytest.raises(InvalidFileContents):
+        Recipe(recipe_file, report_dir, mock_autopkg_prefs)
 
 
 def test_recipe_missing_name(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
@@ -144,13 +126,9 @@ def test_recipe_missing_name(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> N
     report_dir = tmp_path / "report_dir"
     report_dir.mkdir()
 
-    with patch(
-        "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
-        return_value=mock_autopkg_prefs,
-    ):
-        recipe = Recipe(recipe_file, report_dir)
-        with pytest.raises(RecipeInputException):
-            _ = recipe.input_name
+    recipe = Recipe(recipe_file, report_dir, mock_autopkg_prefs)
+    with pytest.raises(RecipeInputException):
+        _ = recipe.input_name
 
 
 def test_recipe_properties(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
@@ -169,11 +147,7 @@ def test_recipe_properties(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> Non
     report_dir = tmp_path / "report_dir"
     report_dir.mkdir()
 
-    with patch(
-        "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
-        return_value=mock_autopkg_prefs,
-    ):
-        recipe = Recipe(recipe_file, report_dir)
+    recipe = Recipe(recipe_file, report_dir, mock_autopkg_prefs)
 
     assert recipe.contents["Description"] == "Test recipe"
     assert recipe.description == "Test recipe"
@@ -186,7 +160,9 @@ def test_recipe_properties(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> Non
 
 
 @pytest.mark.asyncio
-async def test_autopkg_run_cmd_basic(tmp_path: Path) -> None:
+async def test_autopkg_run_cmd_basic(
+    tmp_path: Path, mock_autopkg_prefs: MagicMock
+) -> None:
     """Test basic command construction with no verbosity or processors."""
     yaml_content = """
     Description: Test
@@ -206,7 +182,7 @@ async def test_autopkg_run_cmd_basic(tmp_path: Path) -> None:
         mock_settings.return_value.verbosity_int.return_value = 0
         mock_settings.return_value.verbosity_str.return_value = ""
 
-        recipe = Recipe(recipe_file, report_dir)
+        recipe = Recipe(recipe_file, report_dir, mock_autopkg_prefs)
         cmd = await recipe._autopkg_run_cmd()
 
         assert cmd[:3] == ["/usr/local/bin/autopkg", "run", recipe.name]
@@ -231,19 +207,13 @@ async def test_autopkg_run_cmd_with_check(
     report_dir = tmp_path / "report"
     report_dir.mkdir()
 
-    with (
-        patch(
-            "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
-            return_value=mock_autopkg_prefs,
-        ),
-        patch("cloud_autopkg_runner.recipe.Settings") as mock_settings,
-    ):
+    with patch("cloud_autopkg_runner.recipe.Settings") as mock_settings:
         mock_settings.return_value.pre_processors = []
         mock_settings.return_value.post_processors = []
         mock_settings.return_value.verbosity_int.return_value = 0
         mock_settings.return_value.verbosity_str.return_value = ""
 
-        recipe = Recipe(recipe_file, report_dir)
+        recipe = Recipe(recipe_file, report_dir, mock_autopkg_prefs)
         cmd = await recipe._autopkg_run_cmd(check=True)
 
         assert "--check" in cmd
@@ -266,13 +236,7 @@ async def test_autopkg_run_cmd_with_processors_and_verbosity(
     report_dir = tmp_path / "report"
     report_dir.mkdir()
 
-    with (
-        patch(
-            "cloud_autopkg_runner.recipe_finder.AutoPkgPrefs",
-            return_value=mock_autopkg_prefs,
-        ),
-        patch("cloud_autopkg_runner.recipe.Settings") as mock_settings,
-    ):
+    with patch("cloud_autopkg_runner.recipe.Settings") as mock_settings:
         mock_settings.return_value.pre_processors = [
             "PreA",
             "com.example.test/PreProcessorB",
@@ -281,7 +245,7 @@ async def test_autopkg_run_cmd_with_processors_and_verbosity(
         mock_settings.return_value.verbosity_int.return_value = 1
         mock_settings.return_value.verbosity_str.return_value = "-v"
 
-        recipe = Recipe(recipe_file, report_dir)
+        recipe = Recipe(recipe_file, report_dir, mock_autopkg_prefs)
         cmd = await recipe._autopkg_run_cmd()
 
         assert "--preprocessor=PreA" in cmd
@@ -295,7 +259,7 @@ async def test_autopkg_run_cmd_with_processors_and_verbosity(
 
 @pytest.mark.asyncio
 async def test_create_placeholder_cache_files_first_run(
-    tmp_path: Path,
+    tmp_path: Path, mock_autopkg_prefs: MagicMock
 ) -> None:
     """Test that file_utils is called and the flag is set on the first run."""
     recipe_file = tmp_path / "Test.recipe.yaml"
@@ -314,7 +278,7 @@ async def test_create_placeholder_cache_files_first_run(
         ) as mock_create_placeholder_files,
         patch("cloud_autopkg_runner.recipe.Settings"),
     ):
-        recipe = Recipe(recipe_file, tmp_path)
+        recipe = Recipe(recipe_file, tmp_path, mock_autopkg_prefs)
         # Ensure the flag is not set initially
         assert not hasattr(recipe, "_placeholder_files_created")
 
@@ -326,7 +290,7 @@ async def test_create_placeholder_cache_files_first_run(
 
 @pytest.mark.asyncio
 async def test_create_placeholder_cache_files_subsequent_run(
-    tmp_path: Path,
+    tmp_path: Path, mock_autopkg_prefs: MagicMock
 ) -> None:
     """Test that file_utils is not called a second time."""
     recipe_file = tmp_path / "Test.recipe.yaml"
@@ -345,7 +309,7 @@ async def test_create_placeholder_cache_files_subsequent_run(
         ) as mock_create_placeholder_files,
         patch("cloud_autopkg_runner.recipe.Settings"),
     ):
-        recipe = Recipe(recipe_file, tmp_path)
+        recipe = Recipe(recipe_file, tmp_path, mock_autopkg_prefs)
         # Manually set the flag to simulate a previous run
         recipe._placeholder_files_created = True
 

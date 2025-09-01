@@ -29,6 +29,7 @@ async def azure_cache() -> Generator[AsyncAzureBlobCache, Any, None]:
         cache._client = AsyncMock(spec=BlobClient)
 
         yield cache
+        await cache.close()
 
 
 @pytest.mark.asyncio

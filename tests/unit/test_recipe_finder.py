@@ -13,7 +13,7 @@ from cloud_autopkg_runner.exceptions import RecipeLookupException
 
 
 @pytest.fixture(autouse=True)
-def setup_autopkg_prefs_class(tmp_path: Path) -> Generator[AutoPkgPrefs, Any, None]:
+def autopkg_prefs(tmp_path: Path) -> Generator[AutoPkgPrefs, Any, None]:
     """Fixture to reset the AutoPkgPrefs singleton instance before each test.
 
     This ensures that each test gets a clean, independent instance of the
@@ -34,13 +34,13 @@ def setup_autopkg_prefs_class(tmp_path: Path) -> Generator[AutoPkgPrefs, Any, No
 
 
 @pytest.fixture
-def recipe_finder() -> RecipeFinder:
+def recipe_finder(autopkg_prefs: AutoPkgPrefs) -> RecipeFinder:
     """Fixture for creating a RecipeFinder instance with a mock AutoPkgPrefs object.
 
     Returns:
         RecipeFinder: A RecipeFinder object.
     """
-    return RecipeFinder()
+    return RecipeFinder(autopkg_prefs)
 
 
 @pytest.mark.parametrize(

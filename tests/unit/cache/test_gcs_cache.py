@@ -37,6 +37,7 @@ async def gcs_cache() -> Generator[AsyncGCSCache, Any, None]:
         )
 
         yield cache
+        await cache.close()
 
 
 @pytest.mark.asyncio

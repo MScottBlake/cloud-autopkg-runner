@@ -4,18 +4,20 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.138.8",
     "localstack>=4.7.0",
     "pre-commit>=4.1.0",
     "pyright>=1.1.397",
     "pytest-asyncio>=0.26.0",
     "pytest-cov>=6.0.0",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.12.7",
     "types-aioboto3-lite[s3]>=1.38.10",
 ]
 
 [project]
 name = "cloud-autopkg-runner"
-version = "0.18.1"
+version = "0.19.1"
 description = "A Python library designed to level-up your AutoPkg automations with a focus on CI/CD performance."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
@@ -147,7 +149,7 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*" = ["S101", "S108", "D100", "PLR2004", "PLC2701", "ANN401", "SLF001", "T201"]
+"tests/**/*" = ["S101", "S108", "D100", "PLR2004", "PLC2701", "ANN401", "SLF001", "T201", "FBT001"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

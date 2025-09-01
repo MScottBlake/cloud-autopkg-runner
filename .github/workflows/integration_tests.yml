@@ -38,7 +38,7 @@ jobs:
         include:
           - cloud_provider: s3
             install_extras: s3
-            test_path: tests/integration/test_s3_cache.py
+            test_path: tests/integration/test_s3.py
 
     services:
       localstack:
@@ -101,7 +101,7 @@ jobs:
         include:
           - cloud_provider: azure
             install_extras: azure
-            test_path: tests/integration/test_azure_cache.py
+            test_path: tests/integration/test_azure.py
 
     steps:
       - name: Checkout repository
@@ -164,7 +164,7 @@ jobs:
         include:
           - cloud_provider: gcs
             install_extras: gcs
-            test_path: tests/integration/test_gcs_cache.py
+            test_path: tests/integration/test_gcs.py
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

@@ -27,6 +27,7 @@ async def s3_cache() -> Generator[AsyncS3Cache, Any, None]:
         cache = AsyncS3Cache()
         await cache.open()
         yield cache
+        await cache.close()
 
 
 @pytest.mark.asyncio
