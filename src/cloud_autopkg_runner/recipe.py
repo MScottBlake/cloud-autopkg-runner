@@ -514,9 +514,9 @@ class Recipe:
         )
 
         return {
-            "etag": etag,
+            "etag": etag or "",
             "file_size": file_size,
-            "last_modified": last_modified,
+            "last_modified": last_modified or "",
             "file_path": downloaded_item,
         }
 
