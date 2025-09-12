@@ -498,7 +498,7 @@ class Recipe:
             file size (`int` or `None`), last modified date (`str` or `None`),
             and the original file path (`str`) of the downloaded item.
         """
-        downloaded_item_path: Path = Path(downloaded_item)
+        downloaded_item_path: Path = Path(downloaded_item).expanduser()
 
         etag_task = file_utils.get_file_metadata(
             downloaded_item_path, "com.github.autopkg.etag"

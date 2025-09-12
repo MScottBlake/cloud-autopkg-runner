@@ -120,7 +120,7 @@ async def create_placeholder_files(recipe_list: Iterable[str]) -> None:
                 )
                 continue
 
-            file_path = Path(the_cache.get("file_path", ""))
+            file_path = Path(the_cache.get("file_path", "")).expanduser()
             if file_path.exists():
                 logger.info("Skipping file creation: %s already exists.", file_path)
                 continue
