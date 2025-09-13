@@ -17,7 +17,6 @@ Functions:
 """
 
 import asyncio
-import errno
 from collections.abc import Iterable
 from pathlib import Path
 from typing import cast
@@ -158,8 +157,8 @@ async def get_file_metadata(file_path: Path, attr: str) -> str | None:
             ).decode()
         )
     except OSError as e:
-        # errno.ENOATTR means the attribute name is invalid
-        if e.errno == errno.ENOATTR:
+        # errno.ENOATTR (93) means the attribute name is invalid
+        if e.errno == 93:  # noqa: PLR2004
             return None
         raise
 
