@@ -158,8 +158,8 @@ async def get_file_metadata(file_path: Path, attr: str) -> str | None:
             ).decode()
         )
     except OSError as e:
-        # errno.ENODATA means the attribute name is invalid
-        if e.errno == errno.ENODATA:
+        # errno.ENOATTR means the attribute name is invalid
+        if e.errno == errno.ENOATTR:
             return None
         raise
 
