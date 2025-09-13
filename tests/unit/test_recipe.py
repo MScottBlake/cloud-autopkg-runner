@@ -1,3 +1,4 @@
+import errno
 import plistlib
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -316,3 +317,183 @@ async def test_create_placeholder_cache_files_subsequent_run(
         await recipe._create_placeholder_cache_files()
 
         mock_create_placeholder_files.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_metadata_for_item_all_present() -> None:
+    """Test _get_metadata_for_item when all metadata is present."""
+    test_file_path_str = "/tmp/test_downloaded_file.dmg"
+    test_file_path = Path(test_file_path_str)
+    expected_etag = "a1b2c3d4e5f6g7h8i9j0"
+    expected_file_size = 123456789
+    expected_last_modified = "Tue, 1 Jan 2024 12:00:00 GMT"
+
+    # Patch the utility functions that _get_metadata_for_item calls
+    with (
+        patch(
+            "cloud_autopkg_runner.file_utils.get_file_size", new_callable=AsyncMock
+        ) as mock_get_file_size,
+        patch(
+            "cloud_autopkg_runner.file_utils.get_file_metadata", new_callable=AsyncMock
+        ) as mock_get_file_metadata,
+    ):
+        mock_get_file_size.return_value = expected_file_size
+        # Configure get_file_metadata for specific attributes
+        mock_get_file_metadata.side_effect = [
+            expected_etag,  # for "com.github.autopkg.etag"
+            expected_last_modified,  # for "com.github.autopkg.last-modified"
+        ]
+
+        result = await Recipe._get_metadata_for_item(test_file_path_str)
+
+        # Assertions for the mock calls
+        mock_get_file_size.assert_called_once_with(test_file_path)
+        assert mock_get_file_metadata.call_count == 2
+        mock_get_file_metadata.assert_any_call(
+            test_file_path, "com.github.autopkg.etag"
+        )
+        mock_get_file_metadata.assert_any_call(
+            test_file_path, "com.github.autopkg.last-modified"
+        )
+
+        # Assertions for the returned DownloadMetadata
+        assert result == {
+            "file_path": test_file_path_str,
+            "file_size": expected_file_size,
+            "etag": expected_etag,
+            "last_modified": expected_last_modified,
+        }
+
+
+@pytest.mark.asyncio
+async def test_get_metadata_for_item_missing_optional_metadata() -> None:
+    """Test _get_metadata_for_item when etag and last_modified are missing."""
+    test_file_path_str = "/tmp/test_downloaded_file.dmg"
+    test_file_path = Path(test_file_path_str)
+    expected_file_size = 987654321
+
+    with (
+        patch(
+            "cloud_autopkg_runner.file_utils.get_file_size", new_callable=AsyncMock
+        ) as mock_get_file_size,
+        patch(
+            "cloud_autopkg_runner.file_utils.get_file_metadata", new_callable=AsyncMock
+        ) as mock_get_file_metadata,
+    ):
+        mock_get_file_size.return_value = expected_file_size
+        # Simulate missing metadata by returning None
+        mock_get_file_metadata.side_effect = [
+            None,  # for "com.github.autopkg.etag"
+            None,  # for "com.github.autopkg.last-modified"
+        ]
+
+        result = await Recipe._get_metadata_for_item(test_file_path_str)
+
+        mock_get_file_size.assert_called_once_with(test_file_path)
+        assert mock_get_file_metadata.call_count == 2
+        mock_get_file_metadata.assert_any_call(
+            test_file_path, "com.github.autopkg.etag"
+        )
+        mock_get_file_metadata.assert_any_call(
+            test_file_path, "com.github.autopkg.last-modified"
+        )
+
+        # Ensure only file_path and file_size are present
+        assert result == {
+            "file_path": test_file_path_str,
+            "file_size": expected_file_size,
+        }
+        assert "etag" not in result
+        assert "last_modified" not in result
+
+
+@pytest.mark.asyncio
+async def test_get_metadata_for_item_file_size_error() -> None:
+    """Test _get_metadata_for_item when get_file_size raises an OSError."""
+    test_file_path_str = "/tmp/test_downloaded_file.dmg"
+    test_file_path = Path(test_file_path_str)
+    # Use EIO for a generic OSError that should cause the function to raise
+    expected_error = OSError(errno.EIO, "Input/output error")
+
+    with patch(
+        "cloud_autopkg_runner.file_utils.get_file_size", new_callable=AsyncMock
+    ) as mock_get_file_size:
+        mock_get_file_size.side_effect = expected_error
+
+        with pytest.raises(OSError) as exc_info:  # noqa: PT011
+            await Recipe._get_metadata_for_item(test_file_path_str)
+
+        assert exc_info.type is OSError
+        assert exc_info.value.errno == expected_error.errno
+        mock_get_file_size.assert_called_once_with(test_file_path)
+
+
+@pytest.mark.asyncio
+async def test_get_metadata_for_item_etag_error() -> None:
+    """Test _get_metadata_for_item when etag retrieval raises an OSError."""
+    test_file_path_str = "/tmp/test_downloaded_file.dmg"
+    test_file_path = Path(test_file_path_str)
+    expected_file_size = 12345
+    expected_error = OSError(errno.EIO, "Etag read error")
+
+    with (
+        patch(
+            "cloud_autopkg_runner.file_utils.get_file_size", new_callable=AsyncMock
+        ) as mock_get_file_size,
+        patch(
+            "cloud_autopkg_runner.file_utils.get_file_metadata", new_callable=AsyncMock
+        ) as mock_get_file_metadata,
+    ):
+        mock_get_file_size.return_value = expected_file_size
+        # Configure get_file_metadata to raise for etag
+        mock_get_file_metadata.side_effect = [
+            expected_error,  # for "com.github.autopkg.etag"
+            "some_last_modified",  # for "com.github.autopkg.last-modified"
+        ]
+
+        with pytest.raises(OSError) as exc_info:  # noqa: PT011
+            await Recipe._get_metadata_for_item(test_file_path_str)
+
+        assert exc_info.type is OSError
+        assert exc_info.value.errno == expected_error.errno
+        mock_get_file_size.assert_called_once_with(test_file_path)
+        mock_get_file_metadata.assert_any_call(
+            test_file_path, "com.github.autopkg.etag"
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_metadata_for_item_last_modified_error() -> None:
+    """Test _get_metadata_for_item when last_modified retrieval raises an OSError."""
+    test_file_path_str = "/tmp/test_downloaded_file.dmg"
+    test_file_path = Path(test_file_path_str)
+    expected_file_size = 12345
+    expected_etag = "a1b2c3d4e5f6"
+    expected_error = OSError(errno.EIO, "Last modified read error")
+
+    with (
+        patch(
+            "cloud_autopkg_runner.file_utils.get_file_size", new_callable=AsyncMock
+        ) as mock_get_file_size,
+        patch(
+            "cloud_autopkg_runner.file_utils.get_file_metadata", new_callable=AsyncMock
+        ) as mock_get_file_metadata,
+    ):
+        mock_get_file_size.return_value = expected_file_size
+        mock_get_file_metadata.side_effect = [
+            expected_etag,  # for "com.github.autopkg.etag"
+            expected_error,  # for "com.github.autopkg.last-modified"
+        ]
+
+        with pytest.raises(OSError) as exc_info:  # noqa: PT011
+            await Recipe._get_metadata_for_item(test_file_path_str)
+
+        assert exc_info.type is OSError
+        assert exc_info.value.errno == expected_error.errno
+        mock_get_file_size.assert_called_once_with(test_file_path)
+        mock_get_file_metadata.assert_any_call(
+            test_file_path, "com.github.autopkg.etag"
+        )
+        mock_get_file_metadata.assert_any_call(
+            test_file_path, "com.github.autopkg.last-modified"
+        )
