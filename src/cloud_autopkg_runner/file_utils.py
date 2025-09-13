@@ -120,7 +120,7 @@ async def create_placeholder_files(recipe_list: Iterable[str]) -> None:
                 )
                 continue
 
-            file_path = Path(the_cache.get("file_path", ""))
+            file_path = Path(the_cache.get("file_path", "")).expanduser()
             if file_path.exists():
                 logger.info("Skipping file creation: %s already exists.", file_path)
                 continue
@@ -136,7 +136,7 @@ async def create_placeholder_files(recipe_list: Iterable[str]) -> None:
     logger.debug("Placeholder files created.")
 
 
-async def get_file_metadata(file_path: Path, attr: str) -> str:
+async def get_file_metadata(file_path: Path, attr: str) -> str | None:
     """Get extended file metadata.
 
     Args:
@@ -144,16 +144,23 @@ async def get_file_metadata(file_path: Path, attr: str) -> str:
         attr: the attribute of the extended metadata.
 
     Returns:
-        The decoded string representation of the extended attribute metadata.
+        The decoded string representation of the extended attribute metadata,
+        or None if the attribute doesn't exist.
     """
-    return await asyncio.to_thread(
-        lambda: cast(
-            "bytes",
-            xattr.getxattr(  # pyright: ignore[reportUnknownMemberType]
-                file_path, attr
-            ),
-        ).decode()
-    )
+    try:
+        return await asyncio.to_thread(
+            lambda: cast(
+                "bytes",
+                xattr.getxattr(  # pyright: ignore[reportUnknownMemberType]
+                    file_path, attr
+                ),
+            ).decode()
+        )
+    except OSError as e:
+        # errno.ENOATTR (93) means the attribute name is invalid
+        if e.errno == 93:  # noqa: PLR2004
+            return None
+        raise
 
 
 async def get_file_size(file_path: Path) -> int:

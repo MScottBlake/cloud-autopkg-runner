@@ -498,27 +498,31 @@ class Recipe:
             file size (`int` or `None`), last modified date (`str` or `None`),
             and the original file path (`str`) of the downloaded item.
         """
-        downloaded_item_path: Path = Path(downloaded_item)
+        downloaded_item_path: Path = Path(downloaded_item).expanduser()
 
+        file_size_task = file_utils.get_file_size(downloaded_item_path)
         etag_task = file_utils.get_file_metadata(
             downloaded_item_path, "com.github.autopkg.etag"
         )
-        file_size_task = file_utils.get_file_size(downloaded_item_path)
         last_modified_task = file_utils.get_file_metadata(
             downloaded_item_path, "com.github.autopkg.last-modified"
         )
 
         # Run the tasks concurrently and await all of them to finish
-        etag, file_size, last_modified = await asyncio.gather(
-            etag_task, file_size_task, last_modified_task
+        file_size, etag, last_modified = await asyncio.gather(
+            file_size_task, etag_task, last_modified_task
         )
 
-        return {
-            "etag": etag,
-            "file_size": file_size,
-            "last_modified": last_modified,
+        output: DownloadMetadata = {
             "file_path": downloaded_item,
+            "file_size": file_size,
         }
+        if etag is not None:
+            output["etag"] = etag
+        if last_modified is not None:
+            output["last_modified"] = last_modified
+
+        return output
 
     def compile_report(self) -> ConsolidatedReport:
         """Compiles a consolidated report from the recipe report file.

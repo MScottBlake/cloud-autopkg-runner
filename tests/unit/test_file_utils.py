@@ -1,5 +1,6 @@
 """Tests for the file_utils module."""
 
+import errno
 import json
 from pathlib import Path
 from typing import Any
@@ -127,6 +128,42 @@ async def test_get_file_metadata(tmp_path: Path, mock_xattr: Any) -> None:
 
     mock_xattr.getxattr.assert_called_with(file_path, "test_attr")
     assert result == "test_value"
+
+
+@pytest.mark.asyncio
+async def test_get_file_metadata_invalid_attr(tmp_path: Path) -> None:
+    """Test getting file metadata."""
+    file_path = tmp_path / "test_file.txt"
+    file_path.touch()
+
+    result = await file_utils.get_file_metadata(file_path, "non_existant_attr")
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_file_metadata_raises_other_oserror(
+    tmp_path: Path, mock_xattr: Any
+) -> None:
+    """Test that get_file_metadata re-raises OSErrors other than ENOATTR.
+
+    This test uses `unittest.mock.patch` to simulate `xattr.getxattr`
+    raising an `OSError` with `errno.EIO` (Input/output error),
+    which should not be caught and silenced by `get_file_metadata`.
+    It then asserts that `pytest.raises` catches this re-raised `OSError`.
+    """
+    mock_attr = "some.attribute"
+    expected_errno = errno.EIO
+    expected_os_error_message = "Input/output error"
+    mock_xattr.getxattr.side_effect = OSError(expected_errno, expected_os_error_message)
+
+    # Use pytest.raises to assert that OSError is re-raised
+    with pytest.raises(OSError) as exc_info:  # noqa: PT011
+        await file_utils.get_file_metadata(tmp_path, mock_attr)
+
+    assert exc_info.type is OSError
+    assert exc_info.value.errno == expected_errno
+    assert expected_os_error_message in str(exc_info.value)
 
 
 @pytest.mark.asyncio
