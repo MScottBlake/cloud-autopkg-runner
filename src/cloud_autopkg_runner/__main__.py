@@ -68,6 +68,9 @@ def _apply_args_to_settings(args: Namespace) -> None:
     settings.cache_plugin = args.cache_plugin
     settings.cache_file = args.cache_file
 
+    settings.pre_processors = args.pre_processor
+    settings.post_processors = args.post_processor
+
     # Plugin-specific arguments
     if settings.cache_plugin == "azure":
         settings.azure_account_url = args.azure_account_url

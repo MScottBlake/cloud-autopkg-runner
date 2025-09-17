@@ -48,6 +48,8 @@ def test_apply_args_to_settings(tmp_path: Path) -> None:
         max_concurrency=5,
         report_dir=tmp_path / "test_reports",
         verbose=2,
+        pre_processor="com.example.identifier/preProcessorName",
+        post_processor="com.example.identifier/postProcessorName",
     )
 
     _apply_args_to_settings(args)
@@ -60,6 +62,8 @@ def test_apply_args_to_settings(tmp_path: Path) -> None:
     assert settings.max_concurrency == 5
     assert settings.report_dir == tmp_path / "test_reports"
     assert settings.verbosity_level == 2
+    assert settings.pre_processors == ["com.example.identifier/preProcessorName"]
+    assert settings.post_processors == ["com.example.identifier/postProcessorName"]
 
 
 def test_generate_recipe_list_from_json(tmp_path: Path) -> None:
