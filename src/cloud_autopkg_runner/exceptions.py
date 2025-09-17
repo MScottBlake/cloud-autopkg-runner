@@ -104,7 +104,7 @@ class PreferenceFileNotFoundError(AutoPkgRunnerException):
         Args:
             file_path: The path to the preferences file that was not found.
         """
-        super().__init__(f"Plist file not found: {file_path}")
+        super().__init__(f"Preference file not found: {file_path}")
 
 
 class PreferenceKeyNotFoundError(AutoPkgRunnerException):
