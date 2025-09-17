@@ -319,6 +319,7 @@ class Recipe:
             "/usr/local/bin/autopkg",
             "run",
             self.name,
+            "--quiet",
             f"--report-plist={self._result.file_path()}",
             f"--prefs={prefs_file_path}",
         ]
