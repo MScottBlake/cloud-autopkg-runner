@@ -2,9 +2,10 @@
 
 import errno
 import json
+import sys
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -142,28 +143,62 @@ async def test_get_file_metadata_invalid_attr(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_file_metadata_raises_other_oserror(
-    tmp_path: Path, mock_xattr: Any
+@pytest.mark.parametrize(
+    ("platform", "errno_to_simulate", "expected_result_is_none"),
+    [
+        # --- Cases where None should be returned ---
+        ("darwin", errno.ENOATTR, True),
+        ("linux", errno.ENODATA, True),
+        ("win32", errno.ENODATA, True),
+        ("darwin", errno.ENODATA, True),
+        # --- Cases where OSError should be re-raised ---
+        ("linux", errno.ENOATTR, False),
+        ("win32", errno.ENOATTR, False),
+        ("darwin", errno.EIO, False),
+        ("linux", errno.EIO, False),
+    ],
+)
+async def test_get_file_metadata_errno_behavior(
+    tmp_path: Path,
+    mock_xattr: MagicMock,
+    platform: str,
+    errno_to_simulate: int,
+    expected_result_is_none: bool,
 ) -> None:
-    """Test that get_file_metadata re-raises OSErrors other than ENOATTR.
+    """Test get_file_metadata's platform-specific errno handling.
 
-    This test uses `unittest.mock.patch` to simulate `xattr.getxattr`
-    raising an `OSError` with `errno.EIO` (Input/output error),
-    which should not be caught and silenced by `get_file_metadata`.
-    It then asserts that `pytest.raises` catches this re-raised `OSError`.
+    This test uses parametrization to cover:
+    - Returning None for specific 'attribute not found' errors.
+    - Re-raising OSErrors for other errno codes.
+    - Simulating different platforms using `sys.platform`.
     """
-    mock_attr = "some.attribute"
-    expected_errno = errno.EIO
-    expected_os_error_message = "Input/output error"
-    mock_xattr.getxattr.side_effect = OSError(expected_errno, expected_os_error_message)
+    mock_file_path = tmp_path / "testfile.txt"
+    mock_attr = "com.github.autopkg.etag"
 
-    # Use pytest.raises to assert that OSError is re-raised
-    with pytest.raises(OSError) as exc_info:  # noqa: PT011
-        await file_utils.get_file_metadata(tmp_path, mock_attr)
+    # Set up the mock to raise the specified OSError
+    mock_xattr.getxattr.side_effect = OSError(
+        errno_to_simulate, f"Simulated error for errno {errno_to_simulate}"
+    )
 
-    assert exc_info.type is OSError
-    assert exc_info.value.errno == expected_errno
-    assert expected_os_error_message in str(exc_info.value)
+    with patch.object(sys, "platform", new=platform):
+        if expected_result_is_none:
+            result = await file_utils.get_file_metadata(mock_file_path, mock_attr)
+            assert result is None, (
+                f"Expected None for errno {errno_to_simulate} on {platform}, "
+                f"but got {result}"
+            )
+        else:
+            with pytest.raises(OSError) as exc_info:  # noqa: PT011
+                await file_utils.get_file_metadata(mock_file_path, mock_attr)
+            assert exc_info.type is OSError
+            assert exc_info.value.errno == errno_to_simulate, (
+                f"Expected OSError with errno {errno_to_simulate} on {platform}, "
+                f"but got {exc_info.value.errno}"
+            )
+
+        # Assert that xattr.getxattr was called as expected in all cases
+        mock_xattr.getxattr.assert_called_once_with(mock_file_path, mock_attr)
+        mock_xattr.getxattr.reset_mock()  # Reset for the next parameter iteration
 
 
 @pytest.mark.asyncio
