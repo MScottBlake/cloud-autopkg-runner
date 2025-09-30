@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      changed: ${{ steps.bump.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,6 +58,7 @@ jobs:
     name: 🧷 Prepare Locked Dependencies
     runs-on: ubuntu-latest
     needs: [version-check]
+    if: needs.version-check.outputs.changed == 'false'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
