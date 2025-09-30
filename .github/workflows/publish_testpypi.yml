@@ -18,12 +18,30 @@ jobs:
       url: https://test.pypi.org/p/cloud-autopkg-runner
     permissions:
       id-token: write
+      contents: write
+      pull-requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
+
+      - name: Bump Version if needed
+        run: |
+          VERSION=$(uv version --short)
+          if curl -s https://test.pypi.org/pypi/cloud-autopkg-runner/json | jq -e ".releases.\"${VERSION}\"" > /dev/null; then
+            uv version --bump patch
+
+            git config user.name 'github-actions[bot]'
+            git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+            git add pyproject.toml uv.lock
+            git commit -m "Chore: Bump version"
+            git push
+          fi
 
       - name: Build
         run: uv build
@@ -43,7 +61,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
 
       - name: Install
         run: uv run --with cloud-autopkg-runner --extra-index-url https://test.pypi.org/simple/ --index-strategy unsafe-best-match --no-project -- python -c "import cloud_autopkg_runner"
