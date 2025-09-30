@@ -46,7 +46,8 @@ jobs:
         run: |
           git add pyproject.toml uv.lock
           if ! git diff --cached --quiet; then
-            git commit -m "Chore: Bump version"
+            NEW_VERSION=$(uv version --short)
+            git commit -m "Bump version to ${NEW_VERSION}"
             git push
           fi
 
