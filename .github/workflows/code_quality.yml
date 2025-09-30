@@ -40,12 +40,17 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Debug bump output
+        run: echo "changed = ${{ steps.bump.outputs.changed }}"
+
       - name: Commit and Push Changes
         if: steps.bump.outputs.changed == 'true'
         run: |
           git add pyproject.toml uv.lock
-          git commit -m "Chore: Bump version"
-          git push
+          if ! git diff --cached --quiet; then
+            git commit -m "Chore: Bump version"
+            git push
+          fi
 
   lock-file:
     name: 🧷 Prepare Locked Dependencies
