@@ -11,9 +11,46 @@ permissions:
   contents: read
 
 jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Bump Version if needed
+        id: bump
+        run: |
+          VERSION=$(uv version --short)
+          if curl -s https://test.pypi.org/pypi/cloud-autopkg-runner/json | jq -e ".releases.\"${VERSION}\"" > /dev/null; then
+            uv version --bump patch
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and Push Changes
+        if: steps.bump.outputs.changed == 'true'
+        run: |
+          git add pyproject.toml uv.lock
+          git commit -m "Chore: Bump version"
+          git push
+
   lock-file:
     name: 🧷 Prepare Locked Dependencies
     runs-on: ubuntu-latest
+    needs: [version-check]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
