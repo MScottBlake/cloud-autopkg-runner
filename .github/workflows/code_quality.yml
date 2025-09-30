@@ -6,68 +6,110 @@ on:
       - opened
       - synchronize
       - reopened
+      - edited
 
 permissions:
   contents: read
 
 jobs:
-  lock_file:
+  version-check:
+    name: 🫆 Check Version for Conflicts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      changed: ${{ steps.bump.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.PAT_CLOUD_AUTOPKG_RUNNER }}
+
+      - name: Configure Git
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Bump Version if needed
+        id: bump
+        run: |
+          VERSION=$(uv version --short)
+          if curl -s https://test.pypi.org/pypi/cloud-autopkg-runner/json | jq -e ".releases.\"${VERSION}\"" > /dev/null; then
+            uv version --bump patch
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and Push Changes
+        if: steps.bump.outputs.changed == 'true'
+        run: |
+          git add pyproject.toml uv.lock
+          if ! git diff --cached --quiet; then
+            NEW_VERSION=$(uv version --short)
+            git commit -m "Bump version to ${NEW_VERSION}"
+            git push
+          fi
+
+  lock-file:
     name: 🧷 Prepare Locked Dependencies
     runs-on: ubuntu-latest
+    needs: [version-check]
+    if: needs.version-check.outputs.changed == 'false'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
 
       - run: uv lock --locked
 
-
   linting:
     name: 🔍 Lint Code with Ruff
     runs-on: ubuntu-latest
-    needs: [lock_file]
+    needs: [lock-file]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
 
       - run: uv run --all-extras ruff check .
 
-
   formatting:
     name: 🧹 Check Code Formatting
     runs-on: ubuntu-latest
-    needs: [lock_file]
+    needs: [lock-file]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
 
       - run: uv run --all-extras ruff format --check .
 
-
-  type_consistency:
+  type-consistency:
     name: 🧠 Check Type Consistency
     runs-on: ubuntu-latest
-    needs: [lock_file]
+    needs: [lock-file]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
 
@@ -76,11 +118,23 @@ jobs:
 
       - run: uv run --all-extras pyright .
 
+  inclusive-language:
+    name: 🔤 Inclusive Language Check
+    runs-on: ubuntu-latest
+    needs: [lock-file]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  unit_tests:
+      - name: Run Inclusive Language Check
+        uses: get-woke/woke-action@v0
+        with:
+          fail-on-error: true
+
+  unit-tests:
     name: 🧪 Unit Tests on ${{ matrix.os }} / Python ${{ matrix.python-version }}${{ matrix.experimental && ' (Experimental)' || '' }}
     runs-on: macos-latest
-    needs: [lock_file]
+    needs: [lock-file]
     permissions:
       contents: read
       statuses: write
@@ -105,7 +159,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
 
@@ -124,16 +178,224 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
 
-
-  inclusive_language:
-    name: 🔤 Inclusive Language Check
+  s3-integration-tests:
+    name: "🧪 Integration Test: S3 Emulator (Python ${{ matrix.python-version }})"
     runs-on: ubuntu-latest
-    needs: [lock_file]
+    needs: [lock-file, unit-tests]
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false # Allows all matrix jobs to run even if one fails
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          - cloud_provider: s3
+            install_extras: s3
+            test_path: tests/integration/test_s3.py
+
+    services:
+      localstack:
+        image: localstack/localstack:latest
+        env:
+          SERVICES: s3
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+          EAGER_SERVICE_LOADING: "1"
+          ENDPOINT_PROTO: https
+          LOCALSTACK_SSL: "1"
+          LS_LOG: warn
+          SKIP_INFRA_DOWNLOADS: "1"
+        ports:
+          - 4566:4566
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run Inclusive Language Check
-        uses: get-woke/woke-action@v0
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          fail-on-error: true
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Wait for LocalStack to be ready
+        run: |
+          for i in {1..20}; do
+            if curl -sk https://localhost:4566/_localstack/health \
+              | grep '"s3": "running"' > /dev/null; then
+              echo "LocalStack S3 ready!"
+              exit 0
+            fi
+            echo "Waiting for LocalStack S3..."
+            sleep 1
+          done
+          echo "LocalStack failed to start in time" >&2
+          exit 1
+
+      - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
+        env:
+          AWS_ENDPOINT_URL: https://localhost:4566
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+        run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
+
+  azure-integration-tests:
+    name: "🧪 Integration Test: Azure Emulator (Python ${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    needs: [lock-file, unit-tests]
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false # Allows all matrix jobs to run even if one fails
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          - cloud_provider: azure
+            install_extras: azure
+            test_path: tests/integration/test_azure.py
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Download mkcert
+        run: |
+          curl -Ls "https://dl.filippo.io/mkcert/latest?for=linux/amd64" -o mkcert
+          chmod +x mkcert
+          sudo mv mkcert /usr/local/bin/
+
+      - name: Create local CA
+        run: mkcert -install
+
+      - name: Generate HTTPS cert for Azurite
+        run: mkcert 127.0.0.1
+
+      - name: Install Azurite
+        run: npm install -g azurite
+
+      - name: Start Azurite
+        run: |
+          azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem --silent &
+
+      - name: Wait for Azurite to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -ks https://127.0.0.1:10000/devstoreaccount1; then
+              echo "Azurite is ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
+        env:
+          AZURE_ACCOUNT_URL: https://127.0.0.1:10000/devstoreaccount1
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
+
+  gcs-integration-tests:
+    name: "🧪 Integration Test: GCS Emulator (Python ${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    needs: [lock-file, unit-tests]
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false # Allows all matrix jobs to run even if one fails
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          - cloud_provider: gcs
+            install_extras: gcs
+            test_path: tests/integration/test_gcs.py
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Start Fake GCS Server
+        uses: fsouza/fake-gcs-action@v0.4.1
+        with:
+          backend: memory
+          external-url: http://127.0.0.1:4443
+          scheme: http
+
+      - name: Wait for Fake GCS Server to be ready
+        run: |
+          for i in {1..20}; do
+            if curl -s http://127.0.0.1:4443/storage/v1/b >/dev/null; then
+              echo "Fake GCS Server is up!"
+              exit 0
+            fi
+            echo "Waiting for Fake GCS Server..."
+            sleep 1
+          done
+          echo "Fake GCS Server failed to start" >&2
+          exit 1
+
+      - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
+        env:
+          STORAGE_EMULATOR_HOST: http://127.0.0.1:4443
+          GOOGLE_CLOUD_PROJECT: cloud-autopkg-runner
+        run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
+
+  publish-to-testpypi:
+    name: Publish to TestPyPI
+    runs-on: ubuntu-latest
+    needs:
+      [
+        lock-file,
+        linting,
+        formatting,
+        type-consistency,
+        inclusive-language,
+        unit-tests,
+        s3-integration-tests,
+        azure-integration-tests,
+        gcs-integration-tests,
+      ]
+    if: github.base_ref == 'main'
+    environment:
+      name: TestPyPi
+      url: https://test.pypi.org/p/cloud-autopkg-runner
+    permissions:
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Build
+        run: uv build
+
+      - name: Publish
+        run: uv publish --index testpypi --trusted-publishing always
+
+  install-library-from-testpypi:
+    name: Test Installation from TestPyPI
+    needs: [publish-to-testpypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install
+        run: uv run --with cloud-autopkg-runner --extra-index-url https://test.pypi.org/simple/ --index-strategy unsafe-best-match --no-project -- python -c "import cloud_autopkg_runner"
