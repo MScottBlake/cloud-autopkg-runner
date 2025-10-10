@@ -1004,3 +1004,19 @@ def test_clone(tmp_path: Path) -> None:
 
     assert original_prefs.get("foo2") == "original"
     assert cloned_prefs.get("foo2") == "cloned"
+
+
+@pytest.mark.asyncio
+async def test_clone_tmp_file_none() -> None:
+    """Test cloning an instance with no preferences."""
+    with patch(
+        "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+        return_value={},
+    ):
+        original_prefs = AutoPkgPrefs()
+
+        await original_prefs.to_json_file()
+        assert original_prefs._temp_json_file_path is not None
+
+        cloned_prefs = original_prefs.clone()
+        assert cloned_prefs._temp_json_file_path is None
