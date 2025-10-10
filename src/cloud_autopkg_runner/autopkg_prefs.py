@@ -26,7 +26,7 @@ import plistlib
 import tempfile
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Self
+from typing import Any
 
 from cloud_autopkg_runner import logging_config
 from cloud_autopkg_runner.exceptions import (
@@ -131,7 +131,7 @@ class AutoPkgPrefs:
         }
         return f"{self.__class__.__name__}({prefs_preview})"
 
-    def __deepcopy__(self, memo: dict[int, Self]) -> Self:
+    def __deepcopy__(self, memo: dict[int, "AutoPkgPrefs"]) -> "AutoPkgPrefs":
         """Create a deep copy of an `AutoPkgPrefs` instance.
 
         This method customizes the deep copy behavior to ensure that the
