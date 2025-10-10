@@ -26,7 +26,7 @@ import plistlib
 import tempfile
 from pathlib import Path
 from types import TracebackType
-from typing import Any
+from typing import Any, Self
 
 from cloud_autopkg_runner import logging_config
 from cloud_autopkg_runner.exceptions import (
@@ -130,6 +130,37 @@ class AutoPkgPrefs:
             for k, v in self._prefs.items()
         }
         return f"{self.__class__.__name__}({prefs_preview})"
+
+    def __deepcopy__(self, memo: dict[int, Self]) -> Self:
+        """Create a deep copy of an `AutoPkgPrefs` instance.
+
+        This method customizes the deep copy behavior to ensure that the
+        `_temp_json_file_path` attribute is set to `None` in the copied object,
+        preventing issues with concurrency. All other attributes are deep copied
+        as usual.
+
+        Args:
+            memo: A dictionary of objects already copied during the current
+                deep copy operation. This is used to prevent infinite recursion
+                for circularly referenced objects.
+
+        Returns:
+            A new `AutoPkgPrefs` instance that is a deep copy of the original,
+            with `_temp_json_file_path` set to `None`.
+        """
+        cls = self.__class__
+        obj = cls.__new__(cls)
+        memo[id(self)] = obj  # Register the new object in the memo
+
+        # Copy all attributes except `_temp_json_file_path`
+        for k, v in self.__dict__.items():
+            if k != "_temp_json_file_path":
+                setattr(obj, k, copy.deepcopy(v, memo))
+            else:
+                # _temp_json_file_path = None
+                setattr(obj, k, None)
+
+        return obj
 
     @staticmethod
     def _get_default_preferences() -> dict[str, Any]:
