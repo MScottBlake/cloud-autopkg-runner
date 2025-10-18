@@ -446,29 +446,35 @@ class GitClient:
         self._logger.info("Pulling changes in %s...", self.repo_path)
         await self._run_git_cmd(cmd, cwd=self.repo_path, timeout=timeout)
 
-    async def push(
+    async def push(  # noqa: PLR0913
         self,
         remote: str | None = None,
         branch: str | None = None,
         *,
         force: bool = False,
         set_upstream: bool = False,
+        push_options: list[str] | None = None,
         timeout: int | None = None,
     ) -> None:
-        """Updates remote refs along with associated objects.
+        """Pushes local commits to a remote repository.
 
-        Corresponds to `git push [remote] [branch]`.
+        This corresponds to the `git push [remote] [branch]` command.
 
         Args:
-            remote: The remote repository to push to.
-            branch: The local branch to push. If `None`, pushes the current branch.
-            force: If `True`, forces the push, potentially overwriting remote history
-                   (uses `--force`). Use with caution!
-            set_upstream: If `True`, adds `--set-upstream` to track the remote branch.
-            timeout: Optional timeout for the operation.
+            remote: Name or URL of the remote repository. If not provided,
+                uses the default remote.
+            branch: Name of the local branch to push. If not provided,
+                pushes the current branch.
+            force: Whether to force-push (`--force`), potentially overwriting
+                remote history. **Use with caution.**
+            set_upstream: Whether to set the upstream tracking reference
+                (`--set-upstream`).
+            push_options: Additional options to include in the push command
+                (e.g., `['ci.skip']`).
+            timeout: Optional timeout in seconds for the push operation.
 
         Raises:
-            GitError: If pushing fails.
+            GitError: If the push operation fails or times out.
         """
         await self._check_is_git_repo(self.repo_path)
 
@@ -477,6 +483,7 @@ class GitClient:
             cmd.append("--force")
         if set_upstream:
             cmd.append("--set-upstream")
+        cmd.extend([f"--push-option={opt}" for opt in (push_options or [])])
         if remote:
             cmd.append(remote)
         if branch:
