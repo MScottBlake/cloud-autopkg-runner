@@ -6,6 +6,7 @@ and managing worktrees. It leverages the `shell` module for non-blocking
 command execution and includes comprehensive error handling.
 """
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from cloud_autopkg_runner import logging_config, shell
@@ -51,7 +52,7 @@ class GitClient:
 
     async def _run_git_cmd(
         self,
-        subcommand: list[str],
+        subcommand: Sequence[str],
         *,
         cwd: str | Path | None = None,
         check: bool = True,
@@ -157,7 +158,7 @@ class GitClient:
 
     async def add(
         self,
-        paths: str | list[str],
+        paths: str | Sequence[str],
         *,
         force: bool = False,
         update: bool = False,
@@ -453,7 +454,7 @@ class GitClient:
         *,
         force: bool = False,
         set_upstream: bool = False,
-        push_options: list[str] | None = None,
+        push_options: Sequence[str] | None = None,
         timeout: int | None = None,
     ) -> None:
         """Pushes local commits to a remote repository.
@@ -658,7 +659,7 @@ class GitClient:
         *,
         force: bool = False,
         detach: bool = False,
-        checkout_options: list[str] | None = None,
+        checkout_options: Sequence[str] | None = None,
         timeout: int | None = None,
     ) -> Path:
         """Adds a new Git worktree.
