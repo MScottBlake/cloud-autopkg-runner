@@ -143,8 +143,16 @@ class AsyncSQLiteCache:
             self._logger.exception("Error saving metadata to %s", self._db_path)
 
     async def close(self) -> None:
-        """Close the database connection."""
+        """Save cached data and close the database connection.
+
+        Ensures that any unsaved cache data is written to the SQLite database
+        before closing the connection. The close operation is executed in a
+        thread pool to avoid blocking the event loop.
+
+        If the connection has not been initialized, this method does nothing.
+        """
         if hasattr(self, "_conn"):
+            await self.save()
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, self._conn.close)
             del self._conn

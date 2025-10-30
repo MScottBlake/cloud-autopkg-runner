@@ -131,12 +131,14 @@ class AsyncJsonFileCache:
                 self._logger.exception("Error saving metadata to %s", self._file_path)
 
     async def close(self) -> None:
-        """Placeholder method for closing the cache.
+        """Save cached data to disk.
 
-        In this implementation, the `close` method is a placeholder and does not
-        perform any actual operations. It is included to satisfy the
-        `MetadataCachePlugin` interface.
+        Ensures that any unsaved cache data is written to the local JSON file.
+        This implementation does not close any active resources, but provides
+        a consistent interface with other cache backends that may require
+        cleanup operations.
         """
+        await self.save()
 
     async def clear_cache(self) -> None:
         """Clear all data from the cache."""

@@ -168,11 +168,16 @@ class AsyncS3Cache:
                 )
 
     async def close(self) -> None:
-        """Close the connection to S3.
+        """Save cached data and close the S3 connection.
 
-        This method closes the session and any resources associated with the connection.
+        Ensures that any unsaved cache data is written to S3 before closing
+        the client session. This method also releases all associated resources
+        to prevent leaks.
+
+        If the client has not been initialized, this method does nothing.
         """
         if hasattr(self, "_client"):
+            await self.save()
             await self._client.close()
             del self._client
 
