@@ -12,6 +12,7 @@ to avoid unnecessary downloads.
 """
 
 from importlib.metadata import entry_points
+from types import TracebackType
 from typing import Protocol, TypeAlias, TypedDict, runtime_checkable
 
 from cloud_autopkg_runner import Settings, logging_config
@@ -138,6 +139,39 @@ class MetadataCachePlugin(Protocol):
 
         Args:
             recipe_name: The name of the recipe to delete from the cache.
+        """
+        ...
+
+    async def __aenter__(self) -> MetadataCache:
+        """Enter the asynchronous context manager for the metadata cache.
+
+        This method is automatically called when entering an `async with` block
+        that manages the metadata cache plugin. Implementations should ensure that
+        any necessary setup (such as establishing a connection or loading cached
+        data) is performed before returning control to the caller.
+
+        Returns:
+            The metadata cache loaded from the underlying storage.
+        """
+        ...
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        """Exit the asynchronous context manager for the metadata cache.
+
+        This method is automatically called when leaving an `async with` block
+        that manages the metadata cache plugin. Implementations should ensure that
+        any resources are released, pending changes are saved, and connections are
+        properly closed — even in the event of an exception.
+
+        Args:
+            exc_type: The type of exception raised within the context, if any.
+            exc_val: The exception instance raised within the context, if any.
+            exc_tb: The traceback associated with the exception, if any.
         """
         ...
 
