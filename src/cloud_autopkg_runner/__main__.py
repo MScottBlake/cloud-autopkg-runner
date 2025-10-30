@@ -303,24 +303,26 @@ async def _process_recipe_list(
     logger.debug("Processing recipes...")
     settings = Settings()
 
-    # Create Recipe objects concurrently
-    recipes: list[Recipe] = [
-        recipe
-        for recipe in await asyncio.gather(
-            *[_create_recipe(recipe_name, autopkg_prefs) for recipe_name in recipe_list]
+    async with metadata_cache.get_cache_plugin():
+        # Create Recipe objects concurrently
+        recipes: list[Recipe] = [
+            recipe
+            for recipe in await asyncio.gather(
+                *[
+                    _create_recipe(recipe_name, autopkg_prefs)
+                    for recipe_name in recipe_list
+                ]
+            )
+            if recipe is not None
+        ]
+
+        # Create a semaphore to limit concurrent tasks
+        semaphore = asyncio.Semaphore(settings.max_concurrency)
+
+        # Run recipes concurrently
+        results = await asyncio.gather(
+            *[_run_recipe(recipe, semaphore) for recipe in recipes]
         )
-        if recipe is not None
-    ]
-
-    # Create a semaphore to limit concurrent tasks
-    semaphore = asyncio.Semaphore(settings.max_concurrency)
-
-    # Run recipes concurrently
-    results = await asyncio.gather(
-        *[_run_recipe(recipe, semaphore) for recipe in recipes]
-    )
-
-    await metadata_cache.get_cache_plugin().save()
 
     return dict(results)
 
