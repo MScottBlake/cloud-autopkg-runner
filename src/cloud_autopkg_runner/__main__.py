@@ -27,6 +27,7 @@ import signal
 import sys
 from argparse import ArgumentParser, Namespace
 from collections.abc import Iterable
+from importlib.metadata import metadata
 from pathlib import Path
 from types import FrameType
 from typing import NoReturn
@@ -185,7 +186,19 @@ def _parse_arguments() -> Namespace:
     Returns:
         A `Namespace` object containing the parsed command-line arguments.
     """
-    parser = ArgumentParser()
+    project_metadata = metadata("cloud-autopkg-runner")
+
+    parser = ArgumentParser(
+        prog=project_metadata["Name"],
+        description=project_metadata["Summary"],
+    )
+
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {project_metadata['Version']}",
+    )
+
     parser.add_argument(
         "-v",
         "--verbose",
