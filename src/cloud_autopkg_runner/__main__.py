@@ -193,45 +193,57 @@ def _parse_arguments() -> Namespace:
         description=project_metadata["Summary"],
     )
 
+    # Standard Flags
     parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {project_metadata['Version']}",
     )
 
-    parser.add_argument(
+    # General / Logging
+    general = parser.add_argument_group("General Options")
+    general.add_argument(
         "-v",
         "--verbose",
         action="count",
         default=0,
         help="Verbosity level. Can be specified multiple times. (-vvv)",
     )
-    parser.add_argument(
+    general.add_argument(
+        "--log-file",
+        help="Path to the log file. If not specified, no file logging will occur.",
+        type=Path,
+    )
+    general.add_argument(
+        "--report-dir",
+        help="Path to the directory used for storing AutoPkg recipe reports.",
+        default="",
+        type=Path,
+    )
+    general.add_argument(
+        "--max-concurrency",
+        help="Limit the number of concurrent tasks.",
+        default=10,
+        type=int,
+    )
+
+    # Recipe Selection
+    recipes = parser.add_argument_group("Recipe Selection")
+    recipes.add_argument(
         "-r",
         "--recipe",
         action="append",
         help="A recipe name. Can be specified multiple times.",
     )
-    parser.add_argument(
+    recipes.add_argument(
         "--recipe-list",
         help="Path to a list of recipe names in JSON format.",
         type=Path,
     )
-    parser.add_argument(
-        "--log-file",
-        help="Path to the log file. If not specified, no file logging will occur.",
-        type=Path,
-    )
-    parser.add_argument(
-        "--post-processor",
-        action="append",
-        help=(
-            "Specify a post-processor to run after the main AutoPkg recipe."
-            "Can be specified multiple times."
-        ),
-        type=str,
-    )
-    parser.add_argument(
+
+    # Processors
+    processors = parser.add_argument_group("Pre/Post Processors")
+    processors.add_argument(
         "--pre-processor",
         action="append",
         help=(
@@ -240,48 +252,45 @@ def _parse_arguments() -> Namespace:
         ),
         type=str,
     )
-    parser.add_argument(
-        "--report-dir",
-        help="Path to the directory used for storing AutoPkg recipe reports.",
-        default="",
-        type=Path,
-    )
-    parser.add_argument(
-        "--max-concurrency",
-        help="Limit the number of concurrent tasks.",
-        default=10,
-        type=int,
+    processors.add_argument(
+        "--post-processor",
+        action="append",
+        help=(
+            "Specify a post-processor to run after the main AutoPkg recipe."
+            "Can be specified multiple times."
+        ),
+        type=str,
     )
 
-    # Plugin-specific arguments
-
-    parser.add_argument(
+    # Cache Options
+    cache = parser.add_argument_group("Cache Options")
+    cache.add_argument(
         "--cache-plugin",
         # Use the entry point names
         choices=["azure", "gcs", "json", "s3", "sqlite"],
-        help="The cache plugin to use (azure, gcs, json, s3, and sqlite).",
+        help="The cache plugin to use.",
         type=str,
     )
-    parser.add_argument(
+    cache.add_argument(
         "--cache-file",
         default="metadata_cache.json",
         help="Path to the file that stores the download metadata cache.",
         type=str,
     )
-    parser.add_argument(
+    cache.add_argument(
+        "--cloud-container-name",
+        help="Bucket/Container name for cloud plugins (azure, gcs, s3).",
+        type=str,
+    )
+    cache.add_argument(
         "--azure-account-url",
         help="Azure account URL",
         type=str,
     )
-    parser.add_argument(
-        "--cloud-container-name",
-        help="Bucket/Container name",
-        type=str,
-    )
 
-    # AutoPkg-specific Preferences
-
-    parser.add_argument(
+    # AutoPkg
+    autopkg = parser.add_argument_group("AutoPkg Preferences")
+    autopkg.add_argument(
         "--autopkg-pref-file",
         default=Path("~/Library/Preferences/com.github.autopkg.plist").expanduser(),
         help="Path to the AutoPkg preferences file.",
