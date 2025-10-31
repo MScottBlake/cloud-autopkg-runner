@@ -154,8 +154,19 @@ class AsyncAzureBlobCache:
                 )
 
     async def close(self) -> None:
-        """Close the connection to Azure Blob Storage."""
+        """Save cached data and close the Azure Blob Storage connection.
+
+        Ensures that any unsaved cache data is written to Azure Blob Storage
+        before closing all active Azure clients and credentials. This includes
+        the container client, blob service client, and credential objects.
+
+        Each resource is closed asynchronously to ensure proper cleanup and
+        to prevent resource leaks.
+
+        If any of these clients have not been initialized, they are skipped.
+        """
         if hasattr(self, "_client"):
+            await self.save()
             await self._client.close()
             del self._client
         if hasattr(self, "_blob_service_client"):

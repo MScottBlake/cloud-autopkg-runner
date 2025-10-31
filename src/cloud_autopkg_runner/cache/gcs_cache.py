@@ -156,8 +156,16 @@ class AsyncGCSCache:
                 )
 
     async def close(self) -> None:
-        """Close the connection to Google Cloud Storage."""
+        """Save cached data and close the Google Cloud Storage client.
+
+        Ensures that any unsaved cache data is written to Google Cloud Storage
+        before closing the client connection. The close operation is executed
+        in a thread pool to prevent blocking the event loop.
+
+        If the client has not been initialized, this method does nothing.
+        """
         if hasattr(self, "_client"):
+            await self.save()
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, self._client.close)
             del self._client
