@@ -666,6 +666,23 @@ class Recipe:
         self._logger.debug("Full run for %s completed.", self.name)
         return self.compile_report()
 
+    async def get_trust_output(self) -> str:
+        """Retrieve the trust verification output.
+
+        This asynchronous method returns the standard error stream captured
+        during the most recent execution of `autopkg verify-trust-info`. If
+        trust information has not yet been verified for this recipe, it
+        automatically invokes `verify_trust_info()` before returning the result.
+
+        Returns:
+            A string containing the standard error output from the most recent
+            trust verification command. If verification has not previously been
+            performed, this value corresponds to the newly executed verification.
+        """
+        if not hasattr(self, "_trust_output"):
+            await self.verify_trust_info()
+        return self._trust_output
+
     async def update_trust_info(self) -> bool:
         """Update trust info for the recipe.
 
@@ -733,7 +750,9 @@ class Recipe:
             if self._settings.verbosity_int() > 0:
                 cmd.append(self._settings.verbosity_str())
 
-            returncode, _stdout, _stderr = await shell.run_cmd(cmd, check=False)
+            returncode, _stdout, stderr = await shell.run_cmd(cmd, check=False)
+
+            self._trust_output = stderr
 
             if returncode == 0:
                 self._logger.info(
