@@ -582,8 +582,9 @@ class Recipe:
         # First, run the check phase to see if there are any updates
         output: ConsolidatedReport = await self.run_check_phase()
 
-        # If the check phase indicates new downloads, process metadata and run full
-        if output["downloaded_items"]:
+        # If the check phase indicates new downloads or built packages, process metadata
+        # and run the full recipe
+        if output["downloaded_items"] or output["pkg_built_items"]:
             self._logger.info(
                 "New downloads detected for %s. Running full recipe.", self.name
             )
