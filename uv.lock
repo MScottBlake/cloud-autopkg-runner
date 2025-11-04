@@ -544,7 +544,7 @@ wheels = [
 
 [[package]]
 name = "cloud-autopkg-runner"
-version = "0.21.4"
+version = "0.21.5"
 source = { editable = "." }
 dependencies = [
     { name = "pyyaml" },
@@ -1133,16 +1133,15 @@ wheels = [
 
 [[package]]
 name = "hypothesis"
-version = "6.142.4"
+version = "6.145.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "attrs" },
     { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
     { name = "sortedcontainers" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/47/0b/76a062d1d6cd68342b460c2f5627e1ad1102a3dd781acd5c096c75aca0d6/hypothesis-6.142.4.tar.gz", hash = "sha256:b3e71a84708994aa910ea47f1483ad892a7c390839959d689b2a2b07ebfd160e", size = 466047, upload-time = "2025-10-25T16:19:03.838Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/83/22/a3aba4f28826ddee2a1f5b0cb6fcc295012794139ea159990dc1e987cfd8/hypothesis-6.145.1.tar.gz", hash = "sha256:4e7610923de7e0c7d5c1bfa84114f2579e06f0e83a4ce9f073ca0c887d222b7e", size = 467743, upload-time = "2025-11-03T21:41:42.788Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3e/9f/8010f93e175ecd996f54df9019ee8c58025fc21ed47658b0a58dd25ebe8b/hypothesis-6.142.4-py3-none-any.whl", hash = "sha256:25eecc73fadecd8b491aed822204cfe4be9c98ff5c1e8e038d181136ffc54b5b", size = 533467, upload-time = "2025-10-25T16:19:00.443Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/e3/d4d9195ace4a407f665622c74635fd28901539b8ee375f31be08613eb94d/hypothesis-6.145.1-py3-none-any.whl", hash = "sha256:8b4c2d93adbacd235153a3ee075012fc870da341b32c3035838963b6241d6281", size = 534763, upload-time = "2025-11-03T21:41:38.695Z" },
 ]
 
 [[package]]
