@@ -333,22 +333,6 @@ wheels = [
 ]
 
 [[package]]
-name = "build"
-version = "1.3.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "colorama", marker = "os_name == 'nt'" },
-    { name = "importlib-metadata", marker = "python_full_version < '3.10.2'" },
-    { name = "packaging" },
-    { name = "pyproject-hooks" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/25/1c/23e33405a7c9eac261dff640926b8b5adaed6a6eb3e1767d441ed611d0c0/build-1.3.0.tar.gz", hash = "sha256:698edd0ea270bde950f53aed21f3a0135672206f3911e0176261a31e0e07b397", size = 48544, upload-time = "2025-08-01T21:27:09.268Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/cb/8c/2b30c12155ad8de0cf641d76a8b396a16d2c36bc6d50b621a62b7c4567c1/build-1.3.0-py3-none-any.whl", hash = "sha256:7145f0b5061ba90a1500d60bd1b13ca0a8a4cebdd0cc16ed8adf1c0e739f43b4", size = 23382, upload-time = "2025-08-01T21:27:07.844Z" },
-]
-
-[[package]]
 name = "cachetools"
 version = "6.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -560,7 +544,7 @@ wheels = [
 
 [[package]]
 name = "cloud-autopkg-runner"
-version = "0.21.3"
+version = "0.21.4"
 source = { editable = "." }
 dependencies = [
     { name = "pyyaml" },
@@ -1180,18 +1164,6 @@ wheels = [
 ]
 
 [[package]]
-name = "importlib-metadata"
-version = "8.7.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "zipp", marker = "python_full_version < '3.13'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/76/66/650a33bd90f786193e4de4b3ad86ea60b53c89b669a5c7be931fac31cdb0/importlib_metadata-8.7.0.tar.gz", hash = "sha256:d13b81ad223b890aa16c5471f2ac3056cf76c5f10f82d6f9292f0b415f389000", size = 56641, upload-time = "2025-04-27T15:29:01.736Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/20/b0/36bd937216ec521246249be3bf9855081de4c5e06a0c9b4219dbeda50373/importlib_metadata-8.7.0-py3-none-any.whl", hash = "sha256:e5dd1551894c77868a30651cef00984d50e1002d06942a7101d34870c5f02afd", size = 27656, upload-time = "2025-04-27T15:29:00.214Z" },
-]
-
-[[package]]
 name = "iniconfig"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1220,20 +1192,19 @@ wheels = [
 
 [[package]]
 name = "localstack"
-version = "4.9.2"
+version = "4.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "localstack-core" },
     { name = "localstack-ext" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/71/22/4eeec394941d84b01f66757213996b38787815bf38268d62f7e7801dd2fd/localstack-4.9.2.tar.gz", hash = "sha256:334a583023b4bc4257635ea4b5087e0b43a99fe6aaf68d8de3d8009de04cf0af", size = 5901, upload-time = "2025-10-06T08:29:47.257Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/90/19/65a26e147647440a4333433307acd9ce6f58e46c5941f816f705c2d152f3/localstack-4.10.0.tar.gz", hash = "sha256:b354f6114ce5852642fcfdcb8c3250eecf8416b50d555a57b9a60e0d7731f9ac", size = 5904, upload-time = "2025-10-30T11:29:43.664Z" }
 
 [[package]]
 name = "localstack-core"
-version = "4.9.2"
+version = "4.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "build" },
     { name = "cachetools" },
     { name = "click" },
     { name = "cryptography" },
@@ -1247,22 +1218,19 @@ dependencies = [
     { name = "requests" },
     { name = "rich" },
     { name = "semver" },
-    { name = "tailer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b6/2a/a5771e0312e153d6308bece0668d2129d9ada9bac1355b6eacf6a0f59ff6/localstack_core-4.9.2.tar.gz", hash = "sha256:7e0ceb25dd5d2c62add216f64badad1b13ae9144af5228361a39a256f3615240", size = 3557769, upload-time = "2025-10-06T08:24:03.688Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/31/0b/0357417267182c77ac813226777a48ea3b35e6749bcf4bac5ce696dec504/localstack_core-4.10.0.tar.gz", hash = "sha256:467794036c9adcf4a5c868c7e69f10e07ea4217fbc337e196032905b9c9177f5", size = 3572725, upload-time = "2025-10-30T11:23:57.867Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/87/64/c1180d287aa3633a4093f93f7a9c7d285990027bd051b72cad4882b31d5b/localstack_core-4.9.2-py3-none-any.whl", hash = "sha256:888b38a7da0ff23dc4048530fa504feef770818c4a64f2a71cd057082055a06f", size = 2632198, upload-time = "2025-10-06T08:24:02.062Z" },
+    { url = "https://files.pythonhosted.org/packages/57/ce/d34a6472557a11080b777bf54b848af64063303e3711d88f9903d30a9ec4/localstack_core-4.10.0-py3-none-any.whl", hash = "sha256:34d8c86cb5f283b946cb74d1334c4aa90422437e880ca4c1d465d1086f1cc530", size = 2647272, upload-time = "2025-10-30T11:23:55.487Z" },
 ]
 
 [[package]]
 name = "localstack-ext"
-version = "4.9.2"
+version = "4.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "build" },
-    { name = "dill" },
-    { name = "dnslib" },
-    { name = "dnspython" },
+    { name = "click" },
+    { name = "cryptography" },
     { name = "fastavro" },
     { name = "localstack-core" },
     { name = "localstack-py-avro-schema" },
@@ -1271,11 +1239,13 @@ dependencies = [
     { name = "pyjwt", extra = ["crypto"] },
     { name = "pyotp" },
     { name = "python-dateutil" },
+    { name = "pyyaml" },
     { name = "requests" },
+    { name = "rich" },
     { name = "tabulate" },
     { name = "windows-curses", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6c/82/6ff87b1ba48c35703e64ffc45c5724e2ce4db5766971aaeb62c98d60c841/localstack_ext-4.9.2.tar.gz", hash = "sha256:8e9671ca47e3338bc3bf1bf24fbe33815c61ab6489c88dc2c84805b189cd95d4", size = 8459433, upload-time = "2025-10-06T08:29:50.017Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bd/62/9fa8a7c5e340170f95c0d96dd8a2e897c97c9f8d1ae64f3cd0a8dac9cde4/localstack_ext-4.10.0.tar.gz", hash = "sha256:3f6b614596d959427d7c2b7d2bca72020bcd2e289aa682ba0c4f604d97ab1bff", size = 8851507, upload-time = "2025-10-30T11:29:46.342Z" }
 
 [[package]]
 name = "localstack-py-avro-schema"
@@ -1865,15 +1835,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pyproject-hooks"
-version = "1.2.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e7/82/28175b2414effca1cdac8dc99f76d660e7a4fb0ceefa4b4ab8f5f6742925/pyproject_hooks-1.2.0.tar.gz", hash = "sha256:1e859bd5c40fae9448642dd871adf459e5e2084186e8d2c2a79a824c970da1f8", size = 19228, upload-time = "2024-09-29T09:24:13.293Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/24/12818598c362d7f300f18e74db45963dbcb85150324092410c8b49405e42/pyproject_hooks-1.2.0-py3-none-any.whl", hash = "sha256:9e5c6bfa8dcc30091c74b0cf803c81fdd29d94f01992a7707bc97babb1141913", size = 10216, upload-time = "2024-09-29T09:24:11.978Z" },
-]
-
-[[package]]
 name = "pyright"
 version = "1.1.407"
 source = { registry = "https://pypi.org/simple" }
@@ -2143,12 +2104,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/ec/fe/802052aecb21e3797
 wheels = [
     { url = "https://files.pythonhosted.org/packages/40/44/4a5f08c96eb108af5cb50b41f76142f0afa346dfa99d5296fe7202a11854/tabulate-0.9.0-py3-none-any.whl", hash = "sha256:024ca478df22e9340661486f85298cff5f6dcdba14f3813e8830015b9ed1948f", size = 35252, upload-time = "2022-10-06T17:21:44.262Z" },
 ]
-
-[[package]]
-name = "tailer"
-version = "0.4.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/dd/05/01de24d6393d6da0c27857c76b0f9ae97b42cd6102bbdf76cce95e031295/tailer-0.4.1.tar.gz", hash = "sha256:78d60f23a1b8a2d32f400b3c8c06b01142ac7841b75d8a1efcb33515877ba531", size = 7504, upload-time = "2015-12-09T19:44:11.428Z" }
 
 [[package]]
 name = "tomli"
@@ -2565,13 +2520,4 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f9/86/0f0dccb6e59a9e7f122c5afd43568b1d31b8ab7dda5f1b01fb5c7025c9a9/yarl-1.22.0-cp314-cp314t-win_amd64.whl", hash = "sha256:9fb17ea16e972c63d25d4a97f016d235c78dd2344820eb35bc034bc32012ee27", size = 96292, upload-time = "2025-10-06T14:12:15.398Z" },
     { url = "https://files.pythonhosted.org/packages/48/b7/503c98092fb3b344a179579f55814b613c1fbb1c23b3ec14a7b008a66a6e/yarl-1.22.0-cp314-cp314t-win_arm64.whl", hash = "sha256:9f6d73c1436b934e3f01df1e1b21ff765cd1d28c77dfb9ace207f746d4610ee1", size = 85171, upload-time = "2025-10-06T14:12:16.935Z" },
     { url = "https://files.pythonhosted.org/packages/73/ae/b48f95715333080afb75a4504487cbe142cae1268afc482d06692d605ae6/yarl-1.22.0-py3-none-any.whl", hash = "sha256:1380560bdba02b6b6c90de54133c81c9f2a453dee9912fe58c1dcced1edb7cff", size = 46814, upload-time = "2025-10-06T14:12:53.872Z" },
-]
-
-[[package]]
-name = "zipp"
-version = "3.23.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e3/02/0f2892c661036d50ede074e376733dca2ae7c6eb617489437771209d4180/zipp-3.23.0.tar.gz", hash = "sha256:a07157588a12518c9d4034df3fbbee09c814741a33ff63c05fa29d26a2404166", size = 25547, upload-time = "2025-06-08T17:06:39.4Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/2e/54/647ade08bf0db230bfea292f893923872fd20be6ac6f53b2b936ba839d75/zipp-3.23.0-py3-none-any.whl", hash = "sha256:071652d6115ed432f5ce1d34c336c0adfd6a884660d1e9712a256d3d3bd4b14e", size = 10276, upload-time = "2025-06-08T17:06:38.034Z" },
 ]
