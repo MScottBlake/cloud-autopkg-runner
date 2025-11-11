@@ -242,7 +242,7 @@ class AsyncS3Cache:
 
     async def __aexit__(
         self,
-        _exc_type: TracebackType | None,
+        _exc_type: type[BaseException] | None,
         _exc_val: BaseException | None,
         _exc_tb: TracebackType | None,
     ) -> None:
