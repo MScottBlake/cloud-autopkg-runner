@@ -18,19 +18,21 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/uv-pre-commit
-  rev: 0.8.17
+  rev: 0.9.8
   hooks:
   - id: uv-lock
   - id: uv-sync
+    args: ["--all-extras"]
+
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.13.0
+  rev: v0.14.4
   hooks:
   - id: ruff
     args: [ --fix ]
   - id: ruff-format
 
 - repo: https://github.com/RobertCraigie/pyright-python
-  rev: v1.1.405
+  rev: v1.1.407
   hooks:
   - id: pyright
