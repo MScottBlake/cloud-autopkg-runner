@@ -43,6 +43,7 @@ from cloud_autopkg_runner.exceptions import (
 # - https://github.com/CLCMacTeam/AutoPkgBESEngine/blob/master/README.md
 # - https://github.com/almenscorner/intune-uploader/wiki/IntuneAppUploader
 # - https://github.com/hjuutilainen/autopkg-virustotalanalyzer/blob/master/README.md
+# - https://github.com/autopkg/fleet-recipes
 
 
 class AutoPkgPrefs:
@@ -942,6 +943,222 @@ class AutoPkgPrefs:
         """
         self._set_str_pref("VIRUSTOTAL_API_KEY", value)
 
+    @property
+    def fleet_api_base(self) -> str | None:
+        """Retrieves the Fleet API Base URL preference.
+
+        Returns:
+            str | None: The Fleet API Base URL, or None if unset.
+        """
+        return self._get_str_pref("FLEET_API_BASE")
+
+    @fleet_api_base.setter
+    def fleet_api_base(self, value: str | None) -> None:
+        """Sets the Fleet API Base URL preference.
+
+        Args:
+            value: The Fleet API Base URL string, or None to unset.
+        """
+        self._set_str_pref("FLEET_API_BASE", value)
+
+    @property
+    def fleet_api_token(self) -> str | None:
+        """Retrieves the Fleet API Token preference.
+
+        Returns:
+            str | None: The Fleet API Token, or None if unset.
+        """
+        return self._get_str_pref("FLEET_API_TOKEN")
+
+    @fleet_api_token.setter
+    def fleet_api_token(self, value: str | None) -> None:
+        """Sets the Fleet API Token preference.
+
+        Args:
+            value: The Fleet API Token string, or None to unset.
+        """
+        self._set_str_pref("FLEET_API_TOKEN", value)
+
+    @property
+    def fleet_team_id(self) -> str | None:
+        """Retrieves the Fleet Team ID preference.
+
+        Returns:
+            str | None: The Fleet Team ID, or None if unset.
+        """
+        return self._get_str_pref("FLEET_TEAM_ID")
+
+    @fleet_team_id.setter
+    def fleet_team_id(self, value: str | None) -> None:
+        """Sets the Fleet Team ID preference.
+
+        Args:
+            value: The Fleet Team ID string, or None to unset.
+        """
+        self._set_str_pref("FLEET_TEAM_ID", value)
+
+    @property
+    def aws_s3_bucket(self) -> str | None:
+        """Retrieves the AWS S3 Bucket preference.
+
+        Returns:
+            str | None: The AWS S3 Bucket, or None if unset.
+        """
+        return self._get_str_pref("AWS_S3_BUCKET")
+
+    @aws_s3_bucket.setter
+    def aws_s3_bucket(self, value: str | None) -> None:
+        """Sets the AWS S3 Bucket preference.
+
+        Args:
+            value: The AWS S3 Bucket string, or None to unset.
+        """
+        self._set_str_pref("AWS_S3_BUCKET", value)
+
+    @property
+    def aws_cloudfront_domain(self) -> str | None:
+        """Retrieves the AWS CloudFront Domain preference.
+
+        Returns:
+            str | None: The AWS CloudFront Domain, or None if unset.
+        """
+        return self._get_str_pref("AWS_CLOUDFRONT_DOMAIN")
+
+    @aws_cloudfront_domain.setter
+    def aws_cloudfront_domain(self, value: str | None) -> None:
+        """Sets the AWS CloudFront Domain preference.
+
+        Args:
+            value: The AWS CloudFront Domain string, or None to unset.
+        """
+        self._set_str_pref("AWS_CLOUDFRONT_DOMAIN", value)
+
+    @property
+    def aws_access_key_id(self) -> str | None:
+        """Retrieves the AWS Access Key ID preference.
+
+        Returns:
+            str | None: The AWS Access Key ID, or None if unset.
+        """
+        return self._get_str_pref("AWS_ACCESS_KEY_ID")
+
+    @aws_access_key_id.setter
+    def aws_access_key_id(self, value: str | None) -> None:
+        """Sets the AWS Access Key ID preference.
+
+        Args:
+            value: The AWS Access Key ID string, or None to unset.
+        """
+        self._set_str_pref("AWS_ACCESS_KEY_ID", value)
+
+    @property
+    def aws_secret_access_key(self) -> str | None:
+        """Retrieves the AWS Secret Access Key preference.
+
+        Returns:
+            str | None: The AWS Secret Access Key, or None if unset.
+        """
+        return self._get_str_pref("AWS_SECRET_ACCESS_KEY")
+
+    @aws_secret_access_key.setter
+    def aws_secret_access_key(self, value: str | None) -> None:
+        """Sets the AWS Secret Access Key preference.
+
+        Args:
+            value: The AWS Secret Access Key string, or None to unset.
+        """
+        self._set_str_pref("AWS_SECRET_ACCESS_KEY", value)
+
+    @property
+    def aws_default_region(self) -> str | None:
+        """Retrieves the AWS Default Region preference.
+
+        Returns:
+            str | None: The AWS Default Region, or None if unset.
+        """
+        return self._get_str_pref("AWS_DEFAULT_REGION")
+
+    @aws_default_region.setter
+    def aws_default_region(self, value: str | None) -> None:
+        """Sets the AWS Default Region preference.
+
+        Args:
+            value: The AWS Default Region string, or None to unset.
+        """
+        self._set_str_pref("AWS_DEFAULT_REGION", value)
+
+    @property
+    def fleet_gitops_repo_url(self) -> str | None:
+        """Retrieves the Fleet GitOps Repo URL preference.
+
+        Returns:
+            str | None: The Fleet GitOps Repo URL, or None if unset.
+        """
+        return self._get_str_pref("FLEET_GITOPS_REPO_URL")
+
+    @fleet_gitops_repo_url.setter
+    def fleet_gitops_repo_url(self, value: str | None) -> None:
+        """Sets the Fleet GitOps Repo URL preference.
+
+        Args:
+            value: The Fleet GitOps Repo URL string, or None to unset.
+        """
+        self._set_str_pref("FLEET_GITOPS_REPO_URL", value)
+
+    @property
+    def fleet_gitops_github_token(self) -> str | None:
+        """Retrieves the Fleet GitOps GitHub Token preference.
+
+        Returns:
+            str | None: The Fleet GitOps GitHub Token, or None if unset.
+        """
+        return self._get_str_pref("FLEET_GITOPS_GITHUB_TOKEN")
+
+    @fleet_gitops_github_token.setter
+    def fleet_gitops_github_token(self, value: str | None) -> None:
+        """Sets the Fleet GitOps GitHub Token preference.
+
+        Args:
+            value: The Fleet GitOps GitHub Token string, or None to unset.
+        """
+        self._set_str_pref("FLEET_GITOPS_GITHUB_TOKEN", value)
+
+    @property
+    def fleet_gitops_software_dir(self) -> str | None:
+        """Retrieves the Fleet GitOps Software Directory preference.
+
+        Returns:
+            str | None: The Fleet GitOps Software Directory, or None if unset.
+        """
+        return self._get_str_pref("FLEET_GITOPS_SOFTWARE_DIR")
+
+    @fleet_gitops_software_dir.setter
+    def fleet_gitops_software_dir(self, value: str | None) -> None:
+        """Sets the Fleet GitOps Software Directory preference.
+
+        Args:
+            value: The Fleet GitOps Software Directory string, or None to unset.
+        """
+        self._set_str_pref("FLEET_GITOPS_SOFTWARE_DIR", value)
+
+    @property
+    def fleet_gitops_team_yaml_path(self) -> str | None:
+        """Retrieves the Fleet GitOps Team YAML Path preference.
+
+        Returns:
+            str | None: The Fleet GitOps Team YAML Path, or None if unset.
+        """
+        return self._get_str_pref("FLEET_GITOPS_TEAM_YAML_PATH")
+
+    @fleet_gitops_team_yaml_path.setter
+    def fleet_gitops_team_yaml_path(self, value: str | None) -> None:
+        """Sets the Fleet GitOps Team YAML Path preference.
+
+        Args:
+            value: The Fleet GitOps Team YAML Path string, or None to unset.
+        """
+        self._set_str_pref("FLEET_GITOPS_TEAM_YAML_PATH", value)
+
     # --- Complex structured preferences ---
 
     @property
@@ -1018,3 +1235,21 @@ class AutoPkgPrefs:
             value: True to enable the cloud distribution point, False to disable.
         """
         self._set_bool_pref("CLOUD_DP", value=value)
+
+    @property
+    def gitops_mode(self) -> bool:
+        """Retrieves whether the GitOps Mode is enabled.
+
+        Returns:
+            bool: True if enabled, False otherwise.
+        """
+        return self._get_bool_pref("GITOPS_MODE", default=False)
+
+    @gitops_mode.setter
+    def gitops_mode(self, value: bool) -> None:
+        """Set the cloud GitOps Mode setting.
+
+        Args:
+            value: True to enable GitOps Mode, False to disable.
+        """
+        self._set_bool_pref("GITOPS_MODE", value=value)

@@ -324,16 +324,18 @@ class Recipe:
             f"--prefs={prefs_file_path}",
         ]
 
-        cmd.extend([f"--preprocessor={item}" for item in self._settings.pre_processors])
-        cmd.extend(
-            [f"--postprocessor={item}" for item in self._settings.post_processors]
-        )
-
         if self._settings.verbosity_int(-1) > 0:
             cmd.append(self._settings.verbosity_str(-1))
 
         if check:
             cmd.append("--check")
+        else:
+            cmd.extend(
+                [f"--preprocessor={item}" for item in self._settings.pre_processors]
+            )
+            cmd.extend(
+                [f"--postprocessor={item}" for item in self._settings.post_processors]
+            )
 
         return cmd
 

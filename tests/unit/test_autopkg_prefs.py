@@ -391,6 +391,18 @@ def test_munki_repo_property(path_input: str | Path | None) -> None:
         ("client_secret", "CLIENT_SECRET"),
         ("tenant_id", "TENANT_ID"),
         ("virustotal_api_key", "VIRUSTOTAL_API_KEY"),
+        ("fleet_api_base", "FLEET_API_BASE"),
+        ("fleet_api_token", "FLEET_API_TOKEN"),
+        ("fleet_team_id", "FLEET_TEAM_ID"),
+        ("aws_s3_bucket", "AWS_S3_BUCKET"),
+        ("aws_cloudfront_domain", "AWS_CLOUDFRONT_DOMAIN"),
+        ("aws_access_key_id", "AWS_ACCESS_KEY_ID"),
+        ("aws_secret_access_key", "AWS_SECRET_ACCESS_KEY"),
+        ("aws_default_region", "AWS_DEFAULT_REGION"),
+        ("fleet_gitops_repo_url", "FLEET_GITOPS_REPO_URL"),
+        ("fleet_gitops_github_token", "FLEET_GITOPS_GITHUB_TOKEN"),
+        ("fleet_gitops_software_dir", "FLEET_GITOPS_SOFTWARE_DIR"),
+        ("fleet_gitops_team_yaml_path", "FLEET_GITOPS_TEAM_YAML_PATH"),
     ],
 )
 @given(value=st.one_of(st.none(), st.text()))
@@ -475,6 +487,7 @@ def test_smb_shares_property(shares: list[dict[str, str]] | None) -> None:
         ),
         ("stop_if_no_jss_upload", "STOP_IF_NO_JSS_UPLOAD", False),
         ("cloud_dp", "CLOUD_DP", False),
+        ("gitops_mode", "GITOPS_MODE", False),
     ],
 )
 @given(
