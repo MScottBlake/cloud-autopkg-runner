@@ -19,6 +19,7 @@ The `AutoPkgPrefs` class offers a hybrid interface:
   primitive) stored values and the ability to specify default values.
 """
 
+import asyncio
 import copy
 import json
 import plistlib
@@ -92,9 +93,10 @@ class AutoPkgPrefs:
     ) -> None:
         """Exit the runtime context and clean up temporary files.
 
-        This method ensures that the temporary JSON file created by
-        `to_json_file()` is deleted. Exceptions inside the block are
-        propagated after cleanup.
+        This method always attempts to delete the temporary JSON file created by
+        `to_json_file()` when leaving a context block, regardless of whether an
+        exception occurred. Exceptions raised inside the context are not
+        suppressed and will propagate after cleanup.
         """
         self.cleanup_temp_file()
 
@@ -190,9 +192,9 @@ class AutoPkgPrefs:
     def _get_preference_file_contents(file_path: Path) -> dict[str, Any]:
         """Reads and parses the contents of the AutoPkg preference file.
 
-        Attempts to read the preference file from the specified path.
-        The file is first attempted to be parsed as JSON, and if that fails,
-        as a macOS plist.
+        Attempts to read and parse the specified file first as JSON, then as a
+        macOS plist if JSON decoding fails. Only if both formats fail will an
+        `InvalidFileContents` exception be raised.
 
         Args:
             file_path: The path to the preference file.
@@ -281,38 +283,53 @@ class AutoPkgPrefs:
         """
         return json.dumps(self._prefs, indent=indent)
 
-    def to_json_file(self, indent: int | None = None) -> Path:
+    async def to_json_file(self, indent: int | None = None) -> Path:
         """Serialize preferences to a temporary JSON file.
 
-        Deletes any previous temporary file associated with this instance
-        before creating a new one. The file is stored in
-        `self._temp_json_file_path` and will be cleaned up automatically
-        if the instance is used as a context manager.
+        This asynchronous method writes the current preferences to a temporary
+        JSON file on disk. It uses a background thread to perform the file write
+        operation without blocking the event loop. If a previous temporary file
+        exists, it is deleted before creating a new one to ensure the file always
+        reflects the latest in-memory state.
+
+        The resulting file path is stored in `self._temp_json_file_path` and will
+        be automatically cleaned up when the instance is used as a context manager
+        or when `cleanup_temp_file()` is called explicitly.
 
         Args:
-            indent: Number of spaces for indentation in the output JSON.
+            indent: The number of spaces to use for indentation in the output JSON.
                 If None, the JSON will be compact.
 
         Returns:
-            The Path object pointing to the created temporary JSON file.
+            Path: The path to the newly created temporary JSON file.
         """
-        if not self._temp_json_file_path:
+
+        def _write_and_get_path(data: str) -> Path:
+            """Synchronously writes data to a temporary file and returns its path."""
+            # Remove previous temp file if exists
+            if self._temp_json_file_path and self._temp_json_file_path.exists():
+                self._temp_json_file_path.unlink()
+
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".json", delete=False, encoding="utf-8"
             ) as tmp:
-                tmp.write(self.to_json(indent))
-            self._temp_json_file_path = Path(tmp.name)
+                tmp.write(data)
+            return Path(tmp.name)
+
+        self._temp_json_file_path = await asyncio.to_thread(
+            _write_and_get_path, self.to_json(indent)
+        )
 
         return self._temp_json_file_path
 
     def cleanup_temp_file(self) -> None:
-        """Cleans up (deletes) the temporary preference file if it exists.
+        """Deletes the temporary preference file if it exists.
 
-        This method should be called explicitly when the temporary preferences
-        file is no longer needed by external processes. It checks if a temporary
-        file path has been stored and, if so, attempts to delete the file.
-        Errors during deletion (e.g., file not found, permission denied) are caught
-        and logged, preventing the application from crashing.
+        This method performs a best-effort cleanup of any temporary JSON file
+        previously created by `to_json_file()`. It is safe to call multiple times;
+        if no temporary file exists, it performs no action. The cleanup step is
+        typically triggered when stored preferences change or when exiting a
+        context block.
         """
         if self._temp_json_file_path:
             if self._temp_json_file_path.exists():
@@ -366,6 +383,11 @@ class AutoPkgPrefs:
     def _set_path_pref(self, key: str, value: str | Path) -> None:
         """Stores a path preference as a string.
 
+        This method updates the stored value only if it differs from the
+        existing one. When a change is detected, any previously generated
+        temporary JSON file is deleted to ensure future serialization
+        reflects the updated data.
+
         Args:
             key: The name of the preference key to set.
             value: The path to store. Accepts a string or Path object.
@@ -389,6 +411,10 @@ class AutoPkgPrefs:
     ) -> None:
         """Stores a list-of-paths preference as a list of strings.
 
+        Updates are applied only when the new value differs from the stored one.
+        When updated, any previously generated temporary JSON file is deleted
+        so that subsequent AutoPkg operations use the refreshed data.
+
         Args:
             key: The name of the preference key to set.
             value: The path(s) to store. May be a single string/Path
@@ -410,6 +436,11 @@ class AutoPkgPrefs:
 
     def _set_str_pref(self, key: str, value: str | None) -> None:
         """Stores a string preference.
+
+        If the new value differs from the existing one, the preference is
+        updated and any previously generated temporary JSON file is deleted.
+        This ensures that serialized data remains consistent with in-memory
+        state.
 
         Args:
             key: The name of the preference key to set.
@@ -438,6 +469,10 @@ class AutoPkgPrefs:
 
     def _set_bool_pref(self, key: str, *, value: bool) -> None:
         """Stores a boolean preference.
+
+        The preference is updated only if the new boolean value differs from
+        the current one. When changed, any existing temporary JSON file is
+        deleted to ensure future serialization reflects the new value.
 
         Args:
             key: The name of the preference key to set.
