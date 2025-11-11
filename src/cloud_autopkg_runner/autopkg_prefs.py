@@ -19,7 +19,6 @@ The `AutoPkgPrefs` class offers a hybrid interface:
   primitive) stored values and the ability to specify default values.
 """
 
-import asyncio
 import copy
 import json
 import plistlib
@@ -281,7 +280,7 @@ class AutoPkgPrefs:
         """
         return json.dumps(self._prefs, indent=indent)
 
-    async def to_json_file(self, indent: int | None = None) -> Path:
+    def to_json_file(self, indent: int | None = None) -> Path:
         """Serialize preferences to a temporary JSON file.
 
         Deletes any previous temporary file associated with this instance
@@ -296,22 +295,12 @@ class AutoPkgPrefs:
         Returns:
             The Path object pointing to the created temporary JSON file.
         """
-
-        def _write_and_get_path(data: str) -> Path:
-            """Synchronously writes data to a temporary file and returns its path."""
-            # Remove previous temp file if exists
-            if self._temp_json_file_path and self._temp_json_file_path.exists():
-                self._temp_json_file_path.unlink()
-
+        if not self._temp_json_file_path:
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".json", delete=False, encoding="utf-8"
             ) as tmp:
-                tmp.write(data)
-            return Path(tmp.name)
-
-        self._temp_json_file_path = await asyncio.to_thread(
-            _write_and_get_path, self.to_json(indent)
-        )
+                tmp.write(self.to_json(indent))
+            self._temp_json_file_path = Path(tmp.name)
 
         return self._temp_json_file_path
 
@@ -381,6 +370,7 @@ class AutoPkgPrefs:
             value: The path to store. Accepts a string or Path object.
         """
         self._prefs[key] = str(value)
+        self.cleanup_temp_file()
 
     def _get_list_of_paths_pref(self, key: str) -> list[Path]:
         """Retrieves a list-of-paths preference and converts it to Path objects.
@@ -404,6 +394,7 @@ class AutoPkgPrefs:
                 or a list of strings/Paths.
         """
         self._prefs[key] = [str(p) for p in self._convert_to_list_of_paths(value)]
+        self.cleanup_temp_file()
 
     def _get_str_pref(self, key: str) -> str | None:
         """Retrieves a string preference.
@@ -424,6 +415,7 @@ class AutoPkgPrefs:
             value: The string value to store, or None to unset.
         """
         self._prefs[key] = value
+        self.cleanup_temp_file()
 
     def _get_bool_pref(self, key: str, *, default: bool = False) -> bool:
         """Retrieves a boolean preference, interpreting common string values.
@@ -451,6 +443,7 @@ class AutoPkgPrefs:
             value: The boolean value to store.
         """
         self._prefs[key] = bool(value)
+        self.cleanup_temp_file()
 
     # --- Path preferences (always exist thanks to _get_default_preferences) ---
 
