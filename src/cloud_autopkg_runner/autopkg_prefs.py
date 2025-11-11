@@ -284,41 +284,38 @@ class AutoPkgPrefs:
         return json.dumps(self._prefs, indent=indent)
 
     async def to_json_file(self, indent: int | None = None) -> Path:
-        """Serialize preferences to a temporary JSON file.
+        """Write or reuse a temporary JSON file for the current preferences.
 
-        This asynchronous method writes the current preferences to a temporary
-        JSON file on disk. It uses a background thread to perform the file write
-        operation without blocking the event loop. If a previous temporary file
-        exists, it is deleted before creating a new one to ensure the file always
-        reflects the latest in-memory state.
+        This asynchronous method serializes the in-memory AutoPkg preferences
+        to a temporary JSON file on disk. If a temporary file has not yet been
+        created or if the existing file has been removed, it creates a new one.
+        Otherwise, it reuses the existing file path to avoid generating
+        redundant temporary files.
 
-        The resulting file path is stored in `self._temp_json_file_path` and will
-        be automatically cleaned up when the instance is used as a context manager
-        or when `cleanup_temp_file()` is called explicitly.
+        The write operation is executed in a background thread using
+        `asyncio.to_thread` to prevent blocking the event loop. The resulting
+        file path is stored in `self._temp_json_file_path`.
 
         Args:
-            indent: The number of spaces to use for indentation in the output JSON.
-                If None, the JSON will be compact.
+            indent: Optional number of spaces to use for indentation in the output
+                JSON. If omitted or `None`, the JSON will be compact.
 
         Returns:
-            Path: The path to the newly created temporary JSON file.
+            Path: The path to the existing or newly created temporary JSON file.
         """
 
         def _write_and_get_path(data: str) -> Path:
             """Synchronously writes data to a temporary file and returns its path."""
-            # Remove previous temp file if exists
-            if self._temp_json_file_path and self._temp_json_file_path.exists():
-                self._temp_json_file_path.unlink()
-
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".json", delete=False, encoding="utf-8"
             ) as tmp:
                 tmp.write(data)
             return Path(tmp.name)
 
-        self._temp_json_file_path = await asyncio.to_thread(
-            _write_and_get_path, self.to_json(indent)
-        )
+        if not self._temp_json_file_path or not self._temp_json_file_path.exists():
+            self._temp_json_file_path = await asyncio.to_thread(
+                _write_and_get_path, self.to_json(indent)
+            )
 
         return self._temp_json_file_path
 
