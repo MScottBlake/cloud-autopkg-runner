@@ -1,5 +1,16 @@
 version: 2
 updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        update-types:
+          - major
+          - minor
+          - patch
+
   - package-ecosystem: "uv"
     directory: "/"
     schedule:
@@ -7,3 +18,13 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"]
+    groups:
+      development:
+        dependency-type: "development"
+        update-types:
+          - minor
+          - patch
+      production:
+        dependency-type: "production"
+        update-types:
+          - patch
