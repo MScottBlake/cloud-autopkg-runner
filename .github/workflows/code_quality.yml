@@ -170,7 +170,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          report-type: test_results
+          report_type: test_results
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
