@@ -69,9 +69,8 @@ class AsyncSQLiteCache:
 
     async def open(self) -> None:
         """Open the connection to the SQLite database."""
-        loop = asyncio.get_event_loop()
-        self._conn = await loop.run_in_executor(
-            None, lambda: sqlite3.connect(self._db_path, check_same_thread=False)
+        self._conn = await asyncio.to_thread(
+            sqlite3.connect, self._db_path, check_same_thread=False
         )
         await self._create_table()
 
@@ -153,8 +152,7 @@ class AsyncSQLiteCache:
         """
         if hasattr(self, "_conn"):
             await self.save()
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._conn.close)
+            await asyncio.to_thread(self._conn.close)
             del self._conn
 
     async def clear_cache(self) -> None:
@@ -212,8 +210,7 @@ class AsyncSQLiteCache:
         if not hasattr(self, "_conn"):
             await self.open()
 
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self._execute_sql_sync, sql, parameters)
+        return await asyncio.to_thread(self._execute_sql_sync, sql, parameters)
 
     def _execute_sql_sync(
         self, sql: str, parameters: "SqlParams" = ()
@@ -275,7 +272,7 @@ class AsyncSQLiteCache:
 
     async def __aexit__(
         self,
-        _exc_type: TracebackType | None,
+        _exc_type: type[BaseException] | None,
         _exc_val: BaseException | None,
         _exc_tb: TracebackType | None,
     ) -> None:

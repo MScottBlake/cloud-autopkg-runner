@@ -1,13 +1,13 @@
 import json
 import time
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import Generator
 from datetime import datetime, timezone
+from typing import Any
 
-import aioboto3
+import boto3
 import pytest
-import pytest_asyncio
-from types_aiobotocore_s3 import S3Client
+from types_boto3_s3 import S3Client
 
 from cloud_autopkg_runner import Settings
 from cloud_autopkg_runner.metadata_cache import RecipeCache, get_cache_plugin
@@ -58,20 +58,22 @@ def test_data() -> RecipeCache:
     }
 
 
-@pytest_asyncio.fixture
-async def s3_client(settings: Settings) -> AsyncGenerator[S3Client, None]:
+@pytest.fixture
+def s3_client(settings: Settings) -> Generator[S3Client, Any, None]:
     """Fixture that provides a valid S3Client."""
-    session = aioboto3.Session()
-    s3_client: S3Client
-    async with session.client("s3") as s3_client:
-        await s3_client.create_bucket(Bucket=settings.cloud_container_name)
+    session = boto3.Session()
+    s3_client: S3Client = session.client("s3")
+    try:
+        s3_client.create_bucket(Bucket=settings.cloud_container_name)
 
         yield s3_client
 
-        await s3_client.delete_object(
+        s3_client.delete_object(
             Bucket=settings.cloud_container_name, Key=settings.cache_file
         )
-        await s3_client.delete_bucket(Bucket=settings.cloud_container_name)
+        s3_client.delete_bucket(Bucket=settings.cloud_container_name)
+    finally:
+        s3_client.close()
 
 
 # Tests
@@ -91,11 +93,10 @@ async def test_save_cache_file(
     expected_content = {TEST_RECIPE_NAME: test_data}
 
     # Retrieve with standard tooling
-    response = await s3_client.get_object(
+    response = s3_client.get_object(
         Bucket=settings.cloud_container_name, Key=settings.cache_file
     )
-    async with response["Body"] as stream:
-        content = await stream.read()
+    content = response["Body"].read()
     actual_content = json.loads(content.decode("utf-8"))
 
     assert actual_content == expected_content
@@ -108,7 +109,7 @@ async def test_retrieve_cache_file(
     """Test retrieving a cache file from AWS S3."""
     # Store with standard tooling
     content = json.dumps({TEST_RECIPE_NAME: test_data})
-    await s3_client.put_object(
+    s3_client.put_object(
         Bucket=settings.cloud_container_name, Key=settings.cache_file, Body=content
     )
 

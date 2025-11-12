@@ -70,8 +70,7 @@ class AsyncGCSCache:
 
     async def open(self) -> None:
         """Open the connection to Google Cloud Storage."""
-        loop = asyncio.get_event_loop()
-        self._client = await loop.run_in_executor(None, Client)
+        self._client = await asyncio.to_thread(Client)
 
     async def load(self) -> MetadataCache:
         """Load metadata from Google Cloud Storage asynchronously.
@@ -98,9 +97,7 @@ class AsyncGCSCache:
                 bucket = self._client.bucket(self._bucket_name)  # pyright: ignore[reportUnknownMemberType]
                 blob = bucket.blob(self._blob_name)  # pyright: ignore[reportUnknownMemberType]
 
-                loop = asyncio.get_event_loop()
-                content = await loop.run_in_executor(None, blob.download_as_bytes)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
-
+                content = await asyncio.to_thread(blob.download_as_bytes)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
                 self._cache_data = json.loads(content)
                 self._logger.info(
                     "Loaded metadata from gcs://%s/%s",
@@ -132,13 +129,11 @@ class AsyncGCSCache:
                 await self.open()
 
             try:
-                loop = asyncio.get_event_loop()
                 content = json.dumps(self._cache_data, indent=4)
-                bucket = self._client.bucket(self._bucket_name)  # type: ignore
-                blob = bucket.blob(self._blob_name)  # type: ignore
-                await loop.run_in_executor(
-                    None,
-                    blob.upload_from_string,  # type: ignore
+                bucket = self._client.bucket(self._bucket_name)  # pyright: ignore[reportUnknownMemberType]
+                blob = bucket.blob(self._blob_name)  # pyright: ignore[reportUnknownMemberType]
+                await asyncio.to_thread(
+                    blob.upload_from_string,  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
                     content.encode("utf-8"),
                     "application/json",
                 )
@@ -166,8 +161,7 @@ class AsyncGCSCache:
         """
         if hasattr(self, "_client"):
             await self.save()
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._client.close)
+            await asyncio.to_thread(self._client.close)
             del self._client
 
     async def clear_cache(self) -> None:
@@ -231,7 +225,7 @@ class AsyncGCSCache:
 
     async def __aexit__(
         self,
-        _exc_type: TracebackType | None,
+        _exc_type: type[BaseException] | None,
         _exc_val: BaseException | None,
         _exc_tb: TracebackType | None,
     ) -> None:

@@ -93,8 +93,7 @@ class AsyncJsonFileCache:
                 return self._cache_data
 
             try:
-                loop = asyncio.get_event_loop()
-                content = await loop.run_in_executor(None, self._file_path.read_text)
+                content = await asyncio.to_thread(self._file_path.read_text)
                 self._cache_data = json.loads(content)
                 self._logger.info("Loaded metadata from %s", self._file_path)
             except FileNotFoundError:
@@ -123,9 +122,8 @@ class AsyncJsonFileCache:
         """
         async with self._lock:
             try:
-                loop = asyncio.get_event_loop()
                 content = json.dumps(self._cache_data, indent=4)
-                await loop.run_in_executor(None, self._file_path.write_text, content)
+                await asyncio.to_thread(self._file_path.write_text, content)
                 self._logger.debug("Saved all metadata to %s", self._file_path)
             except Exception:
                 self._logger.exception("Error saving metadata to %s", self._file_path)
