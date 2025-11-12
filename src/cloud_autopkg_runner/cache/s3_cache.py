@@ -138,7 +138,7 @@ class AsyncS3Cache:
                 self._cache_data = {}
                 if exc.response.get("Error", {}).get("Code") == "NoSuchKey":
                     self._logger.warning(
-                        "Cache not found at s3://%s/%s — initializing an empty cache.",
+                        "Cache not found at s3://%s/%s, initializing an empty cache.",
                         self._bucket_name,
                         self._cache_key,
                     )
