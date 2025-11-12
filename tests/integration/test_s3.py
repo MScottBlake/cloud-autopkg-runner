@@ -63,15 +63,17 @@ async def s3_client(settings: Settings) -> AsyncGenerator[S3Client, None]:
     """Fixture that provides a valid S3Client."""
     session = boto3.Session()
     s3_client: S3Client = session.client("s3")
+    try:
+        await s3_client.create_bucket(Bucket=settings.cloud_container_name)
 
-    await s3_client.create_bucket(Bucket=settings.cloud_container_name)
+        yield s3_client
 
-    yield s3_client
-
-    await s3_client.delete_object(
-        Bucket=settings.cloud_container_name, Key=settings.cache_file
-    )
-    await s3_client.delete_bucket(Bucket=settings.cloud_container_name)
+        await s3_client.delete_object(
+            Bucket=settings.cloud_container_name, Key=settings.cache_file
+        )
+        await s3_client.delete_bucket(Bucket=settings.cloud_container_name)
+    finally:
+        s3_client.close()
 
 
 # Tests
