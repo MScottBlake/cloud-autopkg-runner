@@ -59,17 +59,16 @@ def test_data() -> RecipeCache:
 @pytest_asyncio.fixture
 async def gcs_client(settings: Settings) -> AsyncGenerator[Client, None]:
     """Provide a GCS client wrapped for async use."""
-    loop = asyncio.get_event_loop()
-    client = await loop.run_in_executor(None, Client)
+    client = await asyncio.to_thread(Client)
     bucket_name = settings.cloud_container_name
 
-    bucket = await loop.run_in_executor(None, client.create_bucket, bucket_name)
+    bucket = await asyncio.to_thread(client.create_bucket, bucket_name)
 
     yield client
 
     blob = bucket.blob(settings.cache_file)
-    await loop.run_in_executor(None, blob.delete)
-    await loop.run_in_executor(None, bucket.delete)
+    await asyncio.to_thread(blob.delete)
+    await asyncio.to_thread(bucket.delete)
 
 
 # Tests
@@ -88,12 +87,11 @@ async def test_save_cache_file(
     expected_content = {TEST_RECIPE_NAME: test_data}
 
     # Retrieve with sync client wrapped in executor
-    loop = asyncio.get_event_loop()
-    bucket = await loop.run_in_executor(
-        None, gcs_client.get_bucket, settings.cloud_container_name
+    bucket = await asyncio.to_thread(
+        gcs_client.get_bucket, settings.cloud_container_name
     )
     blob = bucket.blob(settings.cache_file)
-    content = await loop.run_in_executor(None, blob.download_as_bytes)
+    content = await asyncio.to_thread(blob.download_as_bytes)
     actual_content = json.loads(content.decode("utf-8"))
 
     assert actual_content == expected_content
@@ -104,13 +102,12 @@ async def test_retrieve_cache_file(
     gcs_client: Client, settings: Settings, test_data: RecipeCache
 ) -> None:
     """Test retrieving a cache file from Google Cloud Storage."""
-    loop = asyncio.get_event_loop()
-    bucket = await loop.run_in_executor(
-        None, gcs_client.get_bucket, settings.cloud_container_name
+    bucket = await asyncio.to_thread(
+        gcs_client.get_bucket, settings.cloud_container_name
     )
     blob = bucket.blob(settings.cache_file)
     content = json.dumps({TEST_RECIPE_NAME: test_data})
-    await loop.run_in_executor(None, blob.upload_from_string, content.encode("utf-8"))
+    await asyncio.to_thread(blob.upload_from_string, content.encode("utf-8"))
 
     plugin = get_cache_plugin()
     async with plugin:

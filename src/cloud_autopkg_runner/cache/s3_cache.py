@@ -1,10 +1,12 @@
 """Module for managing a metadata cache stored in an S3 bucket.
 
 This module provides an asynchronous implementation of a metadata cache that
-stores data in an S3 bucket. It uses a singleton pattern to ensure that only one
-instance of the cache is created, and it provides methods for loading, saving,
-getting, setting, and deleting cache items. The cache is thread-safe, using an
-asyncio lock to prevent race conditions.
+stores data in an S3 bucket. To maintain non-blocking behavior, blocking boto3
+operations are executed in background threads via `asyncio.to_thread`.
+
+The implementation ensures that only one instance of the cache is created
+(singleton pattern) and provides thread-safe methods for loading, saving,
+getting, setting, and deleting cache items.
 """
 
 import asyncio
@@ -12,32 +14,30 @@ import json
 from types import TracebackType
 from typing import TYPE_CHECKING
 
-import aioboto3
+import boto3
+from botocore.exceptions import ClientError
 
 from cloud_autopkg_runner import Settings, logging_config
 from cloud_autopkg_runner.metadata_cache import MetadataCache, RecipeCache, RecipeName
 
 if TYPE_CHECKING:
-    from types_aiobotocore_s3 import S3Client
+    from types_boto3_s3 import S3Client
 
 
 class AsyncS3Cache:
     """Asynchronous implementation of MetadataCachePlugin for S3 storage.
 
     This class provides a singleton implementation for managing a metadata cache
-    stored in an S3 bucket. It supports asynchronous loading, saving, getting,
-    setting, and deleting cache items, ensuring thread safety through the use of
-    an asyncio lock.
+    stored in an S3 bucket using boto3. Blocking S3 operations are dispatched to
+    background threads to prevent blocking the event loop.
 
     Attributes:
         _bucket_name: The name of the S3 bucket used for storing the cache data.
-        _cache_key: The key (path) within the S3 bucket where the cache data is
-            stored.
+        _cache_key: The key (path) within the S3 bucket where the cache data is stored.
         _cache_data: The in-memory representation of the cache data.
-        _is_loaded: A flag indicating whether the cache data has been loaded from
-            the S3 bucket.
-        _lock: An asyncio lock used to ensure thread safety and prevents multiple
-        coroutines from writing to the S3 object simultaneously.
+        _is_loaded: A flag indicating whether the cache data has been loaded from S3.
+        _lock: An asyncio lock used to ensure thread safety and prevent multiple
+            coroutines from writing to the S3 object simultaneously.
     """
 
     _instance: "AsyncS3Cache | None" = None  # Singleton instance
@@ -74,22 +74,27 @@ class AsyncS3Cache:
     async def open(self) -> None:
         """Open the connection to S3.
 
-        Creates a boto3 session and s3 client, which are stored to the `_client`
-        variable.
+        Creates an S3 client from a boto3 session and stores it in the `_client`
+        variable. The operation is performed in a background thread to avoid
+        blocking the event loop.
         """
-        session = aioboto3.Session()
-        async with session.client("s3") as s3_client:
-            self._client: S3Client = s3_client
+
+        def _make_s3_client() -> "S3Client":
+            session = boto3.Session()
+            return session.client("s3")
+
+        if not hasattr(self, "_client"):
+            self._client = await asyncio.to_thread(_make_s3_client)
 
     async def load(self) -> MetadataCache:
         """Load metadata from the S3 bucket asynchronously.
 
-        This method loads the metadata cache from the S3 bucket into memory. It uses
-        an asyncio lock to ensure thread safety and prevents multiple coroutines from
-        loading the cache simultaneously.
+        Loads the metadata cache from the S3 bucket into memory. This method
+        uses an asyncio lock to ensure thread safety and to prevent multiple
+        coroutines from loading the cache simultaneously.
 
-        If the object does not exist or if the S3 object is corrupt, it logs a warning
-        and returns an empty cache.
+        If the object does not exist or if the S3 object is corrupt, it logs a
+        warning and returns an empty cache.
 
         Returns:
             The metadata cache loaded from the S3 bucket.
@@ -106,13 +111,15 @@ class AsyncS3Cache:
                 await self.open()
 
             try:
-                response = await self._client.get_object(
+                response = await asyncio.to_thread(
+                    self._client.get_object,
                     Bucket=self._bucket_name,
                     Key=self._cache_key,
                 )
 
-                content = await response["Body"].read()
-                self._cache_data = json.loads(content)
+                body = response["Body"].read()
+                self._cache_data = json.loads(body.decode("utf-8"))
+
                 self._logger.info(
                     "Loaded metadata from s3://%s/%s",
                     self._bucket_name,
@@ -127,14 +134,21 @@ class AsyncS3Cache:
                     self._bucket_name,
                     self._cache_key,
                 )
-            except Exception:
+            except ClientError as exc:
                 self._cache_data = {}
-                self._logger.exception(
-                    "An unexpected error occurred loading the metadata object in "
-                    "s3://%s/%s, initializing an empty cache.",
-                    self._bucket_name,
-                    self._cache_key,
-                )
+                if exc.response.get("Error", {}).get("Code") == "NoSuchKey":
+                    self._logger.warning(
+                        "Cache not found at s3://%s/%s — initializing an empty cache.",
+                        self._bucket_name,
+                        self._cache_key,
+                    )
+                else:
+                    self._logger.warning(
+                        "Unexpected error loading metadata from s3://%s/%s, "
+                        "initializing an empty cache.",
+                        self._bucket_name,
+                        self._cache_key,
+                    )
             finally:
                 self._is_loaded = True
 
@@ -143,14 +157,18 @@ class AsyncS3Cache:
     async def save(self) -> None:
         """Write the metadata cache to the S3 bucket.
 
-        This method writes the entire metadata cache to the S3 bucket. It uses an
-        asyncio lock to ensure thread safety and prevents multiple coroutines
-        from writing to the S3 object simultaneously.
+        Serializes the cache data to JSON and uploads it to the S3 bucket.
+        This method uses an asyncio lock to ensure thread safety and executes
+        the upload in a background thread.
         """
         async with self._lock:
+            if not hasattr(self, "_client"):
+                await self.open()
+
             try:
                 content = json.dumps(self._cache_data, indent=4)
-                await self._client.put_object(
+                await asyncio.to_thread(
+                    self._client.put_object,
                     Bucket=self._bucket_name,
                     Key=self._cache_key,
                     Body=content.encode("utf-8"),
@@ -160,7 +178,7 @@ class AsyncS3Cache:
                     self._bucket_name,
                     self._cache_key,
                 )
-            except Exception:
+            except ClientError:
                 self._logger.exception(
                     "Error saving metadata to s3://%s/%s",
                     self._bucket_name,
@@ -170,19 +188,20 @@ class AsyncS3Cache:
     async def close(self) -> None:
         """Save cached data and close the S3 connection.
 
-        Ensures that any unsaved cache data is written to S3 before closing
-        the client session. This method also releases all associated resources
-        to prevent leaks.
-
-        If the client has not been initialized, this method does nothing.
+        Ensures that any unsaved cache data is written to S3 and closes the S3
+        client connection.
         """
         if hasattr(self, "_client"):
             await self.save()
-            await self._client.close()
+            self._client.close()
             del self._client
 
     async def clear_cache(self) -> None:
-        """Clear all data from the cache."""
+        """Clear all data from the cache.
+
+        Clears the in-memory cache and resets the load flag, then persists the
+        empty cache to S3.
+        """
         async with self._lock:
             self._cache_data = {}
             self._is_loaded = True
@@ -196,8 +215,7 @@ class AsyncS3Cache:
             recipe_name: The name of the recipe to retrieve.
 
         Returns:
-            The metadata associated with the recipe, or None if the recipe is not
-            found in the cache.
+            The metadata associated with the recipe, or None if not found.
         """
         await self.load()
         return self._cache_data.get(recipe_name)
@@ -231,10 +249,10 @@ class AsyncS3Cache:
                 )
 
     async def __aenter__(self) -> "AsyncS3Cache":
-        """For use in `async with` statements.
+        """Enter an async context.
 
-        This method is called when entering an `async with` block. It opens the
-        cache data from the S3 bucket and returns the `AsyncS3Cache` instance.
+        Called when entering an `async with` block. Opens the S3 connection
+        and loads the cache into memory.
         """
         await self.open()
         await self.load()
@@ -246,10 +264,9 @@ class AsyncS3Cache:
         _exc_val: BaseException | None,
         _exc_tb: TracebackType | None,
     ) -> None:
-        """For use in `async with` statements.
+        """Exit the async context.
 
-        This method is called when exiting an `async with` block. It saves the
-        cache data to the S3 bucket and releases any resources held by the cache.
+        Called when exiting an `async with` block to close the connection.
 
         Args:
             _exc_type: The type of exception that was raised, if any.
