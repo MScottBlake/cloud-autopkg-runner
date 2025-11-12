@@ -1,12 +1,12 @@
 import json
 import time
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import Generator
 from datetime import datetime, timezone
+from typing import Any
 
 import boto3
 import pytest
-import pytest_asyncio
 from types_boto3_s3 import S3Client
 
 from cloud_autopkg_runner import Settings
@@ -58,20 +58,20 @@ def test_data() -> RecipeCache:
     }
 
 
-@pytest_asyncio.fixture
-async def s3_client(settings: Settings) -> AsyncGenerator[S3Client, None]:
+@pytest.fixture
+def s3_client(settings: Settings) -> Generator[S3Client, Any, None]:
     """Fixture that provides a valid S3Client."""
     session = boto3.Session()
     s3_client: S3Client = session.client("s3")
     try:
-        await s3_client.create_bucket(Bucket=settings.cloud_container_name)
+        s3_client.create_bucket(Bucket=settings.cloud_container_name)
 
         yield s3_client
 
-        await s3_client.delete_object(
+        s3_client.delete_object(
             Bucket=settings.cloud_container_name, Key=settings.cache_file
         )
-        await s3_client.delete_bucket(Bucket=settings.cloud_container_name)
+        s3_client.delete_bucket(Bucket=settings.cloud_container_name)
     finally:
         s3_client.close()
 
