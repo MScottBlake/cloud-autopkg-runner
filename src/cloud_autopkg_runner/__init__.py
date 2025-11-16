@@ -21,6 +21,7 @@ from .metadata_cache import get_cache_plugin
 from .recipe import Recipe
 from .recipe_finder import RecipeFinder
 from .recipe_report import RecipeReport
+from . import logging_config
 
 __all__ = [
     "AutoPkgPrefs",
@@ -31,3 +32,6 @@ __all__ = [
     "Settings",
     "get_cache_plugin",
 ]
+
+# Library-level logger
+logger = logging_config.get_logger(__name__)

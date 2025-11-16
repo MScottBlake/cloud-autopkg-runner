@@ -234,15 +234,12 @@ async def test_create_recipe_invalid_file_contents(
 ) -> None:
     """Should return None and log an error on InvalidFileContents."""
     with (
-        patch("cloud_autopkg_runner.logging_config.get_logger") as mock_get_logger,
+        patch("cloud_autopkg_runner.__main__.logger") as mock_logger,
         patch(
             "cloud_autopkg_runner.recipe.Recipe",
             side_effect=InvalidFileContents("corrupt recipe file"),
         ),
     ):
-        mock_logger = MagicMock()
-        mock_get_logger.return_value = mock_logger
-
         result = await _create_recipe("bad_recipe", tmp_path, mock_autopkg_prefs)
 
         mock_logger.exception.assert_called_once_with(
@@ -257,15 +254,12 @@ async def test_create_recipe_recipe_exception(
 ) -> None:
     """Should return None and log an error on RecipeException."""
     with (
-        patch("cloud_autopkg_runner.logging_config.get_logger") as mock_get_logger,
+        patch("cloud_autopkg_runner.__main__.logger") as mock_logger,
         patch(
             "cloud_autopkg_runner.recipe.Recipe",
             side_effect=RecipeException("missing processor"),
         ),
     ):
-        mock_logger = MagicMock()
-        mock_get_logger.return_value = mock_logger
-
         result = await _create_recipe("exception_recipe", tmp_path, mock_autopkg_prefs)
 
         mock_logger.exception.assert_called_once_with(
@@ -385,12 +379,8 @@ async def test_recipe_worker_timeout_logged(tmp_path: Path) -> None:
     mock_settings.recipe_timeout = 3
     mock_settings.report_dir = tmp_path
 
-    mock_logger = MagicMock()
-
     with (
-        patch(
-            "cloud_autopkg_runner.logging_config.get_logger", return_value=mock_logger
-        ),
+        patch("cloud_autopkg_runner.__main__.logger") as mock_logger,
         patch(
             "cloud_autopkg_runner.__main__._create_recipe",
             new=AsyncMock(return_value=mock_recipe),
