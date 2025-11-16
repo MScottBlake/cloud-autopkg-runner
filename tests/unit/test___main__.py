@@ -46,6 +46,7 @@ def test_apply_args_to_settings(tmp_path: Path) -> None:
         cache_plugin="json",
         log_file=tmp_path / "test_log.txt",
         max_concurrency=5,
+        recipe_timeout=60,
         report_dir=tmp_path / "test_reports",
         verbose=2,
         pre_processor="com.example.identifier/preProcessorName",
@@ -60,6 +61,7 @@ def test_apply_args_to_settings(tmp_path: Path) -> None:
     assert tmp_path / settings.cache_file == tmp_path / "test_cache.json"
     assert settings.log_file == tmp_path / "test_log.txt"
     assert settings.max_concurrency == 5
+    assert settings.recipe_timeout == 60
     assert settings.report_dir == tmp_path / "test_reports"
     assert settings.verbosity_level == 2
     assert settings.pre_processors == ["com.example.identifier/preProcessorName"]
@@ -140,6 +142,8 @@ def test_parse_arguments() -> None:
         "PostProcessor1",
         "--pre-processor",
         "PreProcessor1",
+        "--recipe-timeout",
+        "60",
         "--report-dir",
         "test_reports",
         "--max-concurrency",
@@ -155,6 +159,7 @@ def test_parse_arguments() -> None:
     assert args.log_file == Path("test_log.txt")
     assert args.post_processor == ["PostProcessor1"]
     assert args.pre_processor == ["PreProcessor1"]
+    assert args.recipe_timeout == 60
     assert args.report_dir == Path("test_reports")
     assert args.max_concurrency == 15
 
@@ -172,6 +177,7 @@ def test_parse_arguments_diff_syntax() -> None:
         "--log-file=test_log.txt",
         "--post-processor=PostProcessor1",
         "--pre-processor=PreProcessor1",
+        "--recipe-timeout=60",
         "--report-dir=test_reports",
         "--max-concurrency=15",
     ]
@@ -185,6 +191,7 @@ def test_parse_arguments_diff_syntax() -> None:
     assert args.log_file == Path("test_log.txt")
     assert args.post_processor == ["PostProcessor1"]
     assert args.pre_processor == ["PreProcessor1"]
+    assert args.recipe_timeout == 60
     assert args.report_dir == Path("test_reports")
     assert args.max_concurrency == 15
 
@@ -208,13 +215,13 @@ async def test_create_recipe_success(
     with patch(
         "cloud_autopkg_runner.__main__._get_recipe_path", new=mock_get_recipe_path
     ):
-        recipe = await _create_recipe("test_recipe", mock_autopkg_prefs)
+        recipe = await _create_recipe("test_recipe", tmp_path, mock_autopkg_prefs)
         assert isinstance(recipe, Recipe)
 
 
 @pytest.mark.asyncio
 async def test_create_recipe_invalid_file_contents(
-    mock_autopkg_prefs: MagicMock,
+    tmp_path: Path, mock_autopkg_prefs: MagicMock
 ) -> None:
     """Should return None and log an error on InvalidFileContents."""
     with (
@@ -227,16 +234,18 @@ async def test_create_recipe_invalid_file_contents(
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
-        result = await _create_recipe("bad_recipe", mock_autopkg_prefs)
+        result = await _create_recipe("bad_recipe", tmp_path, mock_autopkg_prefs)
 
         mock_logger.exception.assert_called_once_with(
-            "Failed to create recipe: %s", "bad_recipe"
+            "Failed to create `Recipe` object: %s", "bad_recipe"
         )
         assert result is None
 
 
 @pytest.mark.asyncio
-async def test_create_recipe_recipe_exception(mock_autopkg_prefs: MagicMock) -> None:
+async def test_create_recipe_recipe_exception(
+    tmp_path: Path, mock_autopkg_prefs: MagicMock
+) -> None:
     """Should return None and log an error on RecipeException."""
     with (
         patch("cloud_autopkg_runner.logging_config.get_logger") as mock_get_logger,
@@ -248,10 +257,10 @@ async def test_create_recipe_recipe_exception(mock_autopkg_prefs: MagicMock) -> 
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
-        result = await _create_recipe("exception_recipe", mock_autopkg_prefs)
+        result = await _create_recipe("exception_recipe", tmp_path, mock_autopkg_prefs)
 
         mock_logger.exception.assert_called_once_with(
-            "Failed to create recipe: %s", "exception_recipe"
+            "Failed to create `Recipe` object: %s", "exception_recipe"
         )
         assert result is None
 
