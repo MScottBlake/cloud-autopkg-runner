@@ -1,5 +1,6 @@
 """Unit tests for __main__.py."""
 
+import asyncio
 import json
 import os
 import plistlib
@@ -13,12 +14,15 @@ import pytest
 
 from cloud_autopkg_runner import AutoPkgPrefs, Recipe, Settings
 from cloud_autopkg_runner.__main__ import (
+    STOP_WORKER,
     _apply_args_to_settings,
     _count_iterable,
     _create_recipe,
     _generate_recipe_list,
     _get_recipe_path,
     _parse_arguments,
+    _process_recipe_list,
+    _recipe_worker,
 )
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
@@ -318,3 +322,152 @@ def test_count_iterable_int() -> None:
 
     assert result == 3
     assert type(result) is int
+
+
+@pytest.mark.asyncio
+async def test_recipe_worker_success(tmp_path: Path) -> None:
+    """_recipe_worker should process recipes and return results."""
+    queue = asyncio.Queue()
+    queue.put_nowait("TestRecipe")
+    queue.put_nowait(STOP_WORKER)
+
+    mock_report = MagicMock()
+    mock_recipe = MagicMock()
+    mock_recipe.name = "TestRecipe"
+    mock_recipe.run = AsyncMock(return_value=mock_report)
+
+    mock_settings = MagicMock()
+    mock_settings.recipe_timeout = 10
+    mock_settings.report_dir = tmp_path
+
+    with patch(
+        "cloud_autopkg_runner.__main__._create_recipe",
+        new=AsyncMock(return_value=mock_recipe),
+    ):
+        results = await _recipe_worker(queue, mock_settings, MagicMock())
+
+    assert results == {"TestRecipe": mock_report}
+    assert queue.empty()
+
+
+@pytest.mark.asyncio
+async def test_recipe_worker_skips_invalid_recipe(tmp_path: Path) -> None:
+    """_recipe_worker should skip when _create_recipe returns None."""
+    queue = asyncio.Queue()
+    queue.put_nowait("BadRecipe")
+    queue.put_nowait(STOP_WORKER)
+
+    mock_settings = MagicMock()
+    mock_settings.recipe_timeout = 5
+    mock_settings.report_dir = tmp_path
+
+    with patch(
+        "cloud_autopkg_runner.__main__._create_recipe", new=AsyncMock(return_value=None)
+    ):
+        results = await _recipe_worker(queue, mock_settings, MagicMock())
+
+    assert results == {}
+    assert queue.empty()
+
+
+@pytest.mark.asyncio
+async def test_recipe_worker_timeout_logged(tmp_path: Path) -> None:
+    """TimeoutError during recipe.run() should be logged and skipped."""
+    queue = asyncio.Queue()
+    queue.put_nowait("TimeoutRecipe")
+    queue.put_nowait(STOP_WORKER)
+
+    mock_recipe = MagicMock()
+    mock_recipe.name = "TimeoutRecipe"
+    mock_recipe.run = AsyncMock(side_effect=asyncio.TimeoutError())
+
+    mock_settings = MagicMock()
+    mock_settings.recipe_timeout = 3
+    mock_settings.report_dir = tmp_path
+
+    mock_logger = MagicMock()
+
+    with (
+        patch(
+            "cloud_autopkg_runner.logging_config.get_logger", return_value=mock_logger
+        ),
+        patch(
+            "cloud_autopkg_runner.__main__._create_recipe",
+            new=AsyncMock(return_value=mock_recipe),
+        ),
+    ):
+        results = await _recipe_worker(queue, mock_settings, MagicMock())
+
+    assert results == {}
+    mock_logger.exception.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_process_recipe_list_success() -> None:
+    """_process_recipe_list should process items and merge worker results."""
+
+    async def fake_worker(
+        queue: asyncio.Queue, _settings: Settings, _prefs: AutoPkgPrefs
+    ) -> dict[typing.Any, typing.Any]:
+        results = {}
+        while True:
+            item = await queue.get()
+            if item is STOP_WORKER:
+                queue.task_done()
+                break
+            results[item] = f"report-{item}"
+            queue.task_done()
+        return results
+
+    with (
+        patch(
+            "cloud_autopkg_runner.__main__._recipe_worker",
+            new=fake_worker,
+        ),
+        patch(
+            "cloud_autopkg_runner.__main__.get_cache_plugin",
+            return_value=AsyncMock().__aenter__.return_value,
+        ),
+        patch("cloud_autopkg_runner.settings.Settings.max_concurrency", 2),
+    ):
+        results = await _process_recipe_list(["R1", "R2"], MagicMock())
+
+    assert results == {
+        "R1": "report-R1",
+        "R2": "report-R2",
+    }
+
+
+@pytest.mark.asyncio
+async def test_process_recipe_list_inserts_correct_number_of_stops() -> None:
+    """STOP_WORKER should be enqueued exactly once per worker."""
+    pushed = []
+
+    class LoggingQueue(asyncio.Queue):
+        def put_nowait(self, item: str) -> None:
+            pushed.append(item)
+            super().put_nowait(item)
+
+    async def fake_worker(
+        queue: asyncio.Queue, _settings: Settings, _prefs: AutoPkgPrefs
+    ) -> dict[typing.Any, typing.Any]:
+        # drain queue to avoid block
+        while True:
+            item = await queue.get()
+            queue.task_done()
+            if item is STOP_WORKER:
+                break
+        return {}
+
+    with (
+        patch("cloud_autopkg_runner.__main__.asyncio.Queue", LoggingQueue),
+        patch("cloud_autopkg_runner.__main__._recipe_worker", new=fake_worker),
+        patch(
+            "cloud_autopkg_runner.__main__.get_cache_plugin",
+            return_value=AsyncMock().__aenter__.return_value,
+        ),
+        patch("cloud_autopkg_runner.settings.Settings.max_concurrency", 2),
+    ):
+        await _process_recipe_list(["A", "B"], MagicMock())
+
+    assert pushed.count(STOP_WORKER) == 2
