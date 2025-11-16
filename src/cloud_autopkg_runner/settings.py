@@ -61,6 +61,7 @@ class Settings:
         self._max_concurrency: int = 10
         self._post_processors: list[str] = []
         self._pre_processors: list[str] = []
+        self._recipe_timeout: int = 300
         self._report_dir: Path = Path("recipe_reports")
         self._verbosity_level: int = 0
 
@@ -157,6 +158,25 @@ class Settings:
             self._pre_processors = [value]
         else:
             self._pre_processors = value
+
+    @property
+    def recipe_timeout(self) -> int:
+        """Get the recipe timeout value.
+
+        Returns:
+            The recipe timeout value.
+        """
+        return self._recipe_timeout
+
+    @recipe_timeout.setter
+    def recipe_timeout(self, value: int) -> None:
+        """Set the recipe timeout value with validation.
+
+        Args:
+            value: The new recipe timeout value (an integer).
+        """
+        self._validate_integer_is_not_negative("recipe_timeout", value)
+        self._recipe_timeout = value
 
     @property
     def report_dir(self) -> Path:
