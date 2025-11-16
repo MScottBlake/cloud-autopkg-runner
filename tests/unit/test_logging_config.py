@@ -18,7 +18,7 @@ from cloud_autopkg_runner import logging_config
 def test_console_handler_levels(verbosity_level: int, expected_level: int) -> None:
     """Test that verbosity levels are set correctly."""
     logging_config.initialize_logger(verbosity_level=verbosity_level, log_file=None)
-    logger = logging.getLogger()
+    logger = logging.getLogger("cloud_autopkg_runner")
 
     # Get the most recent StreamHandler (console handler)
     console_handler = next(
@@ -37,7 +37,7 @@ def test_logs_to_console_but_not_file(tmp_path: Path) -> None:
 
     # Initialize logger with no file output
     logging_config.initialize_logger(verbosity_level=1, log_file=None)
-    logger = logging.getLogger()
+    logger = logging.getLogger("cloud_autopkg_runner")
 
     # Assert no file handler was added (log file should not exist)
     file_handler = next(
@@ -54,7 +54,7 @@ def test_logs_to_file(tmp_path: Path) -> None:
     log_file = tmp_path / "test.log"
 
     logging_config.initialize_logger(verbosity_level=1, log_file=str(log_file))
-    logger = logging.getLogger()
+    logger = logging.getLogger("cloud_autopkg_runner")
 
     logger.info("This should go to both console and file")
 

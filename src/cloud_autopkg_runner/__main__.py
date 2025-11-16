@@ -45,6 +45,7 @@ from cloud_autopkg_runner.exceptions import (
     InvalidJsonContents,
     RecipeException,
 )
+from cloud_autopkg_runner.logging_context import recipe_context
 from cloud_autopkg_runner.recipe_report import ConsolidatedReport
 
 logger = logging_config.get_logger(__name__)
@@ -387,12 +388,15 @@ async def _recipe_worker(
     every recipe name retrieved from the queue, the worker performs the full
     execution lifecycle:
 
-    1.  Resolve the recipe path and construct a `Recipe` instance. Invalid or
+    1.  Set the per-task logging context (`recipe_context`) so all log output is
+        tagged with the active recipe name.
+    2.  Resolve the recipe path and construct a `Recipe` instance. Invalid or
         unreadable recipes are logged and skipped without terminating the worker.
-    2.  Execute the recipe with a timeout using `asyncio.wait_for()`, capturing the
+    3.  Execute the recipe with a timeout using `asyncio.wait_for()`, capturing the
         resulting `ConsolidatedReport` on success.
-    3.  Handle and log timeouts and unexpected exceptions without interrupting
+    4.  Handle and log timeouts and unexpected exceptions without interrupting
         other workers.
+    5.  Reset the logging context and mark the queue item as processed.
 
     The worker returns a mapping of recipe names to their final `ConsolidatedReport`
     objects. Multiple workers may run concurrently; their partial result maps are
@@ -422,6 +426,7 @@ async def _recipe_worker(
             queue.task_done()
             break
 
+        token = recipe_context.set(recipe_name)
         try:
             logger.info("Starting recipe %s", recipe_name)
 
@@ -451,6 +456,7 @@ async def _recipe_worker(
             raise
         finally:
             queue.task_done()
+            recipe_context.reset(token)
 
     return results
 
