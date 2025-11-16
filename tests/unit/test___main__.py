@@ -4,6 +4,7 @@ import json
 import os
 import plistlib
 import sys
+import typing
 from argparse import Namespace
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -13,6 +14,7 @@ import pytest
 from cloud_autopkg_runner import AutoPkgPrefs, Recipe, Settings
 from cloud_autopkg_runner.__main__ import (
     _apply_args_to_settings,
+    _count_iterable,
     _create_recipe,
     _generate_recipe_list,
     _get_recipe_path,
@@ -24,6 +26,9 @@ from cloud_autopkg_runner.exceptions import (
     RecipeException,
     RecipeLookupException,
 )
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 @pytest.fixture
@@ -295,3 +300,21 @@ async def test_get_recipe_path_recipe_lookup_exception(
         pytest.raises(RecipeLookupException),
     ):
         await _get_recipe_path("test_recipe", mock_autopkg_prefs)
+
+
+def test_count_iterable_str() -> None:
+    """Test that _count_iterable returns the correct value."""
+    mock_iterable: Iterable[str] = iter(["foo", "bar", "baz"])
+    result = _count_iterable(mock_iterable)
+
+    assert result == 3
+    assert type(result) is int
+
+
+def test_count_iterable_int() -> None:
+    """Test that _count_iterable returns the correct value."""
+    mock_iterable: Iterable[int] = iter([1, 2, 3])
+    result = _count_iterable(mock_iterable)
+
+    assert result == 3
+    assert type(result) is int
