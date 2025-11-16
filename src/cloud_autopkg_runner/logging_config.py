@@ -12,9 +12,37 @@ every log line automatically includes the recipe name, even when running concurr
 
 import logging
 import sys
-from typing import TextIO
+from typing import ClassVar, TextIO
 
 from cloud_autopkg_runner.logging_context import recipe_context
+
+
+class ColorFormatter(logging.Formatter):
+    """Add ANSI coloring to log level names while preserving padding."""
+
+    COLORS: ClassVar[dict[str, str]] = {
+        "DEBUG": "\033[36m",  # Cyan
+        "INFO": "\033[32m",  # Green
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",  # Red
+        "CRITICAL": "\033[41m",  # Red background
+    }
+    RESET: ClassVar[str] = "\033[0m"
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Render log message with colorized level names."""
+        # Let the base class format the record first
+        msg = super().format(record)
+
+        color = self.COLORS.get(record.levelname)
+        if not color:
+            return msg
+
+        # Replace the exact (already padded) level text inside msg
+        padded = f"{record.levelname:<7}"
+        colored = f"{color}{padded}{self.RESET}"
+
+        return msg.replace(padded, colored, 1)
 
 
 class RecipeContextFilter(logging.Filter):
@@ -77,7 +105,7 @@ def initialize_logger(verbosity_level: int, log_file: str | None = None) -> None
     # Console handler
     console_handler: logging.StreamHandler[TextIO] = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(level)
-    console_formatter = logging.Formatter("%(levelname)-7s %(recipe)-25s %(message)s")
+    console_formatter = ColorFormatter("%(levelname)-7s %(recipe)-25s %(message)s")
     console_handler.setFormatter(console_formatter)
     console_handler.addFilter(context_filter)
     logger.addHandler(console_handler)
