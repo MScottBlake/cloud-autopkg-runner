@@ -47,6 +47,8 @@ from cloud_autopkg_runner.exceptions import (
 )
 from cloud_autopkg_runner.recipe_report import ConsolidatedReport
 
+logger = logging_config.get_logger(__name__)
+
 T = TypeVar("T")
 
 # Constant that indicates a worker queue is empty and can be stopped
@@ -127,7 +129,6 @@ async def _create_recipe(
         recipe_path = await _get_recipe_path(recipe_name, autopkg_prefs)
         return Recipe(recipe_path, report_dir, autopkg_prefs)
     except (InvalidFileContents, RecipeException):
-        logger = logging_config.get_logger(__name__)
         logger.exception("Failed to create `Recipe` object: %s", recipe_name)
         return None
 
@@ -154,7 +155,6 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
         InvalidJsonContents: If the JSON file specified by `args.recipe_list`
             contains invalid JSON, indicating a malformed input file.
     """
-    logger = logging_config.get_logger(__name__)
     logger.debug("Generating recipe list...")
 
     output: set[str] = set()
@@ -344,7 +344,6 @@ async def _process_recipe_list(
     Returns:
         A dictionary of recipe names mapped to their reports.
     """
-    logger = logging_config.get_logger(__name__)
     settings = Settings()
 
     num_workers = min(settings.max_concurrency, _count_iterable(recipe_list))
@@ -415,7 +414,6 @@ async def _recipe_worker(
         Exception: Any unexpected error inside the worker is logged and re-raised
             to allow the caller to fail fast, while still ensuring proper cleanup.
     """
-    logger = logging_config.get_logger(__name__)
     results: dict[str, ConsolidatedReport] = {}
 
     while True:
@@ -471,7 +469,6 @@ def _signal_handler(sig: int, _frame: FrameType | None) -> NoReturn:
         _frame: The current stack frame object, which is typically unused in
             simple signal handlers and thus ignored.
     """
-    logger = logging_config.get_logger(__name__)
     logger.error("Signal %s received. Exiting...", sig)
     sys.exit(0)
 
