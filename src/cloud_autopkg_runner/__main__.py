@@ -30,15 +30,15 @@ from collections.abc import Iterable
 from importlib.metadata import metadata
 from pathlib import Path
 from types import FrameType
-from typing import NoReturn
+from typing import NoReturn, TypeVar
 
 from cloud_autopkg_runner import (
     AutoPkgPrefs,
     Recipe,
     RecipeFinder,
     Settings,
+    get_cache_plugin,
     logging_config,
-    metadata_cache,
 )
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
@@ -46,6 +46,11 @@ from cloud_autopkg_runner.exceptions import (
     RecipeException,
 )
 from cloud_autopkg_runner.recipe_report import ConsolidatedReport
+
+T = TypeVar("T")
+
+# Constant that indicates a worker queue is empty and can be stopped
+STOP_WORKER = "<<STOP_WORKER>>"
 
 
 def _apply_args_to_settings(args: Namespace) -> None:
@@ -63,6 +68,7 @@ def _apply_args_to_settings(args: Namespace) -> None:
 
     settings.log_file = args.log_file
     settings.max_concurrency = args.max_concurrency
+    settings.recipe_timeout = args.recipe_timeout
     settings.report_dir = args.report_dir
     settings.verbosity_level = args.verbose
 
@@ -80,8 +86,23 @@ def _apply_args_to_settings(args: Namespace) -> None:
         settings.cloud_container_name = args.cloud_container_name
 
 
+def _count_iterable(iterable: Iterable[T]) -> int:
+    """Count the number of elements in an iterable.
+
+    This function consumes the entire iterable to determine its length,
+    which means it should not be used on infinite iterators.
+
+    Args:
+        iterable: An iterable collection of elements of type T.
+
+    Returns:
+        The number of elements in the iterable.
+    """
+    return sum(1 for _element in iterable)
+
+
 async def _create_recipe(
-    recipe_name: str, autopkg_prefs: AutoPkgPrefs
+    recipe_name: str, report_dir: Path, autopkg_prefs: AutoPkgPrefs
 ) -> Recipe | None:
     """Create a `Recipe` object, handling potential exceptions during initialization.
 
@@ -94,6 +115,8 @@ async def _create_recipe(
 
     Args:
         recipe_name: The name of the recipe to create.
+        report_dir: A `Path` object containing the directory to store recipe run
+            reports.
         autopkg_prefs: An `AutoPkgPrefs` object containing AutoPkg's preferences,
             used to initialize the `Recipe` object.
 
@@ -101,12 +124,11 @@ async def _create_recipe(
         A `Recipe` object if the creation was successful, otherwise `None`.
     """
     try:
-        settings = Settings()
         recipe_path = await _get_recipe_path(recipe_name, autopkg_prefs)
-        return Recipe(recipe_path, settings.report_dir, autopkg_prefs)
+        return Recipe(recipe_path, report_dir, autopkg_prefs)
     except (InvalidFileContents, RecipeException):
         logger = logging_config.get_logger(__name__)
-        logger.exception("Failed to create recipe: %s", recipe_name)
+        logger.exception("Failed to create `Recipe` object: %s", recipe_name)
         return None
 
 
@@ -226,6 +248,12 @@ def _parse_arguments() -> Namespace:
         default=10,
         type=int,
     )
+    general.add_argument(
+        "--recipe-timeout",
+        help="Timeout in seconds for each recipe task. Defaults to 300 (5 minutes).",
+        default=1200,
+        type=int,
+    )
 
     # Recipe Selection
     recipes = parser.add_argument_group("Recipe Selection")
@@ -303,75 +331,130 @@ def _parse_arguments() -> Namespace:
 async def _process_recipe_list(
     recipe_list: Iterable[str], autopkg_prefs: AutoPkgPrefs
 ) -> dict[str, ConsolidatedReport]:
-    """Create and run AutoPkg recipes concurrently.
+    """Create and run AutoPkg recipes using a worker queue pattern.
 
-    This private asynchronous helper function orchestrates the creation and
-    concurrent execution of AutoPkg recipes. It takes an iterable of recipe names,
-    asynchronously creates `Recipe` objects for each valid name, and then runs
-    these recipes concurrently using `asyncio.gather`. Concurrency is managed
-    by an `asyncio.Semaphore` based on the `max_concurrency` setting to prevent
-    resource exhaustion. After all recipes are processed, it ensures the metadata
-    cache is saved.
+    This orchestrates execution by populating a work queue with recipe names
+    and spawning a fixed number of worker tasks. This prevents "thundering herd"
+    issues during recipe object creation and allows for cleaner timeout handling.
 
     Args:
-        recipe_list: An `Iterable` of strings, where each string is a recipe name.
-        autopkg_prefs: An `AutoPkgPrefs` object containing AutoPkg's preferences.
+        recipe_list: An iterable of recipe names.
+        autopkg_prefs: AutoPkg preferences.
 
     Returns:
-        A `dict` where keys are recipe names (`str`) and values are
-        `ConsolidatedReport` objects representing the results of running each recipe.
+        A dictionary of recipe names mapped to their reports.
     """
     logger = logging_config.get_logger(__name__)
-    logger.debug("Processing recipes...")
     settings = Settings()
 
-    async with metadata_cache.get_cache_plugin():
-        # Create Recipe objects concurrently
-        recipes: list[Recipe] = [
-            recipe
-            for recipe in await asyncio.gather(
-                *[
-                    _create_recipe(recipe_name, autopkg_prefs)
-                    for recipe_name in recipe_list
-                ]
-            )
-            if recipe is not None
+    num_workers = min(settings.max_concurrency, _count_iterable(recipe_list))
+
+    # Populate the Queue
+    queue: asyncio.Queue[str] = asyncio.Queue()
+    for recipe_name in recipe_list:
+        queue.put_nowait(recipe_name)
+
+    for _ in range(num_workers):
+        queue.put_nowait(STOP_WORKER)
+
+    logger.info(
+        "Processing %d recipes with %d workers...",
+        queue.qsize() - num_workers,
+        num_workers,
+    )
+
+    # Process the queue
+    async with get_cache_plugin():
+        workers = [
+            asyncio.create_task(_recipe_worker(queue, settings, autopkg_prefs))
+            for _ in range(num_workers)
         ]
+        await queue.join()
+        worker_results = await asyncio.gather(*workers)
 
-        # Create a semaphore to limit concurrent tasks
-        semaphore = asyncio.Semaphore(settings.max_concurrency)
+    final_results: dict[str, ConsolidatedReport] = {}
+    for result_chunk in worker_results:
+        final_results.update(result_chunk)
 
-        # Run recipes concurrently
-        results = await asyncio.gather(
-            *[_run_recipe(recipe, semaphore) for recipe in recipes]
-        )
-
-    return dict(results)
+    return final_results
 
 
-async def _run_recipe(
-    recipe_obj: Recipe,
-    semaphore: asyncio.Semaphore,
-) -> tuple[str, ConsolidatedReport]:
-    """Run a single AutoPkg recipe with a concurrency limit.
+async def _recipe_worker(
+    queue: asyncio.Queue[str], settings: Settings, autopkg_prefs: AutoPkgPrefs
+) -> dict[str, ConsolidatedReport]:
+    """Consume recipe names from the shared work queue and execute them to completion.
 
-    This private asynchronous helper function executes a single AutoPkg recipe.
-    It acquires a lock from the provided `semaphore` before running the recipe
-    to ensure that the number of concurrently running recipes does not exceed
-    the configured limit. After the recipe has completed, the lock is released.
+    Each worker processes items until it encounters the `STOP_WORKER` sentinel. For
+    every recipe name retrieved from the queue, the worker performs the full
+    execution lifecycle:
+
+    1.  Resolve the recipe path and construct a `Recipe` instance. Invalid or
+        unreadable recipes are logged and skipped without terminating the worker.
+    2.  Execute the recipe with a timeout using `asyncio.wait_for()`, capturing the
+        resulting `ConsolidatedReport` on success.
+    3.  Handle and log timeouts and unexpected exceptions without interrupting
+        other workers.
+
+    The worker returns a mapping of recipe names to their final `ConsolidatedReport`
+    objects. Multiple workers may run concurrently; their partial result maps are
+    merged by the caller.
 
     Args:
-        recipe_obj: The `Recipe` object to run.
-        semaphore: An `asyncio.Semaphore` instance to limit concurrent execution.
+        queue: A work queue containing recipe names followed by sentinel values
+            equal to `STOP_WORKER` for each worker.
+        settings: Application settings controlling concurrency, timeouts, reporting
+            directories, and other runtime options.
+        autopkg_prefs: The AutoPkg preference set used for recipe discovery and
+            execution.
 
     Returns:
-        A `tuple` containing the recipe name (`str`) and the
-        `ConsolidatedReport` object representing the results of the recipe run.
+        A dictionary mapping recipe names to their corresponding
+        `ConsolidatedReport` instances.
+
+    Raises:
+        Exception: Any unexpected error inside the worker is logged and re-raised
+            to allow the caller to fail fast, while still ensuring proper cleanup.
     """
     logger = logging_config.get_logger(__name__)
-    async with semaphore:
-        logger.debug("Running recipe %s", recipe_obj.name)
-        return recipe_obj.name, await recipe_obj.run()
+    results: dict[str, ConsolidatedReport] = {}
+
+    while True:
+        recipe_name = await queue.get()
+        if recipe_name is STOP_WORKER:
+            queue.task_done()
+            break
+
+        try:
+            logger.info("Starting recipe %s", recipe_name)
+
+            recipe = await _create_recipe(
+                recipe_name, settings.report_dir, autopkg_prefs
+            )
+            if not recipe:
+                continue
+
+            logger.debug("Executing recipe %s", recipe_name)
+
+            try:
+                report = await asyncio.wait_for(
+                    recipe.run(), timeout=settings.recipe_timeout
+                )
+                results[recipe.name] = report
+            except asyncio.TimeoutError as exc:
+                logger.exception(
+                    "Recipe %s timed out after %s seconds",
+                    recipe_name,
+                    settings.recipe_timeout,
+                    exc_info=exc,
+                )
+
+        except Exception:
+            logger.exception("Worker failed unexpectedly on recipe '%s'", recipe_name)
+            raise
+        finally:
+            queue.task_done()
+
+    return results
 
 
 def _signal_handler(sig: int, _frame: FrameType | None) -> NoReturn:
