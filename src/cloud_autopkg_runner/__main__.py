@@ -252,7 +252,7 @@ def _parse_arguments() -> Namespace:
     general.add_argument(
         "--recipe-timeout",
         help="Timeout in seconds for each recipe task. Defaults to 300 (5 minutes).",
-        default=1200,
+        default=300,
         type=int,
     )
 
