@@ -17,7 +17,7 @@ dev = [
 
 [project]
 name = "cloud-autopkg-runner"
-version = "0.24.4"
+version = "0.24.7"
 description = "A Python library designed to level-up your AutoPkg automations with a focus on CI/CD performance."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
@@ -148,6 +148,9 @@ select = [
     "W",     # pycodestyle warning
     "YTT",   # flake8-2020
 ]
+
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = true
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*" = ["S101", "S108", "D100", "PLR2004", "PLC2701", "ANN401", "SLF001", "T201", "FBT001"]

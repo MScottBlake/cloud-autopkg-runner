@@ -54,6 +54,7 @@ def test_apply_args_to_settings(tmp_path: Path) -> None:
         cache_file="test_cache.json",
         cache_plugin="json",
         log_file=tmp_path / "test_log.txt",
+        log_format="text",
         max_concurrency=5,
         recipe_timeout=60,
         report_dir=tmp_path / "test_reports",
@@ -147,6 +148,8 @@ def test_parse_arguments() -> None:
         "test_cache.json",
         "--log-file",
         "test_log.txt",
+        "--log-format",
+        "text",
         "--post-processor",
         "PostProcessor1",
         "--pre-processor",
@@ -166,6 +169,7 @@ def test_parse_arguments() -> None:
     assert args.recipe_list == Path("recipes.json")
     assert args.cache_file == "test_cache.json"
     assert args.log_file == Path("test_log.txt")
+    assert args.log_format == "text"
     assert args.post_processor == ["PostProcessor1"]
     assert args.pre_processor == ["PreProcessor1"]
     assert args.recipe_timeout == 60
@@ -184,6 +188,7 @@ def test_parse_arguments_diff_syntax() -> None:
         "--recipe-list=recipes.json",
         "--cache-file=test_cache.json",
         "--log-file=test_log.txt",
+        "--log-format=text",
         "--post-processor=PostProcessor1",
         "--pre-processor=PreProcessor1",
         "--recipe-timeout=60",
@@ -198,6 +203,7 @@ def test_parse_arguments_diff_syntax() -> None:
     assert args.recipe_list == Path("recipes.json")
     assert args.cache_file == "test_cache.json"
     assert args.log_file == Path("test_log.txt")
+    assert args.log_format == "text"
     assert args.post_processor == ["PostProcessor1"]
     assert args.pre_processor == ["PreProcessor1"]
     assert args.recipe_timeout == 60

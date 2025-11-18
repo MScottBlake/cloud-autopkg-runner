@@ -58,6 +58,7 @@ class Settings:
             return  # Prevent re-initialization
 
         self._log_file: Path | None = None
+        self._log_format: str = "text"
         self._max_concurrency: int = 10
         self._post_processors: list[str] = []
         self._pre_processors: list[str] = []
@@ -91,6 +92,27 @@ class Settings:
             self._log_file = self._convert_to_path(value)
         else:
             self._log_file = None
+
+    @property
+    def log_format(self) -> str:
+        """Get the log file format.
+
+        Returns:
+            The format of the log file. Options are `text` and `json`.
+        """
+        return self._log_format or "text"
+
+    @log_format.setter
+    def log_format(self, value: str) -> None:
+        """Set the log file format.
+
+        Args:
+            value: The new format of the log file. Value must be `text` or `json`.
+        """
+        if value not in ["text", "json"]:
+            raise SettingsValidationError("log_format", "Must be one of [text, json].")
+
+        self._log_format = value
 
     @property
     def max_concurrency(self) -> int:

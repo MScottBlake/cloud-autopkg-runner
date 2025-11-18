@@ -10,9 +10,11 @@ When the caller sets the context variable in cloud_autopkg_runner.logging_contex
 every log line automatically includes the recipe name, even when running concurrently.
 """
 
+import json
 import logging
 import sys
-from typing import ClassVar, TextIO
+import time
+from typing import Any, ClassVar, TextIO
 
 from cloud_autopkg_runner.logging_context import recipe_context
 
@@ -45,6 +47,57 @@ class ColorFormatter(logging.Formatter):
         return msg.replace(padded, colored, 1)
 
 
+class UtcFormatter(logging.Formatter):
+    """Formatter that forces timestamps to be rendered in UTC."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Initialize the formatter and enforce use of UTC timestamps."""
+        super().__init__(*args, **kwargs)
+        self.converter = time.gmtime  # Ensures UTC timestamps
+
+
+class JsonFormatter(UtcFormatter):
+    """Structured JSON formatter for SIEM-friendly log files.
+
+    This formatter serializes log records into a single-line JSON object.
+    It includes timestamp, level, contextual recipe information, module
+    metadata, and message content. The timestamp is always emitted in
+    UTC using an ISO-8601/RFC3339-compatible format (e.g.,
+    "2025-11-17T02:05:23Z").
+
+    Args:
+        datefmt: Optional format string used for timestamp rendering.
+            Defaults to "%Y-%m-%dT%H:%M:%SZ" (UTC ISO-8601).
+
+    Returns:
+        A JSON string representing the structured log record.
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Serialize the log record into a JSON-formatted string.
+
+        Args:
+            record: The log record to format.
+
+        Returns:
+            A JSON string containing structured log fields.
+        """
+        log_entry: dict[str, Any] = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "context": str(getattr(record, "recipe", __package__)),
+            "message": record.getMessage(),
+            "module": record.module,
+            "function": record.funcName,
+            "line": record.lineno,
+        }
+
+        if record.exc_info:
+            log_entry["exc_info"] = self.formatException(record.exc_info)
+
+        return json.dumps(log_entry, separators=(",", ":"), sort_keys=True)
+
+
 class RecipeContextFilter(logging.Filter):
     """Inject contextual recipe information into every log record."""
 
@@ -66,7 +119,9 @@ class RecipeContextFilter(logging.Filter):
         return True
 
 
-def initialize_logger(verbosity_level: int, log_file: str | None = None) -> None:
+def initialize_logger(
+    verbosity_level: int, log_file: str | None = None, log_format: str = "text"
+) -> None:
     """Initializes the logging system.
 
     Configures the root logger with a console handler and an optional file
@@ -84,6 +139,7 @@ def initialize_logger(verbosity_level: int, log_file: str | None = None) -> None
         log_file: Optional path to a log file. If specified, logging output
             will be written to this file in addition to the console. If None,
             no file logging will occur.
+        log_format: Optional format for the log file.
     """
     logger = logging.getLogger(__name__.split(".")[0])
     logger.setLevel(logging.DEBUG)
@@ -105,19 +161,23 @@ def initialize_logger(verbosity_level: int, log_file: str | None = None) -> None
     # Console handler
     console_handler: logging.StreamHandler[TextIO] = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(level)
-    console_formatter = ColorFormatter("%(levelname)-7s %(recipe)-25s %(message)s")
+    console_formatter = ColorFormatter("%(levelname)-7s %(recipe)-30s %(message)s")
     console_handler.setFormatter(console_formatter)
     console_handler.addFilter(context_filter)
     logger.addHandler(console_handler)
 
     # File handler (optional)
     if log_file:
+        timestamp_format = "%Y-%m-%dT%H:%M:%SZ"
         file_handler: logging.FileHandler = logging.FileHandler(log_file, mode="w")
         file_handler.setLevel(logging.DEBUG)
-        file_formatter: logging.Formatter = logging.Formatter(
-            "%(asctime)s %(levelname)-7s %(recipe)-25s %(message)s",
-            datefmt="%m-%d %H:%M",
-        )
+        if log_format == "json":
+            file_formatter = JsonFormatter(datefmt=timestamp_format)
+        else:
+            file_formatter = UtcFormatter(
+                "%(asctime)s %(levelname)-7s %(recipe)-30s %(message)s",
+                datefmt=timestamp_format,
+            )
         file_handler.setFormatter(file_formatter)
         file_handler.addFilter(context_filter)
         logger.addHandler(file_handler)
