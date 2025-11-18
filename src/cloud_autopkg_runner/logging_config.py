@@ -14,22 +14,9 @@ import json
 import logging
 import sys
 import time
-from typing import Any, ClassVar, NotRequired, TextIO, TypedDict
+from typing import Any, ClassVar, TextIO
 
 from cloud_autopkg_runner.logging_context import recipe_context
-
-
-class StructuredLogEntry(TypedDict):
-    """Describes the required fields for structured JSON log output."""
-
-    context: str
-    exc_info: NotRequired[str]
-    function: str
-    level: str
-    line: int
-    message: str
-    module: str
-    timestamp: str
 
 
 class ColorFormatter(logging.Formatter):
@@ -95,7 +82,7 @@ class JsonFormatter(UtcFormatter):
         Returns:
             A JSON string containing structured log fields.
         """
-        log_entry: StructuredLogEntry = {
+        log_entry: dict[str, Any] = {
             "timestamp": self.formatTime(record, self.datefmt),
             "level": record.levelname,
             "context": str(getattr(record, "recipe", __package__)),
