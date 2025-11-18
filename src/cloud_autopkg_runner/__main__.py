@@ -70,6 +70,8 @@ def _apply_args_to_settings(args: Namespace) -> None:
     settings = Settings()
 
     settings.log_file = args.log_file
+    settings.log_format = args.log_format
+
     settings.max_concurrency = args.max_concurrency
     settings.recipe_timeout = args.recipe_timeout
     settings.report_dir = args.report_dir
@@ -236,6 +238,13 @@ def _parse_arguments() -> Namespace:
         "--log-file",
         help="Path to the log file. If not specified, no file logging will occur.",
         type=Path,
+    )
+    general.add_argument(
+        "--log-format",
+        help="Sets the log file format. Requires `--log-file` be configured.",
+        choices=["text", "json"],
+        default="text",
+        type=str,
     )
     general.add_argument(
         "--report-dir",
@@ -502,7 +511,7 @@ async def _async_main() -> None:
     args = _parse_arguments()
     _apply_args_to_settings(args)
 
-    logging_config.initialize_logger(args.verbose, args.log_file)
+    logging_config.initialize_logger(args.verbose, args.log_file, args.log_format)
 
     autopkg_prefs = AutoPkgPrefs(args.autopkg_pref_file)
 

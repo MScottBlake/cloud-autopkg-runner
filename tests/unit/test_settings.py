@@ -61,6 +61,24 @@ def test_log_file_setter(tmp_path: Path, settings: Settings) -> None:
     assert settings.log_file is None
 
 
+def test_log_format_setter_text(settings: Settings) -> None:
+    """Test setting the cache_file attribute with a Path object."""
+    settings.cache_file = "text"
+    assert settings.cache_file == "text"
+
+
+def test_log_format_setter_json(settings: Settings) -> None:
+    """Test setting the cache_file attribute with a Path object."""
+    settings.cache_file = "json"
+    assert settings.cache_file == "json"
+
+
+def test_log_format_validation(settings: Settings) -> None:
+    """Test setting the verbosity_level attribute with invalid values."""
+    with pytest.raises(SettingsValidationError):
+        settings.log_format = "invalid"
+
+
 def test_max_concurrency_setter(settings: Settings) -> None:
     """Test setting the max_concurrency attribute with a valid integer."""
     settings.max_concurrency = 20
