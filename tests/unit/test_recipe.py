@@ -285,7 +285,9 @@ async def test_create_placeholder_cache_files_first_run(
 
         await recipe._create_placeholder_cache_files()
 
-        mock_create_placeholder_files.assert_called_once_with([recipe.name])
+        mock_create_placeholder_files.assert_called_once_with(
+            [recipe.name], mock_autopkg_prefs
+        )
         assert recipe._placeholder_files_created is True
 
 
