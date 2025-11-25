@@ -26,6 +26,7 @@ from typing import cast
 import xattr  # pyright: ignore[reportMissingTypeStubs]
 
 from cloud_autopkg_runner import (
+    AutoPkgPrefs,
     logging_config,
     metadata_cache,
     recipe_finder,
@@ -76,7 +77,9 @@ def _set_file_size(file_path: Path, size: int) -> None:
         f.write(b"\0")
 
 
-async def create_placeholder_files(recipe_list: Iterable[str]) -> None:
+async def create_placeholder_files(
+    recipe_list: Iterable[str], autopkg_prefs: AutoPkgPrefs | None = None
+) -> None:
     """Create placeholder files based on metadata from the cache.
 
     For each recipe in the `recipe_list`, this function iterates through the
@@ -90,6 +93,8 @@ async def create_placeholder_files(recipe_list: Iterable[str]) -> None:
 
     Args:
         recipe_list: An iterable of recipe names to process.
+        autopkg_prefs: An optional AutoPkgPrefs instance to use for recipe lookup.
+            If not provided, a default instance will be created.
     """
     logger = logging_config.get_logger(__name__)
     logger.debug("Creating placeholder files...")
@@ -100,7 +105,7 @@ async def create_placeholder_files(recipe_list: Iterable[str]) -> None:
     possible_names: set[str] = set()
     for recipe_name in recipe_list:
         possible_names.update(
-            recipe_finder.RecipeFinder().possible_file_names(recipe_name)
+            recipe_finder.RecipeFinder(autopkg_prefs).possible_file_names(recipe_name)
         )
 
     for recipe_name, recipe_cache_data in cache.items():

@@ -353,7 +353,7 @@ class Recipe:
             not hasattr(self, "_placeholder_files_created")
             or self._placeholder_files_created is not True
         ):
-            await file_utils.create_placeholder_files([self.name])
+            await file_utils.create_placeholder_files([self.name], self._autopkg_prefs)
             self._placeholder_files_created = True
 
     @staticmethod
