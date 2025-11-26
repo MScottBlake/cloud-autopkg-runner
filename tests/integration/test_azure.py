@@ -8,12 +8,12 @@ from datetime import datetime, timezone
 
 import pytest
 import pytest_asyncio
+from azure.core.credentials import AzureNamedKeyCredential
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
-from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob.aio import BlobClient, BlobServiceClient
 
-from cloud_autopkg_runner import Settings
-from cloud_autopkg_runner.metadata_cache import RecipeCache, get_cache_plugin
+from cloud_autopkg_runner import Settings, get_cache_plugin
+from cloud_autopkg_runner.metadata_cache import RecipeCache
 
 # Define test data outside of a class
 TEST_RECIPE_NAME = "test.pkg.recipe"
@@ -67,10 +67,19 @@ def test_data() -> RecipeCache:
 @pytest_asyncio.fixture
 async def azure_blob_client(settings: Settings) -> AsyncGenerator[BlobClient, None]:
     """Fixture that provides a valid BlobClient."""
+    # Create a credential object that Azurite understands
+    azurite_credential = AzureNamedKeyCredential(
+        name="devstoreaccount1",
+        key=(
+            "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6"
+            "IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+        ),
+    )
+
+    # Use the Azurite-compatible credential to create the BlobServiceClient
     async with (
-        DefaultAzureCredential() as credential,
         BlobServiceClient(
-            account_url=settings.azure_account_url, credential=credential
+            account_url=settings.azure_account_url, credential=azurite_credential
         ) as azure_blob_service_client,
         azure_blob_service_client.get_blob_client(
             container=settings.cloud_container_name, blob=settings.cache_file
@@ -102,14 +111,13 @@ async def test_save_cache_file(
     plugin = get_cache_plugin()
     async with plugin:
         await plugin.set_item(TEST_RECIPE_NAME, test_data)
-        await plugin.save()
 
     expected_content = {TEST_RECIPE_NAME: test_data}
 
     # Retrieve with standard tooling
     download_stream = await azure_blob_client.download_blob()
     content = await download_stream.readall()
-    actual_content = json.loads(content.decode("utf-8"))
+    actual_content = json.loads(content)
 
     assert actual_content == expected_content
 
