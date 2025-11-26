@@ -69,27 +69,40 @@ def test_data() -> RecipeCache:
 @pytest.fixture
 def mock_default_credential() -> Generator[MagicMock, None, None]:
     """Mock DefaultAzureCredential for all tests."""
-    # Create a real-looking AccessToken object for the mock to return.
-    mock_access_token = AccessToken(
-        token="mock-token-string",  # noqa: S106
-        expires_on=time.time() + 3600,  # Expires an hour from now
+    # Azurite default shared key and account name
+    azurite_account_name = "devstoreaccount1"
+    azurite_account_key = (
+        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6I"
+        "FsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+    )
+
+    azurite_named_key_credential = AzureNamedKeyCredential(
+        name=azurite_account_name, key=azurite_account_key
     )
 
     with patch(
         "cloud_autopkg_runner.cache.azure_blob_cache.DefaultAzureCredential"
-    ) as mock_cls:
-        instance = MagicMock(spec=AsyncTokenCredential)
+    ) as mock_default_credential_cls:
+        mock_credential_instance = MagicMock(spec=AsyncTokenCredential)
+        mock_credential_instance.name = azurite_named_key_credential.name
+        mock_credential_instance.key = azurite_named_key_credential.key
 
-        mock_cls.return_value = instance
+        mock_credential_instance.get_token = AsyncMock(
+            return_value=AccessToken(
+                token="dummy-azurite-oauth-token",  # noqa: S106
+                expires_on=time.time() + 3600,
+            )
+        )
 
-        # Configure the get_token method on this spec-ed instance
-        instance.get_token = AsyncMock(return_value=mock_access_token)
+        mock_credential_instance.__aenter__ = AsyncMock(
+            return_value=mock_credential_instance
+        )
+        mock_credential_instance.__aexit__ = AsyncMock(return_value=False)
+        mock_credential_instance.close = AsyncMock()
 
-        # Make it usable in `async with`
-        instance.__aenter__ = AsyncMock(return_value=instance)
-        instance.__aexit__ = AsyncMock(return_value=False)
+        mock_default_credential_cls.return_value = mock_credential_instance
 
-        yield instance
+        yield mock_credential_instance
 
 
 @pytest_asyncio.fixture
