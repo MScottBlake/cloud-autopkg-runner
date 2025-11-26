@@ -137,7 +137,7 @@ jobs:
   s3-integration-tests:
     name: "🧪 Integration Test: S3 Emulator (Python ${{ matrix.python-version }})"
     runs-on: ubuntu-latest
-    needs: [lock-file, unit-tests]
+    needs: [lock-file]
     timeout-minutes: 10
     strategy:
       fail-fast: false # Allows all matrix jobs to run even if one fails
@@ -199,7 +199,7 @@ jobs:
   azure-integration-tests:
     name: "🧪 Integration Test: Azure Emulator (Python ${{ matrix.python-version }})"
     runs-on: ubuntu-latest
-    needs: [lock-file, unit-tests]
+    needs: [lock-file]
     timeout-minutes: 10
     strategy:
       fail-fast: false # Allows all matrix jobs to run even if one fails
@@ -257,7 +257,7 @@ jobs:
   gcs-integration-tests:
     name: "🧪 Integration Test: GCS Emulator (Python ${{ matrix.python-version }})"
     runs-on: ubuntu-latest
-    needs: [lock-file, unit-tests]
+    needs: [lock-file]
     timeout-minutes: 10
     strategy:
       fail-fast: false # Allows all matrix jobs to run even if one fails
