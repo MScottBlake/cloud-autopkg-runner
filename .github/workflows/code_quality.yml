@@ -308,6 +308,11 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [
+        lock-file,
+        linting,
+        formatting,
+        type-consistency,
+        inclusive-language,
         unit-tests,
         s3-integration-tests,
         azure-integration-tests,
