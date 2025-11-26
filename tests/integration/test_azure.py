@@ -5,11 +5,11 @@ import time
 import uuid
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
-from azure.core.credentials import AzureNamedKey
+from azure.core.credentials import AccessToken, AzureNamedKeyCredential
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.storage.blob.aio import BlobClient, BlobServiceClient
 
@@ -79,26 +79,31 @@ def mock_default_credential() -> Generator[MagicMock, None, None]:
     #     name=azurite_account_name, key=azurite_account_key
     # )
 
-    with patch("cloud_autopkg_runner.cache.azure_blob_cache.DefaultAzureCredential"):
-        # instance = MagicMock(spec=AzureNamedKeyCredential)
-        # instance.name = azurite_account_name
-        # instance.key = azurite_account_key
+    with patch(
+        "cloud_autopkg_runner.cache.azure_blob_cache.DefaultAzureCredential"
+    ) as mock_cls:
+        instance = MagicMock(spec=AzureNamedKeyCredential)
+        instance.name = azurite_account_name
+        instance.key = azurite_account_key
 
-        # instance.get_token = AsyncMock(
-        #     return_value=AccessToken(
-        #         token="fake-azurite-oauth-token",
-        #         expires_on=time.time() + 3600,
-        #     )
-        # )
+        instance.get_token = AsyncMock(
+            return_value=AccessToken(
+                token="fake-azurite-oauth-token",  # noqa: S106
+                expires_on=time.time() + 3600,
+            )
+        )
 
-        # instance.__aenter__ = AsyncMock(return_value=instance)
-        # instance.__aexit__ = AsyncMock(return_value=False)
-        # instance.close = AsyncMock()
+        instance.__aenter__ = AsyncMock(return_value=instance)
+        instance.__aexit__ = AsyncMock(return_value=False)
+        instance.close = AsyncMock()
 
-        # mock_cls.return_value = instance
+        mock_cls.return_value = instance
 
         # yield instance
-        yield AzureNamedKey(name=azurite_account_name, key=azurite_account_key)
+        yield mock_cls
+        # yield AzureNamedKeyCredential(
+        #     name=azurite_account_name, key=azurite_account_key
+        # )
 
 
 @pytest_asyncio.fixture
@@ -115,7 +120,7 @@ async def azure_blob_client(
     )
 
     # Create a credential object that Azurite understands
-    azurite_credential = AzureNamedKey(
+    azurite_credential = AzureNamedKeyCredential(
         name=azurite_account_name, key=azurite_account_key
     )
 
