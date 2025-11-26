@@ -3,8 +3,9 @@ import json
 import os
 import time
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
@@ -64,8 +65,27 @@ def test_data() -> RecipeCache:
     }
 
 
+@pytest.fixture
+def mock_default_credential() -> Generator[MagicMock, None, None]:
+    """Mock DefaultAzureCredential for all tests."""
+    with patch("azure.identity.aio.DefaultAzureCredential") as mock_cls:
+        instance = mock_cls.return_value
+
+        # Async token generator
+        instance.get_token = AsyncMock(return_value="mock-token")
+
+        # Make it usable in `async with DefaultAzureCredential()`
+        instance.__aenter__ = AsyncMock(return_value=instance)
+        instance.__aexit__ = AsyncMock(return_value=False)
+
+        yield instance
+
+
 @pytest_asyncio.fixture
-async def azure_blob_client(settings: Settings) -> AsyncGenerator[BlobClient, None]:
+async def azure_blob_client(
+    settings: Settings,
+    mock_default_credential: MagicMock,  # noqa: ARG001
+) -> AsyncGenerator[BlobClient, None]:
     """Fixture that provides a valid BlobClient."""
     async with (
         DefaultAzureCredential() as credential,
