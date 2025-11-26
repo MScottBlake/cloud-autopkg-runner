@@ -76,33 +76,31 @@ def mock_default_credential() -> Generator[MagicMock, None, None]:
         "FsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
     )
 
-    azurite_named_key_credential = AzureNamedKeyCredential(
-        name=azurite_account_name, key=azurite_account_key
-    )
+    # azurite_named_key_credential = AzureNamedKeyCredential(
+    #     name=azurite_account_name, key=azurite_account_key
+    # )
 
     with patch(
         "cloud_autopkg_runner.cache.azure_blob_cache.DefaultAzureCredential"
-    ) as mock_default_credential_cls:
-        mock_credential_instance = MagicMock(spec=AsyncTokenCredential)
-        mock_credential_instance.name = azurite_named_key_credential.name
-        mock_credential_instance.key = azurite_named_key_credential.key
+    ) as mock_cls:
+        instance = MagicMock(spec=AsyncTokenCredential)
+        instance.name = azurite_account_name
+        instance.key = azurite_account_key
 
-        mock_credential_instance.get_token = AsyncMock(
+        instance.get_token = AsyncMock(
             return_value=AccessToken(
-                token="dummy-azurite-oauth-token",  # noqa: S106
+                token="fake-azurite-oauth-token",  # noqa: S106
                 expires_on=time.time() + 3600,
             )
         )
 
-        mock_credential_instance.__aenter__ = AsyncMock(
-            return_value=mock_credential_instance
-        )
-        mock_credential_instance.__aexit__ = AsyncMock(return_value=False)
-        mock_credential_instance.close = AsyncMock()
+        instance.__aenter__ = AsyncMock(return_value=instance)
+        instance.__aexit__ = AsyncMock(return_value=False)
+        instance.close = AsyncMock()
 
-        mock_default_credential_cls.return_value = mock_credential_instance
+        mock_cls.return_value = instance
 
-        yield mock_credential_instance
+        yield instance
 
 
 @pytest_asyncio.fixture
