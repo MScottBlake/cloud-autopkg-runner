@@ -109,7 +109,10 @@ class AsyncAzureBlobCache:
             # Emulator mode
             self._credential = AzureNamedKeyCredential(
                 name="devstoreaccount1",
-                key="Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6I...",
+                key=(
+                    "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6"
+                    "IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+                ),
             )
         else:
             self._credential = DefaultAzureCredential()
