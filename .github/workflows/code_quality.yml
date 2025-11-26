@@ -220,30 +220,29 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
-      # - name: Download mkcert
-      #   run: |
-      #     curl -Ls "https://dl.filippo.io/mkcert/latest?for=linux/amd64" -o mkcert
-      #     chmod +x mkcert
-      #     sudo mv mkcert /usr/local/bin/
+      - name: Download mkcert
+        run: |
+          curl -Ls "https://dl.filippo.io/mkcert/latest?for=linux/amd64" -o mkcert
+          chmod +x mkcert
+          sudo mv mkcert /usr/local/bin/
 
-      # - name: Create local CA
-      #   run: mkcert -install
+      - name: Create local CA
+        run: mkcert -install
 
-      # - name: Generate HTTPS cert for Azurite
-      #   run: mkcert 127.0.0.1
+      - name: Generate HTTPS cert for Azurite
+        run: mkcert 127.0.0.1
 
       - name: Install Azurite
         run: npm install -g azurite
 
       - name: Start Azurite
         run: |
-          # azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem --silent &
-          azurite --silent &
+          azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem --silent &
 
       - name: Wait for Azurite to be ready
         run: |
           for i in {1..30}; do
-            if curl -ks http://127.0.0.1:10000/devstoreaccount1; then
+            if curl -ks https://127.0.0.1:10000/devstoreaccount1; then
               echo "Azurite is ready"
               break
             fi
@@ -252,7 +251,7 @@ jobs:
 
       - name: Run Pytest for Azure Cache
         env:
-          AZURE_ACCOUNT_URL: http://127.0.0.1:10000/devstoreaccount1
+          AZURE_ACCOUNT_URL: https://127.0.0.1:10000/devstoreaccount1
         run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
 
   gcs-integration-tests:
