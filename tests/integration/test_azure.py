@@ -3,18 +3,17 @@ import json
 import os
 import time
 import uuid
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
-from azure.core.credentials import AccessToken, AzureNamedKeyCredential
+from azure.core.credentials import AzureNamedKeyCredential
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.storage.blob.aio import BlobClient, BlobServiceClient
 
-from cloud_autopkg_runner import Settings
-from cloud_autopkg_runner.metadata_cache import RecipeCache, get_cache_plugin
+from cloud_autopkg_runner import Settings, get_cache_plugin
+from cloud_autopkg_runner.metadata_cache import RecipeCache
 
 # Define test data outside of a class
 TEST_RECIPE_NAME = "test.pkg.recipe"
@@ -65,46 +64,16 @@ def test_data() -> RecipeCache:
     }
 
 
-@pytest.fixture
-def mock_default_credential() -> Generator[MagicMock, None, None]:
-    """Mock DefaultAzureCredential for all tests."""
-    with patch(
-        "cloud_autopkg_runner.cache.azure_blob_cache.DefaultAzureCredential"
-    ) as mock_cls:
-        instance = MagicMock()
-
-        instance.get_token = AsyncMock(
-            return_value=AccessToken(
-                token="fake-azurite-oauth-token",  # noqa: S106
-                expires_on=time.time() + 3600,
-            )
-        )
-
-        instance.__aenter__ = AsyncMock(return_value=instance)
-        instance.__aexit__ = AsyncMock(return_value=False)
-        instance.close = AsyncMock()
-
-        mock_cls.return_value = instance
-
-        yield instance
-
-
 @pytest_asyncio.fixture
-async def azure_blob_client(
-    settings: Settings,
-    mock_default_credential: MagicMock,  # noqa: ARG001
-) -> AsyncGenerator[BlobClient, None]:
+async def azure_blob_client(settings: Settings) -> AsyncGenerator[BlobClient, None]:
     """Fixture that provides a valid BlobClient."""
-    # Azurite default shared key and account name
-    azurite_account_name = "devstoreaccount1"
-    azurite_account_key = (
-        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6"
-        "IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
-    )
-
     # Create a credential object that Azurite understands
     azurite_credential = AzureNamedKeyCredential(
-        name=azurite_account_name, key=azurite_account_key
+        name="devstoreaccount1",
+        key=(
+            "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6"
+            "IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+        ),
     )
 
     # Use the Azurite-compatible credential to create the BlobServiceClient

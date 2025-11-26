@@ -10,12 +10,41 @@ an asyncio lock to prevent race conditions.
 import asyncio
 import json
 from types import TracebackType
+from typing import Protocol, runtime_checkable
 
+from azure.core.credentials import AzureNamedKeyCredential
 from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob.aio import BlobClient, BlobServiceClient
 
 from cloud_autopkg_runner import Settings, logging_config
 from cloud_autopkg_runner.metadata_cache import MetadataCache, RecipeCache, RecipeName
+
+
+@runtime_checkable
+class AsyncCloseable(Protocol):
+    """Protocol for objects that support asynchronous cleanup.
+
+    Classes implementing `AsyncCloseable` provide an asynchronous `close`
+    method used to release resources such as network connections, open
+    handles, or other stateful objects that require explicit teardown.
+
+    This protocol is used to allow selective async cleanup of credential
+    objects or client instances that implement `close()` without imposing
+    the method on credential classes that do not support it.
+    """
+
+    async def close(self) -> None:
+        """Asynchronously close the object and release associated resources.
+
+        Implementations should ensure that any pending operations are
+        completed, network connections are closed, and internal state is
+        safely cleaned up. If no cleanup is required, the method may be
+        implemented as a no-op.
+
+        Returns:
+            None
+        """
+        ...
 
 
 class AsyncAzureBlobCache:
@@ -76,7 +105,14 @@ class AsyncAzureBlobCache:
         if hasattr(self, "_client"):
             return
 
-        self._credential = DefaultAzureCredential()
+        if "127.0.0.1" in self._account_url:
+            # Emulator mode
+            self._credential = AzureNamedKeyCredential(
+                name="devstoreaccount1",
+                key="Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6I...",
+            )
+        else:
+            self._credential = DefaultAzureCredential()
         self._blob_service_client = BlobServiceClient(
             account_url=self._account_url, credential=self._credential
         )
@@ -173,7 +209,8 @@ class AsyncAzureBlobCache:
             await self._blob_service_client.close()
             del self._blob_service_client
         if hasattr(self, "_credential"):
-            await self._credential.close()
+            if isinstance(self._credential, AsyncCloseable):
+                await self._credential.close()
             del self._credential
 
     async def clear_cache(self) -> None:
