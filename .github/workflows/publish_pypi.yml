@@ -9,8 +9,6 @@ jobs:
   lock-file:
     name: 🧷 Prepare Locked Dependencies
     runs-on: ubuntu-latest
-    needs: [version-check]
-    if: needs.version-check.outputs.changed == 'false'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
