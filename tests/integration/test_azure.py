@@ -13,7 +13,7 @@ from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.storage.blob.aio import BlobClient, BlobServiceClient
 
 from cloud_autopkg_runner import Settings, get_cache_plugin
-from cloud_autopkg_runner.metadata_cache import MetadataCachePlugin, RecipeCache
+from cloud_autopkg_runner.metadata_cache import RecipeCache
 
 # Define test data outside of a class
 TEST_RECIPE_NAME = "test.pkg.recipe"
@@ -108,14 +108,14 @@ async def test_save_cache_file(
 ) -> None:
     """Test writing a cache file to Azure Blob Storage."""
     # Store with plugin
-    plugin: MetadataCachePlugin
-    async with get_cache_plugin() as plugin:
+    plugin = get_cache_plugin()
+    async with plugin:
         await plugin.set_item(TEST_RECIPE_NAME, test_data)
 
     expected_content = {TEST_RECIPE_NAME: test_data}
 
     # Retrieve with standard tooling
-    download_stream = await azure_blob_client.download_blob(encoding="utf-8")
+    download_stream = await azure_blob_client.download_blob()
     content = await download_stream.readall()
     actual_content = json.loads(content)
 
@@ -132,8 +132,8 @@ async def test_retrieve_cache_file(
     await azure_blob_client.upload_blob(data=content.encode("utf-8"), overwrite=True)
 
     # Retrieve with plugin
-    plugin: MetadataCachePlugin
-    async with get_cache_plugin() as plugin:
+    plugin = get_cache_plugin()
+    async with plugin:
         actual_content = await plugin.get_item(TEST_RECIPE_NAME)
 
     assert actual_content == test_data

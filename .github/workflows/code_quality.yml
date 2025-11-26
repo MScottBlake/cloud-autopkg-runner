@@ -322,7 +322,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install uv
+      - name: Setup uv
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
