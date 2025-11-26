@@ -188,7 +188,7 @@ jobs:
           echo "LocalStack failed to start in time" >&2
           exit 1
 
-      - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
+      - name: Run Pytest for S3 Cache
         env:
           AWS_ENDPOINT_URL: https://localhost.localstack.cloud:4566
           AWS_ACCESS_KEY_ID: test
@@ -297,7 +297,7 @@ jobs:
           echo "Fake GCS Server failed to start" >&2
           exit 1
 
-      - name: Run Pytest for ${{ matrix.cloud_provider }} Cache
+      - name: Run Pytest for GCS Cache
         env:
           STORAGE_EMULATOR_HOST: http://127.0.0.1:4443
           GOOGLE_CLOUD_PROJECT: cloud-autopkg-runner
