@@ -9,6 +9,8 @@ jobs:
   lock-file:
     name: 🧷 Prepare Locked Dependencies
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
