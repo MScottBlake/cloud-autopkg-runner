@@ -3,16 +3,13 @@ import json
 import os
 import time
 import uuid
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
-from azure.core.credentials import AccessToken
-from azure.core.credentials_async import AsyncTokenCredential
+from azure.core.credentials import AzureNamedKeyCredential
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
-from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob.aio import BlobClient, BlobServiceClient
 
 from cloud_autopkg_runner import Settings
@@ -67,40 +64,25 @@ def test_data() -> RecipeCache:
     }
 
 
-@pytest.fixture
-def mock_default_credential() -> Generator[MagicMock, None, None]:
-    """Mock DefaultAzureCredential for all tests."""
-    # Create a real-looking AccessToken object for the mock to return.
-    mock_access_token = AccessToken(
-        token="mock-token-string",  # noqa: S106
-        expires_on=time.time() + 3600,  # Expires an hour from now
+@pytest_asyncio.fixture
+async def azure_blob_client(settings: Settings) -> AsyncGenerator[BlobClient, None]:
+    """Fixture that provides a valid BlobClient."""
+    # Azurite default shared key and account name
+    azurite_account_name = "devstoreaccount1"
+    azurite_account_key = (
+        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6I"
+        "FsuFq2UVEZRAt+lLPcQpGKHgK/5ApYQoyLNq/kIbVg=="
     )
 
-    with patch(f"{__name__}.DefaultAzureCredential") as mock_cls:
-        instance = MagicMock(spec=AsyncTokenCredential)
+    # Create a credential object that Azurite understands
+    azurite_credential = AzureNamedKeyCredential(
+        name=azurite_account_name, key=azurite_account_key
+    )
 
-        mock_cls.return_value = instance
-
-        # Configure the get_token method on this spec-ed instance
-        instance.get_token = AsyncMock(return_value=mock_access_token)
-
-        # Make it usable in `async with`
-        instance.__aenter__ = AsyncMock(return_value=instance)
-        instance.__aexit__ = AsyncMock(return_value=False)
-
-        yield instance
-
-
-@pytest_asyncio.fixture
-async def azure_blob_client(
-    settings: Settings,
-    mock_default_credential: MagicMock,  # noqa: ARG001
-) -> AsyncGenerator[BlobClient, None]:
-    """Fixture that provides a valid BlobClient."""
+    # Use the Azurite-compatible credential to create the BlobServiceClient
     async with (
-        DefaultAzureCredential() as credential,
         BlobServiceClient(
-            account_url=settings.azure_account_url, credential=credential
+            account_url=settings.azure_account_url, credential=azurite_credential
         ) as azure_blob_service_client,
         azure_blob_service_client.get_blob_client(
             container=settings.cloud_container_name, blob=settings.cache_file
