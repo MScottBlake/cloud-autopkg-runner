@@ -68,7 +68,9 @@ def test_data() -> RecipeCache:
 @pytest.fixture
 def mock_default_credential() -> Generator[MagicMock, None, None]:
     """Mock DefaultAzureCredential for all tests."""
-    with patch("azure.identity.aio.DefaultAzureCredential") as mock_cls:
+    with patch(
+        "cloud_autopkg_runner.cache.azure_blob_cache.DefaultAzureCredential"
+    ) as mock_cls:
         instance = mock_cls.return_value
 
         # Async token generator
