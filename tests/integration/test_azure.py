@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
+from azure.core.credentials import AccessToken
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob.aio import BlobClient, BlobServiceClient
@@ -68,11 +69,16 @@ def test_data() -> RecipeCache:
 @pytest.fixture
 def mock_default_credential() -> Generator[MagicMock, None, None]:
     """Mock DefaultAzureCredential for all tests."""
+    # Create a mock AccessToken object
+    mock_access_token = MagicMock(spec=AccessToken)
+    mock_access_token.token = "mock-token-string"  # noqa: S105
+    mock_access_token.expires_on = 9999999999  # A future timestamp
+
     with patch(f"{__name__}.DefaultAzureCredential") as mock_cls:
         instance = mock_cls.return_value
 
-        # Async token generator
-        instance.get_token = AsyncMock(return_value="mock-token")
+        # Make get_token return the mock AccessToken
+        instance.get_token = AsyncMock(return_value=mock_access_token)
 
         # Make it usable in `async with DefaultAzureCredential()`
         instance.__aenter__ = AsyncMock(return_value=instance)
