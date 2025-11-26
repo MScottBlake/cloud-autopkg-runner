@@ -330,6 +330,9 @@ jobs:
       - name: Build project wheel
         run: uv build
 
+      - name: Create virtual environment
+        run: uv venv
+
       - name: Install project from wheel
         run: |
           uv pip install dist/*.whl
