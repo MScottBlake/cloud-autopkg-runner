@@ -82,7 +82,7 @@ def mock_default_credential() -> Generator[MagicMock, None, None]:
     with patch(
         "cloud_autopkg_runner.cache.azure_blob_cache.DefaultAzureCredential"
     ) as mock_cls:
-        instance = MagicMock(spec=AzureNamedKeyCredential)
+        instance = AsyncMock(spec=AzureNamedKeyCredential)
         instance.name = azurite_account_name
         instance.key = azurite_account_key
 
