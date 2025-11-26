@@ -82,7 +82,9 @@ async def azure_blob_client(settings: Settings) -> AsyncGenerator[BlobClient, No
     # Use the Azurite-compatible credential to create the BlobServiceClient
     async with (
         BlobServiceClient(
-            account_url=settings.azure_account_url, credential=azurite_credential
+            account_url=settings.azure_account_url,
+            credential=azurite_credential,
+            connection_verify=False,
         ) as azure_blob_service_client,
         azure_blob_service_client.get_blob_client(
             container=settings.cloud_container_name, blob=settings.cache_file
