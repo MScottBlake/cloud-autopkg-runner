@@ -101,8 +101,8 @@ async def azure_blob_client(
     # Azurite default shared key and account name
     azurite_account_name = "devstoreaccount1"
     azurite_account_key = (
-        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6I"
-        "FsuFq2UVEZRAt+lLPcQpGKHgK/5ApYQoyLNq/kIbVg=="
+        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6"
+        "IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
     )
 
     # Create a credential object that Azurite understands
