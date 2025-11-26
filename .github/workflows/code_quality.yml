@@ -243,7 +243,7 @@ jobs:
       - name: Wait for Azurite to be ready
         run: |
           for i in {1..30}; do
-            if curl -ks https://127.0.0.1:10000/devstoreaccount1; then
+            if curl -ks http://127.0.0.1:10000/devstoreaccount1; then
               echo "Azurite is ready"
               break
             fi
@@ -252,7 +252,7 @@ jobs:
 
       - name: Run Pytest for Azure Cache
         env:
-          AZURE_ACCOUNT_URL: https://127.0.0.1:10000/devstoreaccount1
+          AZURE_ACCOUNT_URL: http://127.0.0.1:10000/devstoreaccount1
         run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
 
   gcs-integration-tests:
