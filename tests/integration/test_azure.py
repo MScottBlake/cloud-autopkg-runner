@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import pytest_asyncio
-from azure.core.credentials import AzureNamedKeyCredential
+from azure.core.credentials import AzureNamedKey
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.storage.blob.aio import BlobClient, BlobServiceClient
 
@@ -98,9 +98,7 @@ def mock_default_credential() -> Generator[MagicMock, None, None]:
         # mock_cls.return_value = instance
 
         # yield instance
-        yield AzureNamedKeyCredential(
-            name=azurite_account_name, key=azurite_account_key
-        )
+        yield AzureNamedKey(name=azurite_account_name, key=azurite_account_key)
 
 
 @pytest_asyncio.fixture
@@ -117,7 +115,7 @@ async def azure_blob_client(
     )
 
     # Create a credential object that Azurite understands
-    azurite_credential = AzureNamedKeyCredential(
+    azurite_credential = AzureNamedKey(
         name=azurite_account_name, key=azurite_account_key
     )
 
