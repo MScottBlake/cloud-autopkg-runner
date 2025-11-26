@@ -68,23 +68,10 @@ def test_data() -> RecipeCache:
 @pytest.fixture
 def mock_default_credential() -> Generator[MagicMock, None, None]:
     """Mock DefaultAzureCredential for all tests."""
-    # Azurite default shared key and account name
-    azurite_account_name = "devstoreaccount1"
-    azurite_account_key = (
-        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6I"
-        "FsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
-    )
-
-    # azurite_named_key_credential = AzureNamedKeyCredential(
-    #     name=azurite_account_name, key=azurite_account_key
-    # )
-
     with patch(
         "cloud_autopkg_runner.cache.azure_blob_cache.DefaultAzureCredential"
     ) as mock_cls:
-        instance = AsyncMock(spec=AzureNamedKeyCredential)
-        instance.name = azurite_account_name
-        instance.key = azurite_account_key
+        instance = MagicMock()
 
         instance.get_token = AsyncMock(
             return_value=AccessToken(
@@ -99,11 +86,7 @@ def mock_default_credential() -> Generator[MagicMock, None, None]:
 
         mock_cls.return_value = instance
 
-        # yield instance
-        yield mock_cls
-        # yield AzureNamedKeyCredential(
-        #     name=azurite_account_name, key=azurite_account_key
-        # )
+        yield instance
 
 
 @pytest_asyncio.fixture
