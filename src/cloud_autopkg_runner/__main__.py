@@ -34,6 +34,7 @@ from typing import NoReturn, TypeVar
 
 from cloud_autopkg_runner import (
     AutoPkgPrefs,
+    ConfigLoader,
     Recipe,
     RecipeFinder,
     Settings,
@@ -56,7 +57,7 @@ T = TypeVar("T")
 STOP_WORKER = "<<STOP_WORKER>>"
 
 
-def _apply_args_to_settings(args: Namespace) -> None:
+def _apply_cli_overrides(args: Namespace) -> None:
     """Apply command-line arguments to configure application settings.
 
     This private helper function takes a `Namespace` object containing parsed
@@ -68,26 +69,47 @@ def _apply_args_to_settings(args: Namespace) -> None:
         args: A `Namespace` object containing parsed command-line arguments.
     """
     settings = Settings()
+    matching_keys = {
+        "log_file",
+        "log_format",
+        "max_concurrency",
+        "recipe_timeout",
+        "report_dir",
+        "cache_plugin",
+        "cache_file",
+    }
 
-    settings.log_file = args.log_file
-    settings.log_format = args.log_format
+    for key in matching_keys:
+        if hasattr(args, key) and getattr(args, key) is not None:
+            setattr(settings, key, getattr(args, key))
 
-    settings.max_concurrency = args.max_concurrency
-    settings.recipe_timeout = args.recipe_timeout
-    settings.report_dir = args.report_dir
-    settings.verbosity_level = args.verbose
+    if hasattr(args, "verbose") and args.verbose is not None:
+        settings.verbosity_level = args.verbose
 
-    settings.cache_plugin = args.cache_plugin
-    settings.cache_file = args.cache_file
+    if hasattr(args, "pre_processor") and args.pre_processor is not None:
+        settings.pre_processors = args.pre_processor
 
-    settings.pre_processors = args.pre_processor
-    settings.post_processors = args.post_processor
+    if hasattr(args, "post_processor") and args.post_processor is not None:
+        settings.post_processors = args.post_processor
 
     # Plugin-specific arguments
-    if settings.cache_plugin == "azure":
+    if (
+        hasattr(args, "azure_account_url")
+        and args.azure_account_url
+        and settings.cache_plugin == "azure"
+    ):
         settings.azure_account_url = args.azure_account_url
 
-    if settings.cache_plugin in {"azure", "gcs", "s3"}:
+    if (
+        hasattr(args, "cloud_container_name")
+        and args.cloud_container_name
+        and settings.cache_plugin
+        in {
+            "azure",
+            "gcs",
+            "s3",
+        }
+    ):
         settings.cloud_container_name = args.cloud_container_name
 
 
@@ -136,7 +158,7 @@ async def _create_recipe(
         return None
 
 
-def _generate_recipe_list(args: Namespace) -> set[str]:
+def _generate_recipe_list(config_file_recipes: list[str], args: Namespace) -> set[str]:
     """Generate a comprehensive list of recipe names from various input sources.
 
     This private helper function combines recipe names from the following sources:
@@ -149,6 +171,7 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
     by using a `set`.
 
     Args:
+        config_file_recipes: A list of recipes from a config file.
         args: A `Namespace` object containing parsed command-line arguments.
 
     Returns:
@@ -162,14 +185,17 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
 
     output: set[str] = set()
 
-    if args.recipe_list:
-        try:
-            output.update(json.loads(Path(args.recipe_list).read_text("utf-8")))
-        except json.JSONDecodeError as exc:
-            raise InvalidJsonContents(args.recipe_list) from exc
+    if config_file_recipes and not (args.recipe_list or args.recipe):
+        output.update(config_file_recipes)
+    else:
+        if args.recipe_list:
+            try:
+                output.update(json.loads(Path(args.recipe_list).read_text("utf-8")))
+            except json.JSONDecodeError as exc:
+                raise InvalidJsonContents(args.recipe_list) from exc
 
-    if args.recipe:
-        output.update(args.recipe)
+        if args.recipe:
+            output.update(args.recipe)
 
     if os.getenv("RECIPE"):
         output.add(os.getenv("RECIPE", ""))
@@ -231,8 +257,16 @@ def _parse_arguments() -> Namespace:
         "-v",
         "--verbose",
         action="count",
-        default=0,
         help="Verbosity level. Can be specified multiple times. (-vvv)",
+    )
+    general.add_argument(
+        "--config-file",
+        help="Path to a Cloud AutoPkg Runner config file.",
+        type=Path,
+    )
+    general.add_argument(
+        "--context",
+        help="Choose which configured environment to use.",
     )
     general.add_argument(
         "--log-file",
@@ -243,25 +277,21 @@ def _parse_arguments() -> Namespace:
         "--log-format",
         help="Sets the log file format. Requires `--log-file` be configured.",
         choices=["text", "json"],
-        default="text",
         type=str,
     )
     general.add_argument(
         "--report-dir",
         help="Path to the directory used for storing AutoPkg recipe reports.",
-        default="",
         type=Path,
     )
     general.add_argument(
         "--max-concurrency",
         help="Limit the number of concurrent tasks.",
-        default=10,
         type=int,
     )
     general.add_argument(
         "--recipe-timeout",
         help="Timeout in seconds for each recipe task. Defaults to 300 (5 minutes).",
-        default=300,
         type=int,
     )
 
@@ -311,7 +341,6 @@ def _parse_arguments() -> Namespace:
     )
     cache.add_argument(
         "--cache-file",
-        default="metadata_cache.json",
         help="Path to the file that stores the download metadata cache.",
         type=str,
     )
@@ -330,7 +359,6 @@ def _parse_arguments() -> Namespace:
     autopkg = parser.add_argument_group("AutoPkg Preferences")
     autopkg.add_argument(
         "--autopkg-pref-file",
-        default=Path("~/Library/Preferences/com.github.autopkg.plist").expanduser(),
         help="Path to the AutoPkg preferences file.",
         type=Path,
     )
@@ -435,7 +463,9 @@ async def _recipe_worker(
             queue.task_done()
             break
 
-        token = recipe_context.set(recipe_name)
+        token = recipe_context.set(
+            recipe_name.removesuffix(".yaml").removesuffix(".recipe")
+        )
         try:
             logger.info("Starting recipe %s", recipe_name)
 
@@ -508,13 +538,20 @@ async def _async_main() -> None:
     recipe processing completion.
     """
     args = _parse_arguments()
-    _apply_args_to_settings(args)
+    loader = ConfigLoader(args.config_file)
+    config_file_data = loader.load(context=args.context)
 
-    logging_config.initialize_logger(args.verbose, args.log_file, args.log_format)
+    settings = Settings()
+    settings.load_from_dict(config_file_data)
+    _apply_cli_overrides(args)
 
-    autopkg_prefs = AutoPkgPrefs(args.autopkg_pref_file)
+    logging_config.initialize_logger(
+        settings.verbosity_level, settings.log_file, settings.log_format
+    )
 
-    recipe_list = _generate_recipe_list(args)
+    autopkg_prefs = AutoPkgPrefs(settings.autopkg_pref_file)
+
+    recipe_list = _generate_recipe_list(config_file_data.get("recipes", []), args)
     _results = await _process_recipe_list(recipe_list, autopkg_prefs)
 
 

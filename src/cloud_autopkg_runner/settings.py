@@ -16,6 +16,7 @@ Exceptions:
 """
 
 from pathlib import Path
+from typing import Any
 
 from cloud_autopkg_runner.exceptions import SettingsValidationError
 
@@ -57,6 +58,9 @@ class Settings:
         if hasattr(self, "_initialized"):
             return  # Prevent re-initialization
 
+        self._autopkg_pref_file: Path = Path(
+            "~/Library/Preferences/com.github.autopkg.plist"
+        ).expanduser()
         self._log_file: Path | None = None
         self._log_format: str = "text"
         self._max_concurrency: int = 10
@@ -70,6 +74,68 @@ class Settings:
         self._cache_file: str = "metadata_cache.json"
 
         self._initialized = True
+
+    def load_from_dict(self, data: dict[str, Any]) -> None:
+        """Apply settings from a configuration dictionary to this Settings instance.
+
+        This method performs a strict update from `data` into the Settings instance.
+        Unknown keys raise `ValueError` to avoid silent typos in configuration files.
+
+        Args:
+            data: A dictionary loaded from TOML (pyproject or standalone config)
+                representing keys/values for Settings.
+
+        Raises:
+            SettingsValidationError: If `data` contains an unknown configuration key.
+        """
+        # List of config keys we permit to be set from TOML/config file.
+        # Update this set if your Settings exposes additional configurable fields.
+        allowed_keys = {
+            "autopkg_pref_file",
+            "cache_file",
+            "cache_plugin",
+            "cloud_container_name",
+            "max_concurrency",
+            "recipes",
+            "report_dir",
+            "verbose",
+        }
+
+        for key, value in data.items():
+            # Don't override default values if a value is not set
+            if value is None:
+                continue
+
+            # Contexts are handled by ConfigLoader and are ignored here
+            if key == "context":
+                continue
+
+            if key not in allowed_keys:
+                raise SettingsValidationError(key, "Unknown key name.")
+
+            if key == "verbose":
+                self.verbosity_level = value
+            else:
+                setattr(self, key, value)
+
+    @property
+    def autopkg_pref_file(self) -> Path:
+        """Get the preference file path.
+
+        Returns:
+            The path to the preference file.
+        """
+        return self._autopkg_pref_file
+
+    @autopkg_pref_file.setter
+    def autopkg_pref_file(self, value: Path) -> None:
+        """Set the preference file path.
+
+        Args:
+            value: The new path to the preference file. Can be either a string or a
+            Path object.
+        """
+        self._autopkg_pref_file = self._convert_to_path(value).expanduser()
 
     @property
     def log_file(self) -> Path | None:
