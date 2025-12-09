@@ -17,7 +17,7 @@ dev = [
 
 [project]
 name = "cloud-autopkg-runner"
-version = "0.24.14"
+version = "0.24.15"
 description = "A Python library designed to level-up your AutoPkg automations with a focus on CI/CD performance."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
@@ -106,7 +106,6 @@ include = ["pyproject.toml", "{src,tests}/**/*.py"]
 extend-exclude = [".venv"]
 
 [tool.ruff.lint]
-unfixable = ["ALL"]
 select = [
     "A",     # flake8-builtins
     "ANN",   # flake8-annotations

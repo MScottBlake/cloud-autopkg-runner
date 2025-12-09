@@ -395,7 +395,7 @@ async def test_recipe_worker_timeout_logged(tmp_path: Path) -> None:
         results = await _recipe_worker(queue, mock_settings, MagicMock())
 
     assert results == {}
-    mock_logger.exception.assert_called()
+    mock_logger.error.assert_called()
 
 
 @pytest.mark.asyncio
