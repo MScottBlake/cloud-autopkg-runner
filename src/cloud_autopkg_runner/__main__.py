@@ -452,7 +452,7 @@ async def _recipe_worker(
                     recipe.run(), timeout=settings.recipe_timeout
                 )
                 results[recipe.name] = report
-            except asyncio.TimeoutError:
+            except (asyncio.TimeoutError, TimeoutError):
                 logger.error(  # noqa: TRY400
                     "Recipe %s timed out after %s seconds",
                     recipe_name,
