@@ -111,7 +111,7 @@ class ConfigLoader:
         """Attempt automatic configuration discovery.
 
         Discovery order:
-            1. cloud_autopkg_runner.toml
+            1. config.toml
             2. pyproject.toml
 
         The first file that exists and contains a valid configuration section
@@ -123,7 +123,7 @@ class ConfigLoader:
             If no suitable file is found, `(None, {})` is returned.
         """
         candidates = [
-            Path("cloud_autopkg_runner.toml"),
+            Path("config.toml"),
             Path("pyproject.toml"),
         ]
 

@@ -266,5 +266,5 @@ terraform.rc
 artifacts/
 recipe_reports/
 metadata_cache.json
-cloud_autopkg_runner.toml
-cloud_autopkg_runner.*.toml
+config.toml
+config.*.toml
