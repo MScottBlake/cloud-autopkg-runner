@@ -10,7 +10,7 @@ changelog:
         - "breaking"
     - title: "🚀 New features"
       labels:
-        - "feature"
+        - "enhancement"
     - title: "📘 Documentation updates"
       labels:
         - "documentation"
