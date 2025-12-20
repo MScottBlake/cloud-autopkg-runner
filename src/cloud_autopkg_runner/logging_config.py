@@ -14,6 +14,7 @@ import json
 import logging
 import sys
 import time
+from pathlib import Path
 from typing import Any, ClassVar, TextIO
 
 from cloud_autopkg_runner.logging_context import recipe_context
@@ -120,7 +121,7 @@ class RecipeContextFilter(logging.Filter):
 
 
 def initialize_logger(
-    verbosity_level: int, log_file: str | None = None, log_format: str = "text"
+    verbosity_level: int, log_file: str | Path | None = None, log_format: str = "text"
 ) -> None:
     """Initializes the logging system.
 

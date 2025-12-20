@@ -15,7 +15,7 @@ import pytest
 from cloud_autopkg_runner import AutoPkgPrefs, Recipe, Settings
 from cloud_autopkg_runner.__main__ import (
     STOP_WORKER,
-    _apply_args_to_settings,
+    _apply_cli_overrides,
     _count_iterable,
     _create_recipe,
     _generate_recipe_list,
@@ -48,8 +48,8 @@ def mock_autopkg_prefs(tmp_path: Path) -> MagicMock:
     return mock_prefs
 
 
-def test_apply_args_to_settings(tmp_path: Path) -> None:
-    """Test that _apply_args_to_settings correctly sets settings."""
+def test_apply_cli_overrides(tmp_path: Path) -> None:
+    """Test that _apply_cli_overrides correctly sets settings."""
     args = Namespace(
         cache_file="test_cache.json",
         cache_plugin="json",
@@ -63,7 +63,7 @@ def test_apply_args_to_settings(tmp_path: Path) -> None:
         post_processor="com.example.identifier/postProcessorName",
     )
 
-    _apply_args_to_settings(args)
+    _apply_cli_overrides(args)
 
     settings = Settings()
     assert settings.cache_file == "test_cache.json"
@@ -84,7 +84,7 @@ def test_generate_recipe_list_from_json(tmp_path: Path) -> None:
     recipe_list_file.write_text(json.dumps(["Recipe1", "Recipe2"]))
     args = Namespace(recipe_list=recipe_list_file, recipe=None)
 
-    result = _generate_recipe_list(args)
+    result = _generate_recipe_list([], args)
 
     assert result == {"Recipe1", "Recipe2"}
 
@@ -93,7 +93,7 @@ def test_generate_recipe_list_from_args() -> None:
     """Test that _generate_recipe_list correctly reads from command-line args."""
     args = Namespace(recipe_list=None, recipe=["Recipe3", "Recipe4"])
 
-    result = _generate_recipe_list(args)
+    result = _generate_recipe_list([], args)
 
     assert result == {"Recipe3", "Recipe4"}
 
@@ -103,7 +103,7 @@ def test_generate_recipe_list_from_env() -> None:
     with patch.dict(os.environ, {"RECIPE": "Recipe5"}):
         args = Namespace(recipe_list=None, recipe=None)
 
-        result = _generate_recipe_list(args)
+        result = _generate_recipe_list([], args)
 
         assert result == {"Recipe5"}
 
@@ -116,7 +116,7 @@ def test_generate_recipe_list_combines_sources(tmp_path: Path) -> None:
     with patch.dict(os.environ, {"RECIPE": "Recipe5"}):
         args = Namespace(recipe_list=recipe_list_file, recipe=["Recipe3", "Recipe4"])
 
-        result = _generate_recipe_list(args)
+        result = _generate_recipe_list([], args)
 
         assert result == {"Recipe1", "Recipe2", "Recipe3", "Recipe4", "Recipe5"}
 
@@ -128,7 +128,7 @@ def test_generate_recipe_list_invalid_json(tmp_path: Path) -> None:
     args = Namespace(recipe_list=recipe_list_file, recipe=None)
 
     with pytest.raises(InvalidJsonContents):
-        _generate_recipe_list(args)
+        _generate_recipe_list([], args)
 
 
 def test_parse_arguments() -> None:
