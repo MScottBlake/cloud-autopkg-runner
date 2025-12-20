@@ -30,7 +30,7 @@ jobs:
       name: TestPyPi
       url: https://test.pypi.org/p/cloud-autopkg-runner
     permissions:
-      id-token: write
+      id-token: write # For PyPI's trusted publishing + PEP 740 attestations
     steps:
       - name: Checkout repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -40,6 +40,9 @@ jobs:
 
       - name: Build
         run: uv build
+
+      - name: Attestation
+        uses: astral-sh/attest-action@2c727738cea36d6c97dd85eb133ea0e0e8fe754b # v0.0.4
 
       - name: Publish
         run: uv publish --index testpypi --trusted-publishing always
@@ -68,7 +71,7 @@ jobs:
       name: PyPi
       url: https://pypi.org/p/cloud-autopkg-runner
     permissions:
-      id-token: write
+      id-token: write # For PyPI's trusted publishing + PEP 740 attestations
     steps:
       - name: Checkout repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -79,9 +82,11 @@ jobs:
       - name: Build
         run: uv build
 
+      - name: Attestation
+        uses: astral-sh/attest-action@2c727738cea36d6c97dd85eb133ea0e0e8fe754b # v0.0.4
+
       - name: Publish
         run: uv publish --trusted-publishing always
-
 
   install-library-from-pypi:
     name: Test Installation from PyPI
