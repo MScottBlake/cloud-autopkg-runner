@@ -3,43 +3,54 @@ name: Publish to PyPI
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
-  lock-file:
-    name: 🧷 Prepare Locked Dependencies
+  build:
+    name: Build
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: read # For checkout
+      id-token: write # For PEP 740 attestations
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          enable-cache: true
+          persist-credentials: false
 
-      - run: uv lock --locked
+      - name: Setup uv
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
+
+      - name: Build
+        run: uv build
+
+      - name: Attestation
+        uses: astral-sh/attest-action@2c727738cea36d6c97dd85eb133ea0e0e8fe754b # v0.0.4
+
+      - name: Upload Package Artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          path: dist/
 
   publish-to-testpypi:
     name: Publish to TestPyPI
     runs-on: ubuntu-latest
-    needs: [lock-file]
+    needs: [build]
     environment:
       name: TestPyPi
       url: https://test.pypi.org/p/cloud-autopkg-runner
     permissions:
-      id-token: write
+      id-token: write # For PyPI's trusted publishing
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
       - name: Setup uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
+        with:
+          ignore-empty-workdir: true
 
-      - name: Build
-        run: uv build
+      - name: Download Package Artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          path: dist/
 
       - name: Publish
         run: uv publish --index testpypi --trusted-publishing always
@@ -48,14 +59,12 @@ jobs:
     name: Test Installation from TestPyPI
     needs: [publish-to-testpypi]
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    permissions: {} # No token access needed
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
       - name: Setup uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
+        with:
+          ignore-empty-workdir: true
 
       - name: Install
         run: uv run --with cloud-autopkg-runner --extra-index-url https://test.pypi.org/simple/ --index-strategy unsafe-best-match --no-project -- python -c "import cloud_autopkg_runner"
@@ -68,33 +77,31 @@ jobs:
       name: PyPi
       url: https://pypi.org/p/cloud-autopkg-runner
     permissions:
-      id-token: write
+      id-token: write # For PyPI's trusted publishing
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
       - name: Setup uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
+        with:
+          ignore-empty-workdir: true
 
-      - name: Build
-        run: uv build
+      - name: Download Package Artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          path: dist/
 
       - name: Publish
         run: uv publish --trusted-publishing always
-
 
   install-library-from-pypi:
     name: Test Installation from PyPI
     needs: [publish-to-pypi]
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    permissions: {} # No token access needed
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
       - name: Setup uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
+        with:
+          ignore-empty-workdir: true
 
       - name: Install
         run: uv run --with cloud-autopkg-runner --no-project -- python -c "import cloud_autopkg_runner"

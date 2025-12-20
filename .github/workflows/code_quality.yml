@@ -11,62 +11,39 @@ permissions:
   contents: read
 
 jobs:
-  lock-file:
-    name: 🧷 Prepare Locked Dependencies
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
-      - run: uv lock --locked
-
   linting:
     name: 🔍 Lint Code with Ruff
     runs-on: ubuntu-latest
-    needs: [lock-file]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
 
       - run: uv run --all-extras ruff check .
 
   formatting:
     name: 🧹 Check Code Formatting
     runs-on: ubuntu-latest
-    needs: [lock-file]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
 
       - run: uv run --all-extras ruff format --check .
 
   type-consistency:
     name: 🧠 Check Type Consistency
     runs-on: ubuntu-latest
-    needs: [lock-file]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
 
       - name: Install the project
         run: uv sync
@@ -76,20 +53,18 @@ jobs:
   inclusive-language:
     name: 🔤 Inclusive Language Check
     runs-on: ubuntu-latest
-    needs: [lock-file]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Run Inclusive Language Check
-        uses: get-woke/woke-action@v0
+        uses: get-woke/woke-action@b2ec032c4a2c912142b38a6a453ad62017813ed0 # v0
         with:
           fail-on-error: true
 
   unit-tests:
     name: 🧪 Unit Tests on ${{ matrix.os }} / Python ${{ matrix.python-version }}${{ matrix.experimental && ' (Experimental)' || '' }}
     runs-on: macos-latest
-    needs: [lock-file]
     permissions:
       contents: read
       statuses: write
@@ -111,10 +86,10 @@ jobs:
     continue-on-error: ${{ matrix.experimental }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
         with:
           enable-cache: true
 
@@ -123,13 +98,13 @@ jobs:
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
@@ -137,7 +112,6 @@ jobs:
   s3-integration-tests:
     name: "🧪 Integration Test: S3 Emulator (Python ${{ matrix.python-version }})"
     runs-on: ubuntu-latest
-    needs: [lock-file]
     timeout-minutes: 10
     strategy:
       fail-fast: false # Allows all matrix jobs to run even if one fails
@@ -166,10 +140,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
@@ -199,7 +173,6 @@ jobs:
   azure-integration-tests:
     name: "🧪 Integration Test: Azure Emulator (Python ${{ matrix.python-version }})"
     runs-on: ubuntu-latest
-    needs: [lock-file]
     timeout-minutes: 10
     strategy:
       fail-fast: false # Allows all matrix jobs to run even if one fails
@@ -212,10 +185,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
@@ -257,7 +230,6 @@ jobs:
   gcs-integration-tests:
     name: "🧪 Integration Test: GCS Emulator (Python ${{ matrix.python-version }})"
     runs-on: ubuntu-latest
-    needs: [lock-file]
     timeout-minutes: 10
     strategy:
       fail-fast: false # Allows all matrix jobs to run even if one fails
@@ -269,16 +241,16 @@ jobs:
             test_path: tests/integration/test_gcs.py
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
       - name: Start Fake GCS Server
-        uses: fsouza/fake-gcs-action@v0.4.1
+        uses: fsouza/fake-gcs-action@920951b8eff0a80dab4b391b39bec79f8bd92537 # v0.4.1
         with:
           backend: memory
           external-url: http://127.0.0.1:4443
@@ -308,7 +280,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [
-        lock-file,
         linting,
         formatting,
         type-consistency,
@@ -320,10 +291,10 @@ jobs:
       ]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
         with:
           enable-cache: true
 
