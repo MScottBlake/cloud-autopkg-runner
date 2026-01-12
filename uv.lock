@@ -490,7 +490,7 @@ wheels = [
 
 [[package]]
 name = "cloud-autopkg-runner"
-version = "0.24.15"
+version = "0.24.16"
 source = { editable = "." }
 dependencies = [
     { name = "pyyaml" },
@@ -958,7 +958,7 @@ wheels = [
 
 [[package]]
 name = "google-cloud-storage"
-version = "3.6.0"
+version = "3.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-api-core" },
@@ -968,9 +968,9 @@ dependencies = [
     { name = "google-resumable-media" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/cd/7e112cf025b2b591067b599e4bfe965df0c12b0cc0afdb5556469bff126d/google_cloud_storage-3.6.0.tar.gz", hash = "sha256:29cc6b9a6c0fc9cdad071e375d540a5a50fbc9a7fad8300fa02fb904f6fe2ca2", size = 17251072, upload-time = "2025-11-17T10:18:29.81Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d2/8e/fab2de1a0ab7fdbd452eaae5a9a5c933d0911c26b04efa0c76ddfd921259/google_cloud_storage-3.7.0.tar.gz", hash = "sha256:9ce59c65f4d6e372effcecc0456680a8d73cef4f2dc9212a0704799cb3d69237", size = 17258914, upload-time = "2025-12-09T18:24:48.97Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ae/ef/3b57bf617ee0c79450c1ff211d1eb888db8fc1050ac74b3e52cc6ed86e63/google_cloud_storage-3.6.0-py3-none-any.whl", hash = "sha256:5decbdddd63b7d1fc3e266a393ad6453d2e27d172bd982b1e2f15481668db097", size = 299039, upload-time = "2025-11-17T10:18:27.66Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/80/6e5c7c83cea15ed4dfc4843b9df9db0716bc551ac938f7b5dd18a72bd5e4/google_cloud_storage-3.7.0-py3-none-any.whl", hash = "sha256:469bc9540936e02f8a4bfd1619e9dca1e42dec48f95e4204d783b36476a15093", size = 303364, upload-time = "2025-12-09T18:24:47.343Z" },
 ]
 
 [[package]]
@@ -1034,15 +1034,15 @@ wheels = [
 
 [[package]]
 name = "hypothesis"
-version = "6.148.7"
+version = "6.149.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
     { name = "sortedcontainers" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/09/5e/6a506e81d4dfefed2e838b6beaaae87b2e411dda3da0a3abf94099f194ae/hypothesis-6.148.7.tar.gz", hash = "sha256:b96e817e715c5b1a278411e3b9baf6d599d5b12207ba25e41a8f066929f6c2a6", size = 471199, upload-time = "2025-12-05T02:12:38.068Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c0/8d/b332c373c2571996d33b8721f3b35788fac8dc3770fe7958f639f2a0f24e/hypothesis-6.149.1.tar.gz", hash = "sha256:abe36199df3f068f72db85bd5f347a9032b79044a27bd9d2eb016179e5313069", size = 474274, upload-time = "2026-01-05T22:31:06.476Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e9/55/fa5607e4a4af96dfa0e7efd81bbd130735cedd21aac70b25e06191bff92f/hypothesis-6.148.7-py3-none-any.whl", hash = "sha256:94dbd58ebf259afa3bafb1d3bf5761ac1bde6f1477de494798cbf7960aabbdee", size = 538127, upload-time = "2025-12-05T02:12:35.54Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/de/49d680ea2e43237a06adadce52cc1f7042551295240a3c7eaeaca9f8c009/hypothesis-6.149.1-py3-none-any.whl", hash = "sha256:48d7ea77cae8b83c6c3c9f50ac683ae3b1673c1c306909410ea348e4e97aeb77", size = 541691, upload-time = "2026-01-05T22:31:03.853Z" },
 ]
 
 [[package]]
@@ -1092,17 +1092,17 @@ wheels = [
 
 [[package]]
 name = "localstack"
-version = "4.11.1"
+version = "4.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "localstack-core" },
     { name = "localstack-ext" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b0/b5/074ad906885cdc5f8424247fec51efec81c11617e47363d48d05c258f1dc/localstack-4.11.1.tar.gz", hash = "sha256:7cf67eb5922dedad9235cd342543e66134b7b71a88096cda117c46cc58aef6ec", size = 5921, upload-time = "2025-11-26T11:30:25.373Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/80/89/871ca102d172d38a3b017e51fd1ad473381e537fb7099234aa1a58971f02/localstack-4.12.0.tar.gz", hash = "sha256:87e0824d3115fc72fe78efa6d8bda942e68e69e38b74173c4bff3091efaea1ea", size = 5902, upload-time = "2025-12-11T13:05:38.905Z" }
 
 [[package]]
 name = "localstack-core"
-version = "4.11.1"
+version = "4.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asn1crypto" },
@@ -1120,14 +1120,14 @@ dependencies = [
     { name = "rich" },
     { name = "semver" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/aa/1c/c6b3c4ad109fab105414631f57399770220d74fb1e24b215c7962773eae5/localstack_core-4.11.1.tar.gz", hash = "sha256:4bb8512be2a0bac2d710cc21aa9add47f3d7bcc72c15c6fc1a94424ce4b77e1f", size = 3592135, upload-time = "2025-11-26T11:06:07.162Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ac/e1/9a3728824de648b35e22ebdfc40d2c5f0211c69a6bf1a604dc2c21ef8479/localstack_core-4.12.0.tar.gz", hash = "sha256:893359fb2392b95a1587e109120904dd4001e640238a2d4a87f8b46c6cb67ba6", size = 3619879, upload-time = "2025-12-11T12:58:58.742Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/32/50/44b9270df061f02c2beed864ebd02d1bb0270f1be73a7a3486e8d8b653d4/localstack_core-4.11.1-py3-none-any.whl", hash = "sha256:ae807699d4d7667a7e8ae92447a05ae71e939e8dd82e98b22cda8a7f83f8a171", size = 2666211, upload-time = "2025-11-26T11:06:05.339Z" },
+    { url = "https://files.pythonhosted.org/packages/a5/22/b5febfb12b665471e70c055ef8354e9db0d6c863e53f36f7864442995b50/localstack_core-4.12.0-py3-none-any.whl", hash = "sha256:730de1c4d71aff00512523b41ba3250f869f9cc774b713e04736851b7ac6cedb", size = 2699361, upload-time = "2025-12-11T12:58:56.609Z" },
 ]
 
 [[package]]
 name = "localstack-ext"
-version = "4.11.1"
+version = "4.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -1144,7 +1144,7 @@ dependencies = [
     { name = "tabulate" },
     { name = "windows-curses", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/56/b9/77b024acedba2c94376b8417d626e70f0b6b059753156fcc5c07d88d30ed/localstack_ext-4.11.1.tar.gz", hash = "sha256:12a8ff07f8ecff50df238eb651a6e79745b699374d3064311c96d3030b0a3cfa", size = 8973794, upload-time = "2025-11-26T11:30:27.76Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fe/43/d3f5b27f057a3cb273f7422715c46dbb9602577a93c1c575d86376c73a9a/localstack_ext-4.12.0.tar.gz", hash = "sha256:010ac6ea245305aae29eb1a025e2ebe4e620bae37b296cb145460d307cf89a51", size = 9033247, upload-time = "2025-12-11T13:05:41.128Z" }
 
 [[package]]
 name = "markdown-it-py"
