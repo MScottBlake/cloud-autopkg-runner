@@ -35,6 +35,7 @@ from typing import NoReturn, TypeVar
 from cloud_autopkg_runner import (
     AutoPkgPrefs,
     ConfigLoader,
+    ConfigSchema,
     Recipe,
     RecipeFinder,
     Settings,
@@ -57,60 +58,45 @@ T = TypeVar("T")
 STOP_WORKER = "<<STOP_WORKER>>"
 
 
-def _apply_cli_overrides(args: Namespace) -> None:
-    """Apply command-line arguments to configure application settings.
+def _schema_overrides_from_cli(args: Namespace) -> dict[str, object]:
+    """Extract configuration schema overrides from CLI arguments.
 
-    This private helper function takes a `Namespace` object containing parsed
-    command-line arguments and applies their values to the corresponding settings
-    in the `settings` module. This allows the application to be configured
-    dynamically based on user input provided at runtime.
+    This function translates parsed CLI arguments into a dictionary
+    suitable for applying as overrides to ConfigSchema. Only arguments
+    explicitly provided by the user are included.
 
     Args:
-        args: A `Namespace` object containing parsed command-line arguments.
+        args: Parsed command-line arguments.
+
+    Returns:
+        A dictionary of schema field overrides.
     """
-    settings = Settings()
-    matching_keys = {
+    overrides: dict[str, object] = {}
+
+    for key in (
+        "autopkg_pref_file",
+        "azure_account_url",
+        "cache_file",
+        "cache_plugin",
+        "cloud_container_name",
         "log_file",
         "log_format",
         "max_concurrency",
         "recipe_timeout",
         "report_dir",
-        "cache_plugin",
-        "cache_file",
-    }
-
-    for key in matching_keys:
+    ):
         if hasattr(args, key) and getattr(args, key) is not None:
-            setattr(settings, key, getattr(args, key))
+            overrides[key] = getattr(args, key)
 
-    if hasattr(args, "verbose") and args.verbose is not None:
-        settings.verbosity_level = args.verbose
+    # Handle keys that don't match
+    if args.verbose is not None:
+        overrides["verbosity_level"] = args.verbose
+    if args.pre_processor is not None:
+        overrides["pre_processors"] = args.pre_processor
+    if args.post_processor is not None:
+        overrides["post_processors"] = args.post_processor
 
-    if hasattr(args, "pre_processor") and args.pre_processor is not None:
-        settings.pre_processors = args.pre_processor
-
-    if hasattr(args, "post_processor") and args.post_processor is not None:
-        settings.post_processors = args.post_processor
-
-    # Plugin-specific arguments
-    if (
-        hasattr(args, "azure_account_url")
-        and args.azure_account_url
-        and settings.cache_plugin == "azure"
-    ):
-        settings.azure_account_url = args.azure_account_url
-
-    if (
-        hasattr(args, "cloud_container_name")
-        and args.cloud_container_name
-        and settings.cache_plugin
-        in {
-            "azure",
-            "gcs",
-            "s3",
-        }
-    ):
-        settings.cloud_container_name = args.cloud_container_name
+    return overrides
 
 
 def _count_iterable(iterable: Iterable[T]) -> int:
@@ -158,20 +144,21 @@ async def _create_recipe(
         return None
 
 
-def _generate_recipe_list(config_file_recipes: list[str], args: Namespace) -> set[str]:
+def _generate_recipe_list(schema: ConfigSchema, args: Namespace) -> set[str]:
     """Generate a comprehensive list of recipe names from various input sources.
 
-    This private helper function combines recipe names from the following sources:
-    - A JSON file specified via the `--recipe-list` command-line argument.
-    - Individual recipe names provided via the `--recipe` command-line argument
-      (which can be specified multiple times).
-    - The `RECIPE` environment variable.
+    This function reconciles recipe lists from CLI arguments, the configuration
+    file, and environment variables. The order of precedence is:
 
-    The function ensures that the final list contains only unique recipe names
-    by using a `set`.
+    1.  CLI arguments (`--recipe-list` and/or `--recipe`): If present, these
+        sources are used exclusively. Configuration file recipes are ignored.
+    2.  Configuration file (`schema.recipes`): Used only if no CLI recipe
+        arguments are provided.
+    3.  Environment variable (`RECIPE`): This is always added to the final
+        list, regardless of the primary source.
 
     Args:
-        config_file_recipes: A list of recipes from a config file.
+        schema: A `ConfigSchema` object containing configuration loaded from a file.
         args: A `Namespace` object containing parsed command-line arguments.
 
     Returns:
@@ -182,23 +169,21 @@ def _generate_recipe_list(config_file_recipes: list[str], args: Namespace) -> se
             contains invalid JSON, indicating a malformed input file.
     """
     logger.debug("Generating recipe list...")
-
     output: set[str] = set()
 
-    if config_file_recipes and not (args.recipe_list or args.recipe):
-        output.update(config_file_recipes)
-    else:
+    if args.recipe_list or args.recipe:
         if args.recipe_list:
             try:
                 output.update(json.loads(Path(args.recipe_list).read_text("utf-8")))
             except json.JSONDecodeError as exc:
                 raise InvalidJsonContents(args.recipe_list) from exc
-
         if args.recipe:
             output.update(args.recipe)
+    elif schema.recipes:
+        output.update(schema.recipes)
 
-    if os.getenv("RECIPE"):
-        output.add(os.getenv("RECIPE", ""))
+    if env_recipe := os.getenv("RECIPE", ""):
+        output.add(env_recipe)
 
     logger.debug("Recipe list generated: %s", output)
     return output
@@ -263,10 +248,6 @@ def _parse_arguments() -> Namespace:
         "--config-file",
         help="Path to a Cloud AutoPkg Runner config file.",
         type=Path,
-    )
-    general.add_argument(
-        "--context",
-        help="Choose which configured environment to use.",
     )
     general.add_argument(
         "--log-file",
@@ -538,12 +519,13 @@ async def _async_main() -> None:
     recipe processing completion.
     """
     args = _parse_arguments()
-    loader = ConfigLoader(args.config_file)
-    config_file_data = loader.load(context=args.context)
+    cli_overrides = _schema_overrides_from_cli(args)
+
+    config_data = ConfigLoader(args.config_file).load()
+    schema = ConfigSchema.from_dict(config_data).with_overrides(cli_overrides)
 
     settings = Settings()
-    settings.load_from_dict(config_file_data)
-    _apply_cli_overrides(args)
+    settings.load(schema)
 
     logging_config.initialize_logger(
         settings.verbosity_level, settings.log_file, settings.log_format
@@ -551,7 +533,7 @@ async def _async_main() -> None:
 
     autopkg_prefs = AutoPkgPrefs(settings.autopkg_pref_file)
 
-    recipe_list = _generate_recipe_list(config_file_data.get("recipes", []), args)
+    recipe_list = _generate_recipe_list(schema, args)
     _results = await _process_recipe_list(recipe_list, autopkg_prefs)
 
 

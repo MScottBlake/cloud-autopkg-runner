@@ -115,6 +115,19 @@ class InvalidConfigFileContents(InvalidFileContents):
     """
 
 
+# ConfigSchema
+class InvalidConfigurationKey(AutoPkgRunnerException):
+    """Exception class for handling invalid configuration keys.
+
+    This exception indicates that the specified configuratio has invalid options
+    specified.
+    """
+
+    def __init__(self) -> None:
+        """Initializes InvalidConfigurationKey."""
+        super().__init__("Invalid configuration keys detected.")
+
+
 # AutoPkgPrefs
 class PreferenceFileNotFoundError(AutoPkgRunnerException):
     """Raised when the AutoPkg preferences file is not found.

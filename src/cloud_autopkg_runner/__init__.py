@@ -17,6 +17,7 @@ from .settings import Settings  # noqa: I001
 
 from .autopkg_prefs import AutoPkgPrefs
 from .config_loader import ConfigLoader
+from .config_schema import ConfigSchema
 from .git_client import GitClient
 from .metadata_cache import get_cache_plugin
 from .recipe import Recipe
@@ -27,6 +28,7 @@ from . import logging_config
 __all__ = [
     "AutoPkgPrefs",
     "ConfigLoader",
+    "ConfigSchema",
     "GitClient",
     "Recipe",
     "RecipeFinder",
