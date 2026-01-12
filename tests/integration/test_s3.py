@@ -2,7 +2,7 @@ import json
 import time
 import uuid
 from collections.abc import Generator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import boto3
@@ -14,7 +14,7 @@ from cloud_autopkg_runner.metadata_cache import RecipeCache, get_cache_plugin
 
 # Define test data outside of a class
 TEST_RECIPE_NAME = "test.pkg.recipe"
-TEST_TIMESTAMP_STR = datetime(2023, 10, 26, 10, 30, 0, tzinfo=timezone.utc).isoformat()
+TEST_TIMESTAMP_STR = datetime(2023, 10, 26, 10, 30, 0, tzinfo=UTC).isoformat()
 
 
 # Fixtures

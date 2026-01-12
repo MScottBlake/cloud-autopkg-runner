@@ -12,10 +12,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cloud_autopkg_runner import AutoPkgPrefs, Recipe, Settings
+from cloud_autopkg_runner import AutoPkgPrefs, ConfigSchema, Recipe, Settings
 from cloud_autopkg_runner.__main__ import (
     STOP_WORKER,
-    _apply_cli_overrides,
     _count_iterable,
     _create_recipe,
     _generate_recipe_list,
@@ -23,6 +22,7 @@ from cloud_autopkg_runner.__main__ import (
     _parse_arguments,
     _process_recipe_list,
     _recipe_worker,
+    _schema_overrides_from_cli,
 )
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContents,
@@ -48,28 +48,34 @@ def mock_autopkg_prefs(tmp_path: Path) -> MagicMock:
     return mock_prefs
 
 
-def test_apply_cli_overrides(tmp_path: Path) -> None:
-    """Test that _apply_cli_overrides correctly sets settings."""
+def test_cli_overrides_schema(tmp_path: Path) -> None:
+    """Test that CLI arguments correctly override settings via the schema."""
     args = Namespace(
         cache_file="test_cache.json",
         cache_plugin="json",
         log_file=tmp_path / "test_log.txt",
-        log_format="text",
+        log_format="json",
         max_concurrency=5,
         recipe_timeout=60,
         report_dir=tmp_path / "test_reports",
         verbose=2,
-        pre_processor="com.example.identifier/preProcessorName",
-        post_processor="com.example.identifier/postProcessorName",
+        pre_processor=["com.example.identifier/preProcessorName"],
+        post_processor=["com.example.identifier/postProcessorName"],
+        azure_account_url=None,
+        cloud_container_name=None,
+        autopkg_pref_file=None,
     )
 
-    _apply_cli_overrides(args)
+    overrides = _schema_overrides_from_cli(args)
+    base_schema = ConfigSchema()
+    final_schema = base_schema.with_overrides(overrides)
 
     settings = Settings()
+    settings.load(final_schema)
+
     assert settings.cache_file == "test_cache.json"
-    assert Path(settings.cache_file) == Path("test_cache.json")
-    assert tmp_path / settings.cache_file == tmp_path / "test_cache.json"
     assert settings.log_file == tmp_path / "test_log.txt"
+    assert settings.log_format == "json"
     assert settings.max_concurrency == 5
     assert settings.recipe_timeout == 60
     assert settings.report_dir == tmp_path / "test_reports"
@@ -78,13 +84,24 @@ def test_apply_cli_overrides(tmp_path: Path) -> None:
     assert settings.post_processors == ["com.example.identifier/postProcessorName"]
 
 
+def test_generate_recipe_list_from_schema() -> None:
+    """Test that _generate_recipe_list correctly reads from the schema."""
+    args = Namespace(recipe_list=None, recipe=None)
+    schema = ConfigSchema(recipes=["SchemaRecipe1", "SchemaRecipe2"])
+    with patch.dict(os.environ, {}, clear=True):
+        result = _generate_recipe_list(schema, args)
+    assert result == {"SchemaRecipe1", "SchemaRecipe2"}
+
+
 def test_generate_recipe_list_from_json(tmp_path: Path) -> None:
     """Test that _generate_recipe_list correctly reads from a JSON file."""
     recipe_list_file = tmp_path / "recipes.json"
     recipe_list_file.write_text(json.dumps(["Recipe1", "Recipe2"]))
     args = Namespace(recipe_list=recipe_list_file, recipe=None)
+    schema = ConfigSchema(recipes=["Ignored"])  # Should be ignored
 
-    result = _generate_recipe_list([], args)
+    with patch.dict(os.environ, {}, clear=True):
+        result = _generate_recipe_list(schema, args)
 
     assert result == {"Recipe1", "Recipe2"}
 
@@ -92,8 +109,10 @@ def test_generate_recipe_list_from_json(tmp_path: Path) -> None:
 def test_generate_recipe_list_from_args() -> None:
     """Test that _generate_recipe_list correctly reads from command-line args."""
     args = Namespace(recipe_list=None, recipe=["Recipe3", "Recipe4"])
+    schema = ConfigSchema(recipes=["Ignored"])  # Should be ignored
 
-    result = _generate_recipe_list([], args)
+    with patch.dict(os.environ, {}, clear=True):
+        result = _generate_recipe_list(schema, args)
 
     assert result == {"Recipe3", "Recipe4"}
 
@@ -102,21 +121,23 @@ def test_generate_recipe_list_from_env() -> None:
     """Test that _generate_recipe_list correctly reads from the environment."""
     with patch.dict(os.environ, {"RECIPE": "Recipe5"}):
         args = Namespace(recipe_list=None, recipe=None)
+        schema = ConfigSchema()  # No recipes in schema
 
-        result = _generate_recipe_list([], args)
+        result = _generate_recipe_list(schema, args)
 
         assert result == {"Recipe5"}
 
 
 def test_generate_recipe_list_combines_sources(tmp_path: Path) -> None:
-    """Test that _generate_recipe_list combines all sources correctly."""
+    """Test that _generate_recipe_list combines CLI and env sources correctly."""
     recipe_list_file = tmp_path / "recipes.json"
     recipe_list_file.write_text(json.dumps(["Recipe1", "Recipe2"]))
 
     with patch.dict(os.environ, {"RECIPE": "Recipe5"}):
         args = Namespace(recipe_list=recipe_list_file, recipe=["Recipe3", "Recipe4"])
+        schema = ConfigSchema(recipes=["Ignored"])  # Should be ignored
 
-        result = _generate_recipe_list([], args)
+        result = _generate_recipe_list(schema, args)
 
         assert result == {"Recipe1", "Recipe2", "Recipe3", "Recipe4", "Recipe5"}
 
@@ -126,9 +147,10 @@ def test_generate_recipe_list_invalid_json(tmp_path: Path) -> None:
     recipe_list_file = tmp_path / "recipes.json"
     recipe_list_file.write_text("This is not JSON")
     args = Namespace(recipe_list=recipe_list_file, recipe=None)
+    schema = ConfigSchema()
 
     with pytest.raises(InvalidJsonContents):
-        _generate_recipe_list([], args)
+        _generate_recipe_list(schema, args)
 
 
 def test_parse_arguments() -> None:
@@ -379,7 +401,7 @@ async def test_recipe_worker_timeout_logged(tmp_path: Path) -> None:
 
     mock_recipe = MagicMock()
     mock_recipe.name = "TimeoutRecipe"
-    mock_recipe.run = AsyncMock(side_effect=asyncio.TimeoutError())
+    mock_recipe.run = AsyncMock(side_effect=TimeoutError())
 
     mock_settings = MagicMock()
     mock_settings.recipe_timeout = 3
