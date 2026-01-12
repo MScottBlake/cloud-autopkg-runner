@@ -4,7 +4,7 @@ import os
 import time
 import uuid
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import pytest
 import pytest_asyncio
@@ -17,7 +17,7 @@ from cloud_autopkg_runner.metadata_cache import RecipeCache
 
 # Define test data outside of a class
 TEST_RECIPE_NAME = "test.pkg.recipe"
-TEST_TIMESTAMP_STR = datetime(2023, 10, 26, 10, 30, 0, tzinfo=UTC).isoformat()
+TEST_TIMESTAMP_STR = datetime(2023, 10, 26, 10, 30, 0, tzinfo=timezone.utc).isoformat()
 
 
 # Fixtures
