@@ -15,8 +15,11 @@ Exceptions:
     SettingsValidationError: Raised when a setting fails validation.
 """
 
+import dataclasses
 from pathlib import Path
 
+# Keep these specific to avoid circular imports
+from cloud_autopkg_runner.config_schema import ConfigSchema
 from cloud_autopkg_runner.exceptions import SettingsValidationError
 
 
@@ -57,6 +60,9 @@ class Settings:
         if hasattr(self, "_initialized"):
             return  # Prevent re-initialization
 
+        self._autopkg_pref_file: Path = Path(
+            "~/Library/Preferences/com.github.autopkg.plist"
+        ).expanduser()
         self._log_file: Path | None = None
         self._log_format: str = "text"
         self._max_concurrency: int = 10
@@ -70,6 +76,39 @@ class Settings:
         self._cache_file: str = "metadata_cache.json"
 
         self._initialized = True
+
+    def load(self, schema: ConfigSchema) -> None:
+        """Apply configuration values from a ConfigSchema.
+
+        Only explicitly provided schema values are applied. Defaults
+        remain owned by the Settings instance.
+
+        Args:
+            schema: A validated configuration schema.
+        """
+        for field in dataclasses.fields(schema):
+            schema_value = getattr(schema, field.name)
+            if schema_value is not None:
+                setattr(self, field.name, schema_value)
+
+    @property
+    def autopkg_pref_file(self) -> Path:
+        """Get the preference file path.
+
+        Returns:
+            The path to the preference file.
+        """
+        return self._autopkg_pref_file
+
+    @autopkg_pref_file.setter
+    def autopkg_pref_file(self, value: Path) -> None:
+        """Set the preference file path.
+
+        Args:
+            value: The new path to the preference file. Can be either a string or a
+            Path object.
+        """
+        self._autopkg_pref_file = self._convert_to_path(value).expanduser()
 
     @property
     def log_file(self) -> Path | None:

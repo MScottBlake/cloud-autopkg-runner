@@ -264,3 +264,7 @@ terraform.rc
 # End of https://www.toptal.com/developers/gitignore/api/macos,visualstudiocode,python,terraform
 
 artifacts/
+recipe_reports/
+metadata_cache.json
+config.toml
+config.*.toml

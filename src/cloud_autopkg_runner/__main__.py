@@ -34,6 +34,8 @@ from typing import NoReturn, TypeVar
 
 from cloud_autopkg_runner import (
     AutoPkgPrefs,
+    ConfigLoader,
+    ConfigSchema,
     Recipe,
     RecipeFinder,
     Settings,
@@ -56,39 +58,45 @@ T = TypeVar("T")
 STOP_WORKER = "<<STOP_WORKER>>"
 
 
-def _apply_args_to_settings(args: Namespace) -> None:
-    """Apply command-line arguments to configure application settings.
+def _schema_overrides_from_cli(args: Namespace) -> dict[str, object]:
+    """Extract configuration schema overrides from CLI arguments.
 
-    This private helper function takes a `Namespace` object containing parsed
-    command-line arguments and applies their values to the corresponding settings
-    in the `settings` module. This allows the application to be configured
-    dynamically based on user input provided at runtime.
+    This function translates parsed CLI arguments into a dictionary
+    suitable for applying as overrides to ConfigSchema. Only arguments
+    explicitly provided by the user are included.
 
     Args:
-        args: A `Namespace` object containing parsed command-line arguments.
+        args: Parsed command-line arguments.
+
+    Returns:
+        A dictionary of schema field overrides.
     """
-    settings = Settings()
+    overrides: dict[str, object] = {}
 
-    settings.log_file = args.log_file
-    settings.log_format = args.log_format
+    for key in (
+        "autopkg_pref_file",
+        "azure_account_url",
+        "cache_file",
+        "cache_plugin",
+        "cloud_container_name",
+        "log_file",
+        "log_format",
+        "max_concurrency",
+        "recipe_timeout",
+        "report_dir",
+    ):
+        if hasattr(args, key) and getattr(args, key) is not None:
+            overrides[key] = getattr(args, key)
 
-    settings.max_concurrency = args.max_concurrency
-    settings.recipe_timeout = args.recipe_timeout
-    settings.report_dir = args.report_dir
-    settings.verbosity_level = args.verbose
+    # Handle keys that don't match
+    if args.verbose is not None:
+        overrides["verbosity_level"] = args.verbose
+    if args.pre_processor is not None:
+        overrides["pre_processors"] = args.pre_processor
+    if args.post_processor is not None:
+        overrides["post_processors"] = args.post_processor
 
-    settings.cache_plugin = args.cache_plugin
-    settings.cache_file = args.cache_file
-
-    settings.pre_processors = args.pre_processor
-    settings.post_processors = args.post_processor
-
-    # Plugin-specific arguments
-    if settings.cache_plugin == "azure":
-        settings.azure_account_url = args.azure_account_url
-
-    if settings.cache_plugin in {"azure", "gcs", "s3"}:
-        settings.cloud_container_name = args.cloud_container_name
+    return overrides
 
 
 def _count_iterable(iterable: Iterable[T]) -> int:
@@ -136,19 +144,21 @@ async def _create_recipe(
         return None
 
 
-def _generate_recipe_list(args: Namespace) -> set[str]:
+def _generate_recipe_list(schema: ConfigSchema, args: Namespace) -> set[str]:
     """Generate a comprehensive list of recipe names from various input sources.
 
-    This private helper function combines recipe names from the following sources:
-    - A JSON file specified via the `--recipe-list` command-line argument.
-    - Individual recipe names provided via the `--recipe` command-line argument
-      (which can be specified multiple times).
-    - The `RECIPE` environment variable.
+    This function reconciles recipe lists from CLI arguments, the configuration
+    file, and environment variables. The order of precedence is:
 
-    The function ensures that the final list contains only unique recipe names
-    by using a `set`.
+    1.  CLI arguments (`--recipe-list` and/or `--recipe`): If present, these
+        sources are used exclusively. Configuration file recipes are ignored.
+    2.  Configuration file (`schema.recipes`): Used only if no CLI recipe
+        arguments are provided.
+    3.  Environment variable (`RECIPE`): This is always added to the final
+        list, regardless of the primary source.
 
     Args:
+        schema: A `ConfigSchema` object containing configuration loaded from a file.
         args: A `Namespace` object containing parsed command-line arguments.
 
     Returns:
@@ -159,20 +169,21 @@ def _generate_recipe_list(args: Namespace) -> set[str]:
             contains invalid JSON, indicating a malformed input file.
     """
     logger.debug("Generating recipe list...")
-
     output: set[str] = set()
 
-    if args.recipe_list:
-        try:
-            output.update(json.loads(Path(args.recipe_list).read_text("utf-8")))
-        except json.JSONDecodeError as exc:
-            raise InvalidJsonContents(args.recipe_list) from exc
+    if args.recipe_list or args.recipe:
+        if args.recipe_list:
+            try:
+                output.update(json.loads(Path(args.recipe_list).read_text("utf-8")))
+            except json.JSONDecodeError as exc:
+                raise InvalidJsonContents(args.recipe_list) from exc
+        if args.recipe:
+            output.update(args.recipe)
+    elif schema.recipes:
+        output.update(schema.recipes)
 
-    if args.recipe:
-        output.update(args.recipe)
-
-    if os.getenv("RECIPE"):
-        output.add(os.getenv("RECIPE", ""))
+    if env_recipe := os.getenv("RECIPE", ""):
+        output.add(env_recipe)
 
     logger.debug("Recipe list generated: %s", output)
     return output
@@ -231,8 +242,12 @@ def _parse_arguments() -> Namespace:
         "-v",
         "--verbose",
         action="count",
-        default=0,
         help="Verbosity level. Can be specified multiple times. (-vvv)",
+    )
+    general.add_argument(
+        "--config-file",
+        help="Path to a Cloud AutoPkg Runner config file.",
+        type=Path,
     )
     general.add_argument(
         "--log-file",
@@ -243,25 +258,21 @@ def _parse_arguments() -> Namespace:
         "--log-format",
         help="Sets the log file format. Requires `--log-file` be configured.",
         choices=["text", "json"],
-        default="text",
         type=str,
     )
     general.add_argument(
         "--report-dir",
         help="Path to the directory used for storing AutoPkg recipe reports.",
-        default="",
         type=Path,
     )
     general.add_argument(
         "--max-concurrency",
         help="Limit the number of concurrent tasks.",
-        default=10,
         type=int,
     )
     general.add_argument(
         "--recipe-timeout",
         help="Timeout in seconds for each recipe task. Defaults to 300 (5 minutes).",
-        default=300,
         type=int,
     )
 
@@ -311,7 +322,6 @@ def _parse_arguments() -> Namespace:
     )
     cache.add_argument(
         "--cache-file",
-        default="metadata_cache.json",
         help="Path to the file that stores the download metadata cache.",
         type=str,
     )
@@ -330,7 +340,6 @@ def _parse_arguments() -> Namespace:
     autopkg = parser.add_argument_group("AutoPkg Preferences")
     autopkg.add_argument(
         "--autopkg-pref-file",
-        default=Path("~/Library/Preferences/com.github.autopkg.plist").expanduser(),
         help="Path to the AutoPkg preferences file.",
         type=Path,
     )
@@ -435,7 +444,9 @@ async def _recipe_worker(
             queue.task_done()
             break
 
-        token = recipe_context.set(recipe_name)
+        token = recipe_context.set(
+            recipe_name.removesuffix(".yaml").removesuffix(".recipe")
+        )
         try:
             logger.info("Starting recipe %s", recipe_name)
 
@@ -508,13 +519,21 @@ async def _async_main() -> None:
     recipe processing completion.
     """
     args = _parse_arguments()
-    _apply_args_to_settings(args)
+    cli_overrides = _schema_overrides_from_cli(args)
 
-    logging_config.initialize_logger(args.verbose, args.log_file, args.log_format)
+    config_data = ConfigLoader(args.config_file).load()
+    schema = ConfigSchema.from_dict(config_data).with_overrides(cli_overrides)
 
-    autopkg_prefs = AutoPkgPrefs(args.autopkg_pref_file)
+    settings = Settings()
+    settings.load(schema)
 
-    recipe_list = _generate_recipe_list(args)
+    logging_config.initialize_logger(
+        settings.verbosity_level, settings.log_file, settings.log_format
+    )
+
+    autopkg_prefs = AutoPkgPrefs(settings.autopkg_pref_file)
+
+    recipe_list = _generate_recipe_list(schema, args)
     _results = await _process_recipe_list(recipe_list, autopkg_prefs)
 
 

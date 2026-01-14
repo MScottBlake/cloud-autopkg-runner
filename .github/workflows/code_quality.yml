@@ -210,7 +210,7 @@ jobs:
 
       - name: Start Azurite
         run: |
-          azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem --silent &
+          azurite --oauth basic --cert 127.0.0.1.pem --key 127.0.0.1-key.pem --skipApiVersionCheck --silent &
 
       - name: Wait for Azurite to be ready
         run: |

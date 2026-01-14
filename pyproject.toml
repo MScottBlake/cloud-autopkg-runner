@@ -17,7 +17,7 @@ dev = [
 
 [project]
 name = "cloud-autopkg-runner"
-version = "0.24.16"
+version = "0.25.0"
 description = "A Python library designed to level-up your AutoPkg automations with a focus on CI/CD performance."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
@@ -42,7 +42,11 @@ classifiers = [
     "Operating System :: MacOS :: MacOS X",
     "Typing :: Typed",
 ]
-dependencies = ["pyyaml>=6.0.2", "xattr>=1.1.4"]
+dependencies = [
+    "pyyaml>=6.0.2",
+    "tomli>=2.3.0; python_version<'3.11'",
+    "xattr>=1.1.4",
+]
 
 [project.scripts]
 cloud-autopkg-runner = "cloud_autopkg_runner.__main__:main"
@@ -162,3 +166,10 @@ name = "testpypi"
 url = "https://test.pypi.org/simple/"
 publish-url = "https://test.pypi.org/legacy/"
 explicit = true
+
+[tool.cloud_autopkg_runner]
+autopkg_pref_file = "~/Library/Preferences/com.github.autopkg.plist"
+verbose = 0
+recipes = [
+    "Firefox.download.recipe"
+]

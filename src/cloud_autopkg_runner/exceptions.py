@@ -90,6 +90,44 @@ class InvalidYamlContents(InvalidFileContents):
     """
 
 
+# Config File
+class ConfigFileNotFoundError(AutoPkgRunnerException):
+    """Raised when the provided config file is not found.
+
+    This exception indicates that the specified config file does not exist at the
+    expected location.
+    """
+
+    def __init__(self, file_path: Path) -> None:
+        """Initializes ConfigFileNotFoundError with the missing file path.
+
+        Args:
+            file_path: The path to the config file that was not found.
+        """
+        super().__init__(f"Config file not found: {file_path}")
+
+
+class InvalidConfigFileContents(InvalidFileContents):
+    """Exception class for handling invalid config file contents.
+
+    This exception is raised when a config file is found to contain invalid
+    data that cannot be parsed.
+    """
+
+
+# ConfigSchema
+class InvalidConfigurationKey(AutoPkgRunnerException):
+    """Exception class for handling invalid configuration keys.
+
+    This exception indicates that the specified configuratio has invalid options
+    specified.
+    """
+
+    def __init__(self) -> None:
+        """Initializes InvalidConfigurationKey."""
+        super().__init__("Invalid configuration keys detected.")
+
+
 # AutoPkgPrefs
 class PreferenceFileNotFoundError(AutoPkgRunnerException):
     """Raised when the AutoPkg preferences file is not found.
