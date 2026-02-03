@@ -727,15 +727,6 @@ wheels = [
 ]
 
 [[package]]
-name = "dill"
-version = "0.3.6"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/7c/e7/364a09134e1062d4d5ff69b853a56cf61c223e0afcc6906b6832bcd51ea8/dill-0.3.6.tar.gz", hash = "sha256:e5db55f3687856d8fbdab002ed78544e1c4559a130302693d839dfe8f93f2373", size = 179026, upload-time = "2022-10-23T22:46:33.146Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/be/e3/a84bf2e561beed15813080d693b4b27573262433fced9c1d1fea59e60553/dill-0.3.6-py3-none-any.whl", hash = "sha256:a07ffd2351b8c678dfc4a856a3005f8067aea51d6ba6c700796a4d9e280f39f0", size = 110515, upload-time = "2022-10-23T22:46:30.986Z" },
-]
-
-[[package]]
 name = "distlib"
 version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1091,24 +1082,23 @@ wheels = [
 
 [[package]]
 name = "localstack"
-version = "4.12.0"
+version = "4.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "localstack-core" },
     { name = "localstack-ext" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/80/89/871ca102d172d38a3b017e51fd1ad473381e537fb7099234aa1a58971f02/localstack-4.12.0.tar.gz", hash = "sha256:87e0824d3115fc72fe78efa6d8bda942e68e69e38b74173c4bff3091efaea1ea", size = 5902, upload-time = "2025-12-11T13:05:38.905Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5c/44/bd7aad22852d5139bcb79af7f8d2630c48d20216d9ced284430d037d7a7d/localstack-4.13.1.tar.gz", hash = "sha256:8627e9ad779654447287986c35ee79e6c8826748a1394541374de0df168509cf", size = 5955, upload-time = "2026-02-02T11:36:26.424Z" }
 
 [[package]]
 name = "localstack-core"
-version = "4.12.0"
+version = "4.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asn1crypto" },
     { name = "cachetools" },
     { name = "click" },
     { name = "cryptography" },
-    { name = "dill" },
     { name = "dnslib" },
     { name = "dnspython" },
     { name = "plux" },
@@ -1119,14 +1109,14 @@ dependencies = [
     { name = "rich" },
     { name = "semver" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ac/e1/9a3728824de648b35e22ebdfc40d2c5f0211c69a6bf1a604dc2c21ef8479/localstack_core-4.12.0.tar.gz", hash = "sha256:893359fb2392b95a1587e109120904dd4001e640238a2d4a87f8b46c6cb67ba6", size = 3619879, upload-time = "2025-12-11T12:58:58.742Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b1/ea/98036b2963668a76416dec6f8ef2e6f8ffd152ce8f06ab2950dedf1beee2/localstack_core-4.13.1.tar.gz", hash = "sha256:45b57e1c82f30f949e2f9a018e999b1c08525ce2655afcf4416850a2e1bd2324", size = 2215946, upload-time = "2026-02-02T11:32:50.311Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a5/22/b5febfb12b665471e70c055ef8354e9db0d6c863e53f36f7864442995b50/localstack_core-4.12.0-py3-none-any.whl", hash = "sha256:730de1c4d71aff00512523b41ba3250f869f9cc774b713e04736851b7ac6cedb", size = 2699361, upload-time = "2025-12-11T12:58:56.609Z" },
+    { url = "https://files.pythonhosted.org/packages/e7/51/b243ba104c667fd403246030753352d024d1373e221143c3fc7189a919b1/localstack_core-4.13.1-py3-none-any.whl", hash = "sha256:dd90f950f6745275403c0b4e7e797cc9412f64ae75863d6a278bb1b3e6a71f11", size = 2722274, upload-time = "2026-02-02T11:32:48.278Z" },
 ]
 
 [[package]]
 name = "localstack-ext"
-version = "4.12.0"
+version = "4.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -1143,7 +1133,7 @@ dependencies = [
     { name = "tabulate" },
     { name = "windows-curses", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fe/43/d3f5b27f057a3cb273f7422715c46dbb9602577a93c1c575d86376c73a9a/localstack_ext-4.12.0.tar.gz", hash = "sha256:010ac6ea245305aae29eb1a025e2ebe4e620bae37b296cb145460d307cf89a51", size = 9033247, upload-time = "2025-12-11T13:05:41.128Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/22/c2/949a2e4306ade243d6fa63f55739798c0646c154a2790bbae4799773eb0c/localstack_ext-4.13.1.tar.gz", hash = "sha256:9a2e1e6dd66dcf4b8636f587aaacadda591d3fdf4dd4828bd63935ead59751b3", size = 9090505, upload-time = "2026-02-02T11:36:28.842Z" }
 
 [[package]]
 name = "markdown-it-py"
@@ -1368,11 +1358,11 @@ wheels = [
 
 [[package]]
 name = "plux"
-version = "1.13.0"
+version = "1.14.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/14/4b/bea3ff709d4d17b1e0351058c9dbe830dcbb33a75225836056f4591dfb1d/plux-1.13.0.tar.gz", hash = "sha256:0358a618883be270cf8dd6b5ae48e633a7fecd386cff6347c8560116f4688a75", size = 32977, upload-time = "2025-08-04T21:48:46.623Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b5/6f/8502a12f12c49a5e2e7c5f9bbb23ec5a4b35cd4cbe9bce4382e5b2078fe3/plux-1.14.0.tar.gz", hash = "sha256:e335d0bb4b67e1cb18abce8b92370568394f75edfb8505398f51c577525467fe", size = 103137, upload-time = "2026-01-26T12:23:22.809Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ad/56/6a03c5a7c88d05cc4ed3a07fede3185b42b13cf74025b691d1377dd22647/plux-1.13.0-py3-none-any.whl", hash = "sha256:0b68cb35fc3bf4b2a760ef6892ea734a1c0d241e2f403540005fa26436773a62", size = 35300, upload-time = "2025-08-04T21:48:45.038Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/70/d6f645bed6e27ee46a670540360af3586d0708314d18e0e4a6fac08dfc5e/plux-1.14.0-py3-none-any.whl", hash = "sha256:f117345586b17e1878bf339b595141f5f476bddd61bcc070182839f1b0287f7a", size = 48770, upload-time = "2026-01-26T12:23:21.383Z" },
 ]
 
 [[package]]
