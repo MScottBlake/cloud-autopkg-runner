@@ -6,7 +6,7 @@ import os
 import plistlib
 import sys
 import typing
-from argparse import Namespace
+from argparse import ArgumentTypeError, Namespace
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -19,6 +19,7 @@ from cloud_autopkg_runner.__main__ import (
     _create_recipe,
     _generate_recipe_list,
     _get_recipe_path,
+    _key_value_pair,
     _parse_arguments,
     _process_recipe_list,
     _recipe_worker,
@@ -64,6 +65,7 @@ def test_cli_overrides_schema(tmp_path: Path) -> None:
         azure_account_url=None,
         cloud_container_name=None,
         autopkg_pref_file=None,
+        key=[("KEY1", "VALUE1"), ("KEY2", "VALUE2")],
     )
 
     overrides = _schema_overrides_from_cli(args)
@@ -82,6 +84,7 @@ def test_cli_overrides_schema(tmp_path: Path) -> None:
     assert settings.verbosity_level == 2
     assert settings.pre_processors == ["com.example.identifier/preProcessorName"]
     assert settings.post_processors == ["com.example.identifier/postProcessorName"]
+    assert settings.input_variables == {"KEY1": "VALUE1", "KEY2": "VALUE2"}
 
 
 def test_generate_recipe_list_from_schema() -> None:
@@ -182,6 +185,9 @@ def test_parse_arguments() -> None:
         "test_reports",
         "--max-concurrency",
         "15",
+        "--key",
+        "KEY1=VALUE1",
+        "KEY2=VALUE2",
     ]
     with patch.object(sys, "argv", testargs):
         args = _parse_arguments()
@@ -197,6 +203,7 @@ def test_parse_arguments() -> None:
     assert args.recipe_timeout == 60
     assert args.report_dir == Path("test_reports")
     assert args.max_concurrency == 15
+    assert args.key == [("KEY1", "VALUE1"), ("KEY2", "VALUE2")]
 
 
 def test_parse_arguments_diff_syntax() -> None:
@@ -216,6 +223,8 @@ def test_parse_arguments_diff_syntax() -> None:
         "--recipe-timeout=60",
         "--report-dir=test_reports",
         "--max-concurrency=15",
+        "--key=KEY1=VALUE1",
+        "--key=KEY2=VALUE2",
     ]
     with patch.object(sys, "argv", testargs):
         args = _parse_arguments()
@@ -231,6 +240,7 @@ def test_parse_arguments_diff_syntax() -> None:
     assert args.recipe_timeout == 60
     assert args.report_dir == Path("test_reports")
     assert args.max_concurrency == 15
+    assert args.key == [("KEY1", "VALUE1"), ("KEY2", "VALUE2")]
 
 
 @pytest.mark.asyncio
@@ -344,6 +354,21 @@ def test_count_iterable_int() -> None:
 
     assert result == 3
     assert type(result) is int
+
+
+def test_key_value_pair() -> None:
+    """Test that _key_value_pair returns the correct value."""
+    cli_input = "KEY=VALUE"
+    result = _key_value_pair(cli_input)
+
+    assert result == ("KEY", "VALUE")
+
+
+def test_key_value_pair_exception() -> None:
+    """Test that _key_value_pair raises ArgumentTypeError on invalid input."""
+    cli_input = "INVALID_KEY_VALUE"
+    with pytest.raises(ArgumentTypeError):
+        _key_value_pair(cli_input)
 
 
 @pytest.mark.asyncio
