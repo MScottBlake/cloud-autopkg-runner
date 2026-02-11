@@ -337,6 +337,13 @@ class Recipe:
                 [f"--postprocessor={item}" for item in self._settings.post_processors]
             )
 
+        cmd.extend(
+            [
+                f"--key={key}={value}"
+                for key, value in self._settings.input_variables.items()
+            ]
+        )
+
         return cmd
 
     async def _create_placeholder_cache_files(self) -> None:

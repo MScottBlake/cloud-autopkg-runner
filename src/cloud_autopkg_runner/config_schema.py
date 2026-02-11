@@ -35,6 +35,7 @@ class ConfigSchema:
     recipe_timeout: int | None = None
     report_dir: Path | None = None
     recipes: list[str] | None = None
+    input_variables: dict[str, str] | None = None
 
     # Cache
     cache_plugin: str | None = None

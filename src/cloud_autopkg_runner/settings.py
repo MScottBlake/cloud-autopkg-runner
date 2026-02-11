@@ -71,6 +71,7 @@ class Settings:
         self._recipe_timeout: int = 300
         self._report_dir: Path = Path("recipe_reports")
         self._verbosity_level: int = 0
+        self._input_variables: dict[str, str] = {}
 
         self._cache_plugin: str = "default"
         self._cache_file: str = "metadata_cache.json"
@@ -219,6 +220,24 @@ class Settings:
             self._pre_processors = [value]
         else:
             self._pre_processors = value
+
+    @property
+    def input_variables(self) -> dict[str, str]:
+        """Get the input variables.
+
+        Returns:
+            The dictionary of input variables.
+        """
+        return self._input_variables
+
+    @input_variables.setter
+    def input_variables(self, value: dict[str, str]) -> None:
+        """Set the input variables.
+
+        Args:
+            value: The new dictionary of input variables.
+        """
+        self._input_variables = value
 
     @property
     def recipe_timeout(self) -> int:
