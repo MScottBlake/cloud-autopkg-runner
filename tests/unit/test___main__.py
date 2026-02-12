@@ -187,6 +187,7 @@ def test_parse_arguments() -> None:
         "15",
         "--key",
         "KEY1=VALUE1",
+        "--key",
         "KEY2=VALUE2",
     ]
     with patch.object(sys, "argv", testargs):

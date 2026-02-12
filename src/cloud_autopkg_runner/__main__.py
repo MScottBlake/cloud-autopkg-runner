@@ -320,8 +320,7 @@ def _parse_arguments() -> Namespace:
         "-k",
         "--key",
         metavar="KEY=VALUE",
-        nargs="+",
-        action="extend",
+        action="append",
         help=(
             "Specify inputs to use in the recipe. "
             "These inputs will take precedence and override recipe inputs. "
