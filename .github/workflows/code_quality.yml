@@ -250,9 +250,8 @@ jobs:
           enable-cache: true
 
       - name: Start Fake GCS Server
-        uses: fsouza/fake-gcs-action@920951b8eff0a80dab4b391b39bec79f8bd92537 # v0.4.1
+        uses: fsouza/fake-gcs-action@3b8c0e61f869f9aa1e1cb3ab1964438dd97adcdd # v0.4.1
         with:
-          version: "1.44"
           backend: memory
           external-url: http://127.0.0.1:4443
           scheme: http
