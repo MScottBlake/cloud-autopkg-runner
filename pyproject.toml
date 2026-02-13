@@ -120,7 +120,6 @@ select = [
     "C4",    # flake8-comprehensions
     "C90",   # mccabe
     "D",     # pydocstyle
-    "DOC",   # pydoclint
     "DTZ",   # flake8-datetimez
     "E",     # pycodestyle error
     "F",     # Pyflakes
