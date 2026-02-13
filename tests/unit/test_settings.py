@@ -39,6 +39,7 @@ def test_attribute_access(settings: Settings) -> None:
     assert isinstance(settings.pre_processors, list)
     assert isinstance(settings.report_dir, Path)
     assert isinstance(settings.verbosity_level, int)
+    assert isinstance(settings.input_variables, dict)
 
 
 def test_cache_file_setter(settings: Settings) -> None:
@@ -211,3 +212,19 @@ def test_post_processors_setter(
     """Test setting the post_processors attribute with various inputs."""
     settings.post_processors = input_value
     assert settings.post_processors == expected_output
+
+
+@pytest.mark.parametrize(
+    ("input_value", "expected_output"),
+    [
+        ({}, {}),
+        ({"MY_KEY": "my_value"}, {"MY_KEY": "my_value"}),
+        ({"KEY1": "value1", "KEY2": "value2"}, {"KEY1": "value1", "KEY2": "value2"}),
+    ],
+)
+def test_input_variables_setter(
+    input_value: dict[str, str], expected_output: dict[str, str], settings: Settings
+) -> None:
+    """Test setting the override_variables attribute with various dicts."""
+    settings.input_variables = input_value
+    assert settings.input_variables == expected_output

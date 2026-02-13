@@ -189,6 +189,7 @@ async def test_autopkg_run_cmd_basic(
         assert cmd[:3] == ["/usr/local/bin/autopkg", "run", recipe.name]
         assert any(arg.startswith("--report-plist=") for arg in cmd)
         assert "--check" not in cmd
+        assert not any(arg.startswith("--key=") for arg in cmd)
 
 
 @pytest.mark.asyncio
@@ -256,6 +257,40 @@ async def test_autopkg_run_cmd_with_processors_and_verbosity(
         )
         assert "--postprocessor=PostA" in cmd
         assert "-v" in cmd
+
+
+@pytest.mark.asyncio
+async def test_autopkg_run_cmd_with_input_variables(
+    tmp_path: Path, mock_autopkg_prefs: MagicMock
+) -> None:
+    """Test command with input_variables."""
+    yaml_content = """
+    Description: Test
+    Identifier: com.example.test
+    Input:
+        NAME: TestRecipe
+    Process: []
+    """
+    recipe_file = tmp_path / "test.recipe.yaml"
+    create_test_file(recipe_file, yaml_content)
+    report_dir = tmp_path / "report"
+    report_dir.mkdir()
+
+    with patch("cloud_autopkg_runner.recipe.Settings") as mock_settings:
+        mock_settings.return_value.pre_processors = []
+        mock_settings.return_value.post_processors = []
+        mock_settings.return_value.input_variables = {
+            "KEY1": "value1",
+            "KEY2": "value2",
+        }
+        mock_settings.return_value.verbosity_int.return_value = 0
+        mock_settings.return_value.verbosity_str.return_value = ""
+
+        recipe = Recipe(recipe_file, report_dir, mock_autopkg_prefs)
+        cmd = await recipe._autopkg_run_cmd()
+
+        assert "--key=KEY1=value1" in cmd
+        assert "--key=KEY2=value2" in cmd
 
 
 @pytest.mark.asyncio

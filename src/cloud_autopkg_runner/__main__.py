@@ -25,7 +25,7 @@ import json
 import os
 import signal
 import sys
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser, ArgumentTypeError, Namespace
 from collections.abc import Iterable
 from importlib.metadata import metadata
 from pathlib import Path
@@ -95,6 +95,8 @@ def _schema_overrides_from_cli(args: Namespace) -> dict[str, object]:
         overrides["pre_processors"] = args.pre_processor
     if args.post_processor is not None:
         overrides["post_processors"] = args.post_processor
+    if args.key is not None:
+        overrides["input_variables"] = dict(args.key)
 
     return overrides
 
@@ -208,6 +210,31 @@ async def _get_recipe_path(recipe_name: str, autopkg_prefs: AutoPkgPrefs) -> Pat
     return await finder.find_recipe(recipe_name)
 
 
+def _key_value_pair(string: str) -> tuple[str, str]:
+    """Parse a string in the format 'KEY=VALUE' into a tuple.
+
+    This helper function is designed to be used as a type for argparse arguments that
+    expect key-value pairs. It takes a string input, splits it on the first
+    '=' character, and returns a tuple containing the key and value.
+
+    Args:
+        string: A string in the format 'KEY=VALUE'.
+
+    Returns:
+        A tuple containing a key-value pair
+
+    Raises:
+        ArgumentTypeError: If the input string does not contain an '=',
+            the key is empty, or the value is empty
+    """
+    key, sep, value = string.partition("=")
+    if not sep or not key or not value:
+        raise ArgumentTypeError(  # noqa: TRY003
+            f"Invalid input '{string}'. Expected format: KEY=VALUE"
+        )
+    return key, value
+
+
 def _parse_arguments() -> Namespace:
     """Parse command-line arguments using argparse.
 
@@ -289,6 +316,18 @@ def _parse_arguments() -> Namespace:
         help="Path to a list of recipe names in JSON format.",
         type=Path,
     )
+    recipes.add_argument(
+        "-k",
+        "--key",
+        metavar="KEY=VALUE",
+        action="append",
+        help=(
+            "Specify inputs to use in the recipe. "
+            "These inputs will take precedence and override recipe inputs. "
+            "Can be specified multiple times."
+        ),
+        type=_key_value_pair,
+    )
 
     # Processors
     processors = parser.add_argument_group("Pre/Post Processors")
@@ -305,7 +344,7 @@ def _parse_arguments() -> Namespace:
         "--post-processor",
         action="append",
         help=(
-            "Specify a post-processor to run after the main AutoPkg recipe."
+            "Specify a post-processor to run after the main AutoPkg recipe. "
             "Can be specified multiple times."
         ),
         type=str,

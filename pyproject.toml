@@ -17,7 +17,7 @@ dev = [
 
 [project]
 name = "cloud-autopkg-runner"
-version = "0.25.1"
+version = "0.26.0"
 description = "A Python library designed to level-up your AutoPkg automations with a focus on CI/CD performance."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
@@ -110,6 +110,7 @@ include = ["pyproject.toml", "{src,tests}/**/*.py"]
 extend-exclude = [".venv"]
 
 [tool.ruff.lint]
+extend-ignore = ["ASYNC240"]
 select = [
     "A",     # flake8-builtins
     "ANN",   # flake8-annotations
@@ -120,7 +121,6 @@ select = [
     "C4",    # flake8-comprehensions
     "C90",   # mccabe
     "D",     # pydocstyle
-    "DOC",   # pydoclint
     "DTZ",   # flake8-datetimez
     "E",     # pycodestyle error
     "F",     # Pyflakes
@@ -166,10 +166,3 @@ name = "testpypi"
 url = "https://test.pypi.org/simple/"
 publish-url = "https://test.pypi.org/legacy/"
 explicit = true
-
-[tool.cloud_autopkg_runner]
-autopkg_pref_file = "~/Library/Preferences/com.github.autopkg.plist"
-verbose = 0
-recipes = [
-    "Firefox.download.recipe"
-]
