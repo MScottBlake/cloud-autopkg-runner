@@ -494,8 +494,9 @@ def test_smb_shares_property(shares: list[dict[str, str]] | None) -> None:
     value=st.one_of(
         st.booleans(),  # Direct boolean input
         st.text().filter(
-            lambda s: s.lower()
-            in {"1", "true", "yes", "0", "false", "no", "anything else"}
+            lambda s: (
+                s.lower() in {"1", "true", "yes", "0", "false", "no", "anything else"}
+            )
         ),  # String inputs
         st.integers(),  # Integer inputs
         st.floats(
@@ -554,9 +555,11 @@ def test_boolean_properties_robustness(
         keys=st.text(min_size=1, max_size=10),
         values=st.recursive(
             st.none() | st.booleans() | st.integers() | st.text(max_size=20),
-            lambda children: st.lists(children, min_size=0, max_size=5)
-            | st.dictionaries(
-                st.text(min_size=1, max_size=10), children, min_size=0, max_size=5
+            lambda children: (
+                st.lists(children, min_size=0, max_size=5)
+                | st.dictionaries(
+                    st.text(min_size=1, max_size=10), children, min_size=0, max_size=5
+                )
             ),
         ),
         min_size=0,
