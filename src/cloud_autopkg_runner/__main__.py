@@ -344,7 +344,7 @@ def _parse_arguments() -> Namespace:
         "--post-processor",
         action="append",
         help=(
-            "Specify a post-processor to run after the main AutoPkg recipe."
+            "Specify a post-processor to run after the main AutoPkg recipe. "
             "Can be specified multiple times."
         ),
         type=str,
