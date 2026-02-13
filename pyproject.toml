@@ -166,10 +166,3 @@ name = "testpypi"
 url = "https://test.pypi.org/simple/"
 publish-url = "https://test.pypi.org/legacy/"
 explicit = true
-
-[tool.cloud_autopkg_runner]
-autopkg_pref_file = "~/Library/Preferences/com.github.autopkg.plist"
-verbose = 0
-recipes = [
-    "Firefox.download.recipe"
-]
