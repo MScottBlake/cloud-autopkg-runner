@@ -23,7 +23,7 @@ else:
 
 from cloud_autopkg_runner.exceptions import (
     ConfigFileNotFoundError,
-    InvalidConfigFileContents,
+    InvalidConfigFileContentsError,
 )
 
 ConfigDict: TypeAlias = dict[str, Any]
@@ -95,7 +95,7 @@ class ConfigLoader:
 
         file_path, config = self._load_config_section(path)
         if not file_path or not config:
-            raise InvalidConfigFileContents(path)
+            raise InvalidConfigFileContentsError(path)
 
         return file_path, config
 

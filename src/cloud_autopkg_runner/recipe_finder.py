@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 
 from cloud_autopkg_runner import AutoPkgPrefs, logging_config
-from cloud_autopkg_runner.exceptions import RecipeLookupException
+from cloud_autopkg_runner.exceptions import RecipeLookupError
 
 
 class RecipeFinder:
@@ -68,7 +68,7 @@ class RecipeFinder:
             The `Path` object corresponding to the located AutoPkg recipe file.
 
         Raises:
-            RecipeLookupException: If no matching recipe file is found after
+            RecipeLookupError: If no matching recipe file is found after
                 searching all configured directories and their recursive paths.
         """
         possible_filenames: list[str] = self.possible_file_names(recipe_name)
@@ -82,7 +82,7 @@ class RecipeFinder:
         self.logger.error(
             "Recipe '%s' not found in any lookup directories.", recipe_name
         )
-        raise RecipeLookupException(recipe_name)
+        raise RecipeLookupError(recipe_name)
 
     def possible_file_names(self, recipe_name: str) -> list[str]:
         """Generates a list of possible AutoPkg recipe file names.

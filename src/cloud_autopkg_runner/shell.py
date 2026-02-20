@@ -10,7 +10,7 @@ import contextlib
 import shlex
 
 from cloud_autopkg_runner import logging_config
-from cloud_autopkg_runner.exceptions import ShellCommandException
+from cloud_autopkg_runner.exceptions import ShellCommandError
 
 
 def _normalize_cmd(cmd: str | list[str]) -> list[str]:
@@ -26,7 +26,7 @@ def _normalize_cmd(cmd: str | list[str]) -> list[str]:
         A list of strings representing the normalized command.
 
     Raises:
-        ShellCommandException: If the command string is invalid and cannot be
+        ShellCommandError: If the command string is invalid and cannot be
             parsed by `shlex.split()`.
     """
     if isinstance(cmd, list):
@@ -35,7 +35,7 @@ def _normalize_cmd(cmd: str | list[str]) -> list[str]:
     try:
         return shlex.split(cmd)
     except ValueError as exc:
-        raise ShellCommandException(  # noqa: TRY003
+        raise ShellCommandError(  # noqa: TRY003
             f"Invalid command string: {cmd}. Error: {exc}"
         ) from exc
 
@@ -154,9 +154,9 @@ async def run_cmd(
             programmatically.
         cwd: An optional working directory to execute the command in. If `None`,
             the current working directory is used.
-        check: A boolean value. If `True` (the default), a `ShellCommandException`
+        check: A boolean value. If `True` (the default), a `ShellCommandError`
             is raised if the command returns a non-zero exit code. If `False`,
-            the function will not raise an exception for non-zero exit codes, and
+            the function will not raise an error for non-zero exit codes, and
             the caller is responsible for checking the returned exit code.
         capture_output: A boolean value. If `True` (the default), the command's
             standard output and standard error are captured and returned as strings.
@@ -178,12 +178,12 @@ async def run_cmd(
               `capture_output` is `True`).
 
     Raises:
-        ShellCommandException: If any of the following occur:
+        ShellCommandError: If any of the following occur:
             - The `cmd` string is invalid and cannot be parsed by `shlex.split()`.
             - The command returns a non-zero exit code and `check` is `True`.
             - A `FileNotFoundError` occurs (the command is not found).
             - An `OSError` occurs during subprocess creation.
-            - Any other unexpected exception occurs during command execution.
+            - Any other unexpected error occurs during command execution.
     """
     logger = logging_config.get_logger(__name__)
     cmd_list = _normalize_cmd(cmd)
@@ -203,13 +203,13 @@ async def run_cmd(
                 cmd_list, cwd=cwd, timeout=timeout
             )
     except FileNotFoundError as exc:
-        raise ShellCommandException(f"Command not found: {cmd_list[0]}") from exc  # noqa: TRY003
+        raise ShellCommandError(f"Command not found: {cmd_list[0]}") from exc  # noqa: TRY003
     except OSError as exc:
-        raise ShellCommandException(  # noqa: TRY003
+        raise ShellCommandError(  # noqa: TRY003
             f"OS error running command: {cmd_str}. Error: {exc}"
         ) from exc
     except Exception as exc:
-        raise ShellCommandException(  # noqa: TRY003
+        raise ShellCommandError(  # noqa: TRY003
             f"Unexpected error running command: {cmd_str}. Error: {exc}"
         ) from exc
 
@@ -218,7 +218,7 @@ async def run_cmd(
         logger.error("  Exit code: %s", returncode)
         logger.error("  Stdout: %s", stdout)
         logger.error("  Stderr: %s", stderr)
-        raise ShellCommandException(  # noqa: TRY003
+        raise ShellCommandError(  # noqa: TRY003
             f"Command failed with exit code {returncode}: {cmd_str}"
         )
 

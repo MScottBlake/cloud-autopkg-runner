@@ -19,7 +19,7 @@ from cloud_autopkg_runner.exceptions import (
     GitWorktreeMissingPathError,
     GitWorktreeMoveError,
     PathNotGitRepoError,
-    ShellCommandException,
+    ShellCommandError,
 )
 
 
@@ -63,14 +63,14 @@ class GitClient:
 
         This private helper method forms the core of Git command execution.
         It constructs the full `git` command, sets the working directory,
-        and handles potential `ShellCommandException` by re-raising them
+        and handles potential `ShellCommandError` by re-raising them
         as `GitError` for consistent error handling within this class.
 
         Args:
             subcommand: A list of strings representing the Git subcommand
                 and its arguments (e.g., `["init"]`, `["add", "."]`).
             cwd: The working directory for the command. Defaults to `self.repo_path`.
-            check: If `True`, raises `ShellCommandException` on non-zero exit code.
+            check: If `True`, raises `ShellCommandError` on non-zero exit code.
                 Set to `False` if you want to inspect the return code manually.
             capture_output: If `True`, captures stdout/stderr. If `False`,
                 output is inherited from the parent process.
@@ -83,7 +83,7 @@ class GitClient:
                 - stderr (str): The standard error.
 
         Raises:
-            GitError: If an underlying `ShellCommandException` occurs, or if
+            GitError: If an underlying `ShellCommandError` occurs, or if
                 the repository path does not exist when a Git command is attempted.
         """
         full_cmd = ["git", *subcommand]
@@ -100,7 +100,7 @@ class GitClient:
                 capture_output=capture_output,
                 timeout=timeout,
             )
-        except ShellCommandException as exc:
+        except ShellCommandError as exc:
             raise GitError(" ".join(full_cmd)) from exc
 
     async def _check_is_git_repo(self, path: Path) -> None:
@@ -108,7 +108,7 @@ class GitClient:
 
         This private helper method performs a quick check by looking for
         the `.git` directory within the specified path. It raises specific
-        exceptions if the path does not exist or is not a Git repository.
+        errors if the path does not exist or is not a Git repository.
 
         Args:
             path: The path to check.
@@ -144,7 +144,7 @@ class GitClient:
             GitError: If the repository initialization fails.
         """
         if not self.repo_path.exists():
-            self._logger.debug("Creating directory for new repo: %s", self.repo_path)
+            self._logger.debug("Creating directory for new_repo: %s", self.repo_path)
             self.repo_path.mkdir(parents=True, exist_ok=True)
 
         cmd = ["init"]

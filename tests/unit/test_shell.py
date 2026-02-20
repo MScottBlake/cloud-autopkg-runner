@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from cloud_autopkg_runner import shell
-from cloud_autopkg_runner.exceptions import ShellCommandException
+from cloud_autopkg_runner.exceptions import ShellCommandError
 
 
 @pytest.mark.asyncio
@@ -18,7 +18,7 @@ async def test_run_cmd_success() -> None:
 @pytest.mark.asyncio
 async def test_run_cmd_failure() -> None:
     """Test command execution with a non-zero exit code."""
-    with pytest.raises(ShellCommandException) as exc_info:
+    with pytest.raises(ShellCommandError) as exc_info:
         await shell.run_cmd("false")
     assert "Command failed with exit code 1: false" in str(exc_info.value)
 
@@ -62,7 +62,7 @@ async def test_run_cmd_cwd(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_run_cmd_timeout() -> None:
     """Test command execution with a timeout."""
-    with pytest.raises(ShellCommandException) as exc_info:
+    with pytest.raises(ShellCommandError) as exc_info:
         await shell.run_cmd("sleep 2", timeout=1)
     assert "Command failed with exit code -1: sleep 2" in str(exc_info.value)
 
@@ -70,7 +70,7 @@ async def test_run_cmd_timeout() -> None:
 @pytest.mark.asyncio
 async def test_run_cmd_command_not_found() -> None:
     """Test command execution when the command is not found."""
-    with pytest.raises(ShellCommandException) as exc_info:
+    with pytest.raises(ShellCommandError) as exc_info:
         await shell.run_cmd("nonexistent_command")
     assert "Command not found: nonexistent_command" in str(exc_info.value)
 
@@ -110,7 +110,7 @@ async def test_run_cmd_file_not_found_error(tmp_path: Path) -> None:
     cwd = str(tmp_path)
 
     # Test running 'cat non_existent_file.txt' command in the directory
-    with pytest.raises(ShellCommandException) as exc_info:
+    with pytest.raises(ShellCommandError) as exc_info:
         await shell.run_cmd("cat non_existent_file.txt", cwd=cwd)
     assert "Command failed with exit code 1: cat non_existent_file.txt" in str(
         exc_info.value
@@ -121,7 +121,7 @@ async def test_run_cmd_file_not_found_error(tmp_path: Path) -> None:
 async def test_run_cmd_os_error() -> None:
     """Test OSError when the command encounters an OS-level error."""
     # Use an invalid command that will cause an OSError
-    with pytest.raises(ShellCommandException) as exc_info:
+    with pytest.raises(ShellCommandError) as exc_info:
         await shell.run_cmd("/dev/null")
-    # Check if the exception message contains "Permission denied" or "Not executable"
+    # Check if the error message contains "Permission denied" or "Not executable"
     assert "OS error" in str(exc_info.value)

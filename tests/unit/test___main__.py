@@ -26,10 +26,10 @@ from cloud_autopkg_runner.__main__ import (
     _schema_overrides_from_cli,
 )
 from cloud_autopkg_runner.exceptions import (
-    InvalidFileContents,
-    InvalidJsonContents,
-    RecipeException,
-    RecipeLookupException,
+    InvalidFileContentsError,
+    InvalidJsonContentsError,
+    RecipeError,
+    RecipeLookupError,
 )
 
 if typing.TYPE_CHECKING:
@@ -146,13 +146,13 @@ def test_generate_recipe_list_combines_sources(tmp_path: Path) -> None:
 
 
 def test_generate_recipe_list_invalid_json(tmp_path: Path) -> None:
-    """Test that _generate_recipe_list raises InvalidJsonContents for bad JSON."""
+    """Test that _generate_recipe_list raises InvalidJsonContentsError for bad JSON."""
     recipe_list_file = tmp_path / "recipes.json"
     recipe_list_file.write_text("This is not JSON")
     args = Namespace(recipe_list=recipe_list_file, recipe=None)
     schema = ConfigSchema()
 
-    with pytest.raises(InvalidJsonContents):
+    with pytest.raises(InvalidJsonContentsError):
         _generate_recipe_list(schema, args)
 
 
@@ -271,12 +271,12 @@ async def test_create_recipe_success(
 async def test_create_recipe_invalid_file_contents(
     tmp_path: Path, mock_autopkg_prefs: MagicMock
 ) -> None:
-    """Should return None and log an error on InvalidFileContents."""
+    """Should return None and log an error on InvalidFileContentsError."""
     with (
         patch("cloud_autopkg_runner.__main__.logger") as mock_logger,
         patch(
             "cloud_autopkg_runner.recipe.Recipe",
-            side_effect=InvalidFileContents("corrupt recipe file"),
+            side_effect=InvalidFileContentsError("corrupt recipe file"),
         ),
     ):
         result = await _create_recipe("bad_recipe", tmp_path, mock_autopkg_prefs)
@@ -288,21 +288,21 @@ async def test_create_recipe_invalid_file_contents(
 
 
 @pytest.mark.asyncio
-async def test_create_recipe_recipe_exception(
+async def test_create_recipe_recipe_error(
     tmp_path: Path, mock_autopkg_prefs: MagicMock
 ) -> None:
-    """Should return None and log an error on RecipeException."""
+    """Should return None and log an error on RecipeError."""
     with (
         patch("cloud_autopkg_runner.__main__.logger") as mock_logger,
         patch(
             "cloud_autopkg_runner.recipe.Recipe",
-            side_effect=RecipeException("missing processor"),
+            side_effect=RecipeError("missing processor"),
         ),
     ):
-        result = await _create_recipe("exception_recipe", tmp_path, mock_autopkg_prefs)
+        result = await _create_recipe("error_recipe", tmp_path, mock_autopkg_prefs)
 
         mock_logger.exception.assert_called_once_with(
-            "Failed to create `Recipe` object: %s", "exception_recipe"
+            "Failed to create `Recipe` object: %s", "error_recipe"
         )
         assert result is None
 
@@ -324,17 +324,17 @@ async def test_get_recipe_path_success(
 
 
 @pytest.mark.asyncio
-async def test_get_recipe_path_recipe_lookup_exception(
+async def test_get_recipe_path_recipe_lookup_error(
     mock_autopkg_prefs: MagicMock,
 ) -> None:
-    """Test that _get_recipe_path raises RecipeLookupException."""
+    """Test that _get_recipe_path raises RecipeLookupError."""
     with (
         patch(
             "cloud_autopkg_runner.recipe_finder.RecipeFinder.find_recipe",
             new_callable=AsyncMock,
-            side_effect=RecipeLookupException("Recipe not found"),
+            side_effect=RecipeLookupError("Recipe not found"),
         ),
-        pytest.raises(RecipeLookupException),
+        pytest.raises(RecipeLookupError),
     ):
         await _get_recipe_path("test_recipe", mock_autopkg_prefs)
 

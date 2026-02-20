@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from cloud_autopkg_runner import recipe_report
-from cloud_autopkg_runner.exceptions import InvalidPlistContents
+from cloud_autopkg_runner.exceptions import InvalidPlistContentsError
 
 
 def create_test_file(content: str, path: Path) -> None:
@@ -50,12 +50,12 @@ def test_recipe_report_refresh_contents(tmp_path: Path) -> None:
 
 
 def test_recipe_report_refresh_contents_invalid_plist(tmp_path: Path) -> None:
-    """Test parsing an invalid report file raises the appropriate exception."""
+    """Test parsing an invalid report file raises the appropriate error."""
     report_path = tmp_path / "report.plist"
     create_test_file("invalid plist content", report_path)
     report = recipe_report.RecipeReport(report_path)
 
-    with pytest.raises(InvalidPlistContents):
+    with pytest.raises(InvalidPlistContentsError):
         report.refresh_contents()
 
 
