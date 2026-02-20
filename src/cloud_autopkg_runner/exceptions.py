@@ -1,14 +1,14 @@
 """Defines custom error classes for the cloud-autopkg-runner package.
 
 These errors are used to provide more specific error handling and
-reporting within the application. They inherit from the `BaseException`
+reporting within the application. They inherit from the `Exception`
 class.
 """
 
 from pathlib import Path
 
 
-class AutoPkgRunnerError(BaseException):
+class AutoPkgRunnerError(Exception):
     """Base error class for the AutoPkg runner."""
 
 
