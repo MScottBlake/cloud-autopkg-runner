@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from cloud_autopkg_runner import AutoPkgPrefs, RecipeFinder
-from cloud_autopkg_runner.exceptions import RecipeLookupException
+from cloud_autopkg_runner.exceptions import RecipeLookupError
 
 
 @pytest.fixture(autouse=True)
@@ -255,7 +255,7 @@ async def test_find_recipe_recursive_match(
 @pytest.mark.asyncio
 async def test_find_recipe_not_found(recipe_finder: RecipeFinder) -> None:
     """Test find_recipe method when the recipe is not found."""
-    with pytest.raises(RecipeLookupException):
+    with pytest.raises(RecipeLookupError):
         await recipe_finder.find_recipe("NonExistentRecipe")
 
 
@@ -321,7 +321,7 @@ async def test_find_recipe_custom_recursion_depth(tmp_path: Path) -> None:
         target_file = search_dir / "subdir" / "MyRecipe.recipe"
         target_file.write_text("Recipe content")
 
-        with pytest.raises(RecipeLookupException):
+        with pytest.raises(RecipeLookupError):
             await recipe_finder.find_recipe("MyRecipe.recipe")
 
         recipe_finder = RecipeFinder(max_recursion_depth=2)

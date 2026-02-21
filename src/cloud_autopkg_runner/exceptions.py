@@ -1,20 +1,24 @@
-"""Defines custom exception classes for the cloud-autopkg-runner package.
+"""Defines custom error classes for the cloud-autopkg-runner package.
 
-These exceptions are used to provide more specific error handling and
-reporting within the application. They inherit from the `BaseException`
+These errors are used to provide more specific error handling and
+reporting within the application. They inherit from the `Exception`
 class.
 """
 
 from pathlib import Path
 
 
-class AutoPkgRunnerException(BaseException):
-    """Base exception class for the AutoPkg runner."""
+class AutoPkgRunnerError(Exception):
+    """Base error class for the AutoPkg runner."""
+
+
+# Alias for backward compatibility
+AutoPkgRunnerException = AutoPkgRunnerError
 
 
 # Cache
-class PluginManagerError(AutoPkgRunnerException):
-    """Base exception class for handling invalid cache plugins."""
+class PluginManagerError(AutoPkgRunnerError):
+    """Base error class for handling invalid cache plugins."""
 
     def __init__(self, plugin_name: str) -> None:
         """Initializes PluginManagerError with the name of a plugin.
@@ -26,7 +30,7 @@ class PluginManagerError(AutoPkgRunnerException):
 
 
 class PluginManagerEntryPointError(PluginManagerError):
-    """Exception class for handling invalid cache plugins missing entry points."""
+    """Error class for handling invalid cache plugins missing entry points."""
 
     def __init__(self, plugin_name: str) -> None:
         """Initializes PluginManagerEntryPointError with the name of a plugin.
@@ -37,28 +41,32 @@ class PluginManagerEntryPointError(PluginManagerError):
         super().__init__(f"No entry point found for cache plugin: {plugin_name}")
 
 
-class InvalidCacheContents(AutoPkgRunnerException):
-    """Base exception class for handling invalid cache contents.
+class InvalidCacheContentsError(AutoPkgRunnerError):
+    """Base error class for handling invalid cache contents.
 
-    This exception is raised when a cache is found to contain invalid data
+    This error is raised when a cache is found to contain invalid data
     or is improperly formatted.
     """
 
     def __init__(self) -> None:
-        """Initializes InvalidCacheContents with the path to the invalid file."""
+        """Initializes InvalidCacheContentsError."""
         super().__init__("Invalid cache contents.")
 
 
-# File Contents
-class InvalidFileContents(AutoPkgRunnerException):
-    """Base exception class for handling invalid file contents.
+# Alias for backward compatibility
+InvalidCacheContents = InvalidCacheContentsError
 
-    This exception is raised when a file is found to contain invalid data
+
+# File Contents
+class InvalidFileContentsError(AutoPkgRunnerError):
+    """Base error class for handling invalid file contents.
+
+    This error is raised when a file is found to contain invalid data
     or is improperly formatted.
     """
 
     def __init__(self, file_path: Path) -> None:
-        """Initializes InvalidFileContents with the path to the invalid file.
+        """Initializes InvalidFileContentsError with the path to the invalid file.
 
         Args:
             file_path: The path to the file with invalid contents.
@@ -66,35 +74,51 @@ class InvalidFileContents(AutoPkgRunnerException):
         super().__init__(f"Invalid file contents in {file_path}")
 
 
-class InvalidJsonContents(InvalidFileContents):
-    """Exception class for handling invalid JSON file contents.
+# Alias for backward compatibility
+InvalidFileContents = InvalidFileContentsError
 
-    This exception is raised when a JSON file is found to contain invalid JSON
+
+class InvalidJsonContentsError(InvalidFileContentsError):
+    """Error class for handling invalid JSON file contents.
+
+    This error is raised when a JSON file is found to contain invalid JSON
     data that cannot be parsed.
     """
 
 
-class InvalidPlistContents(InvalidFileContents):
-    """Exception class for handling invalid plist file contents.
+# Alias for backward compatibility
+InvalidJsonContents = InvalidJsonContentsError
 
-    This exception is raised when a plist (Property List) file is found to
+
+class InvalidPlistContentsError(InvalidFileContentsError):
+    """Error class for handling invalid plist file contents.
+
+    This error is raised when a plist (Property List) file is found to
     contain invalid data that cannot be parsed.
     """
 
 
-class InvalidYamlContents(InvalidFileContents):
-    """Exception class for handling invalid YAML file contents.
+# Alias for backward compatibility
+InvalidPlistContents = InvalidPlistContentsError
 
-    This exception is raised when a YAML file is found to contain invalid YAML
+
+class InvalidYamlContentsError(InvalidFileContentsError):
+    """Error class for handling invalid YAML file contents.
+
+    This error is raised when a YAML file is found to contain invalid YAML
     data that cannot be parsed.
     """
 
 
+# Alias for backward compatibility
+InvalidYamlContents = InvalidYamlContentsError
+
+
 # Config File
-class ConfigFileNotFoundError(AutoPkgRunnerException):
+class ConfigFileNotFoundError(AutoPkgRunnerError):
     """Raised when the provided config file is not found.
 
-    This exception indicates that the specified config file does not exist at the
+    This error indicates that the specified config file does not exist at the
     expected location.
     """
 
@@ -107,32 +131,40 @@ class ConfigFileNotFoundError(AutoPkgRunnerException):
         super().__init__(f"Config file not found: {file_path}")
 
 
-class InvalidConfigFileContents(InvalidFileContents):
-    """Exception class for handling invalid config file contents.
+class InvalidConfigFileContentsError(InvalidFileContentsError):
+    """Error class for handling invalid config file contents.
 
-    This exception is raised when a config file is found to contain invalid
+    This error is raised when a config file is found to contain invalid
     data that cannot be parsed.
     """
 
 
-# ConfigSchema
-class InvalidConfigurationKey(AutoPkgRunnerException):
-    """Exception class for handling invalid configuration keys.
+# Alias for backward compatibility
+InvalidConfigFileContents = InvalidConfigFileContentsError
 
-    This exception indicates that the specified configuratio has invalid options
+
+# ConfigSchema
+class InvalidConfigurationKeyError(AutoPkgRunnerError):
+    """Error class for handling invalid configuration keys.
+
+    This error indicates that the specified configuration has invalid options
     specified.
     """
 
     def __init__(self) -> None:
-        """Initializes InvalidConfigurationKey."""
+        """Initializes InvalidConfigurationKeyError."""
         super().__init__("Invalid configuration keys detected.")
 
 
+# Alias for backward compatibility
+InvalidConfigurationKey = InvalidConfigurationKeyError
+
+
 # AutoPkgPrefs
-class PreferenceFileNotFoundError(AutoPkgRunnerException):
+class PreferenceFileNotFoundError(AutoPkgRunnerError):
     """Raised when the AutoPkg preferences file is not found.
 
-    This exception indicates that the specified AutoPkg preferences file
+    This error indicates that the specified AutoPkg preferences file
     does not exist at the expected location.
     """
 
@@ -145,10 +177,10 @@ class PreferenceFileNotFoundError(AutoPkgRunnerException):
         super().__init__(f"Preference file not found: {file_path}")
 
 
-class PreferenceKeyNotFoundError(AutoPkgRunnerException):
+class PreferenceKeyNotFoundError(AutoPkgRunnerError):
     """Raised when a requested preference key is missing.
 
-    This exception indicates that the requested preference key does not
+    This error indicates that the requested preference key does not
     exist in the loaded AutoPkg preferences.
     """
 
@@ -162,23 +194,27 @@ class PreferenceKeyNotFoundError(AutoPkgRunnerException):
 
 
 # Recipe
-class RecipeException(AutoPkgRunnerException):
-    """Base exception class for handling recipe issues.
+class RecipeError(AutoPkgRunnerError):
+    """Base error class for handling recipe issues.
 
-    This exception serves as a base class for more specific exceptions
+    This error serves as a base class for more specific errors
     related to AutoPkg recipe processing.
     """
 
 
-class RecipeInputException(RecipeException):
-    """Exception class for handling issues related to recipe input values.
+# Alias for backward compatibility
+RecipeException = RecipeError
 
-    This exception is raised when there is a problem with the input values
+
+class RecipeInputError(RecipeError):
+    """Error class for handling issues related to recipe input values.
+
+    This error is raised when there is a problem with the input values
     defined in an AutoPkg recipe, such as a missing or invalid required input.
     """
 
     def __init__(self, file_path: Path) -> None:
-        """Initializes RecipeInputException with the path to the affected recipe.
+        """Initializes RecipeInputError with the path to the affected recipe.
 
         Args:
             file_path: The path to the recipe file with the input issue.
@@ -186,16 +222,20 @@ class RecipeInputException(RecipeException):
         super().__init__(f"Invalid or missing input value in {file_path} contents.")
 
 
-class RecipeLookupException(RecipeException):
-    """Exception class for handling issues finding a recipe by name.
+# Alias for backward compatibility
+RecipeInputException = RecipeInputError
 
-    This exception is raised when a recipe cannot be found using the specified
+
+class RecipeLookupError(RecipeError):
+    """Error class for handling issues finding a recipe by name.
+
+    This error is raised when a recipe cannot be found using the specified
     recipe name. This may indicate that the recipe does not exist or is not
     in the search path.
     """
 
     def __init__(self, recipe_name: str) -> None:
-        """Initializes RecipeLookupException with the name of the unfound recipe.
+        """Initializes RecipeLookupError with the name of the unfound recipe.
 
         Args:
             recipe_name: The name of the recipe that could not be found.
@@ -203,15 +243,19 @@ class RecipeLookupException(RecipeException):
         super().__init__(f"No recipe found matching {recipe_name}")
 
 
-class RecipeFormatException(RecipeException):
-    """Exception class for handling unknown recipe formats.
+# Alias for backward compatibility
+RecipeLookupException = RecipeLookupError
 
-    This exception is raised when a recipe file has an unrecognized or
+
+class RecipeFormatError(RecipeError):
+    """Error class for handling unknown recipe formats.
+
+    This error is raised when a recipe file has an unrecognized or
     unsupported file extension.
     """
 
     def __init__(self, recipe_extension: str) -> None:
-        """Initializes RecipeFormatException with the invalid file extension.
+        """Initializes RecipeFormatError with the invalid file extension.
 
         Args:
             recipe_extension: The file extension of the invalid recipe file.
@@ -219,15 +263,19 @@ class RecipeFormatException(RecipeException):
         super().__init__(f"Invalid recipe format: {recipe_extension}")
 
 
-# Settings
-class SettingsValidationError(AutoPkgRunnerException):
-    """Exception class for handling validation errors in Settings.
+# Alias for backward compatibility
+RecipeFormatException = RecipeFormatError
 
-    This exception is raised when a Setting value does not validate successfully.
+
+# Settings
+class SettingsValidationError(AutoPkgRunnerError):
+    """Error class for handling validation errors in Settings.
+
+    This error is raised when a Setting value does not validate successfully.
     """
 
     def __init__(self, field_name: str, validation_error: str) -> None:
-        """Initializes SettingsValidationError with the invalid file extension.
+        """Initializes SettingsValidationError with the invalid Setting name.
 
         Args:
             field_name: The name of the invalid Setting.
@@ -237,25 +285,29 @@ class SettingsValidationError(AutoPkgRunnerException):
 
 
 # Shell Command
-class ShellCommandException(AutoPkgRunnerException):
-    """Base exception class for handling issues with shell commands.
+class ShellCommandError(AutoPkgRunnerError):
+    """Base error class for handling issues with shell commands.
 
-    This exception serves as a base class for more specific exceptions
+    This error serves as a base class for more specific errors
     related to shell command execution.
     """
 
 
-# Git
-class GitError(AutoPkgRunnerException):
-    """Base exception for all Git-related errors.
+# Alias for backward compatibility
+ShellCommandException = ShellCommandError
 
-    This class serves as a parent for more specific exceptions that
+
+# Git
+class GitError(AutoPkgRunnerError):
+    """Base error for all Git-related errors.
+
+    This class serves as a parent for more specific errors that
     can occur during Git operations.
     """
 
 
 class GitRepoDoesNotExistError(GitError):
-    """Exception raised when a specified Git repository path does not exist.
+    """Error raised when a specified Git repository path does not exist.
 
     This indicates that the directory provided as a repository path
     does not exist on the file system.
@@ -272,7 +324,7 @@ class GitRepoDoesNotExistError(GitError):
 
 
 class PathNotGitRepoError(GitError):
-    """Exception raised when a specified path is not a Git repository.
+    """Error raised when a specified path is not a Git repository.
 
     This indicates that the directory exists, but it does not contain
     the necessary Git repository structure (e.g., a `.git` directory).
@@ -289,7 +341,7 @@ class PathNotGitRepoError(GitError):
 
 
 class GitDefaultBranchError(GitError):
-    """Exception raised when the default branch for a remote cannot be determined.
+    """Error raised when the default branch for a remote cannot be determined.
 
     This can occur if the remote does not exist, or its `HEAD` reference is not
     clearly defined in `git remote show` output.
@@ -308,7 +360,7 @@ class GitDefaultBranchError(GitError):
 
 
 class GitMergeError(GitError):
-    """Exception raised when a Git merge operation fails.
+    """Error raised when a Git merge operation fails.
 
     This typically indicates a conflict, or that the target branch was not
     currently checked out when the merge was attempted.
@@ -329,9 +381,9 @@ class GitMergeError(GitError):
 
 
 class GitWorktreeError(GitError):
-    """Base exception for errors specific to Git worktree operations.
+    """Base error for errors specific to Git worktree operations.
 
-    This exception is raised when a generic failure occurs during
+    This error is raised when a generic failure occurs during
     a `git worktree` command execution.
     """
 
@@ -345,7 +397,7 @@ class GitWorktreeError(GitError):
 
 
 class GitWorktreeCreationError(GitWorktreeError):
-    """Exception raised when a Git worktree fails to be created.
+    """Error raised when a Git worktree fails to be created.
 
     This indicates that the `git worktree add` command did not result
     in a valid new worktree at the specified path.
@@ -361,7 +413,7 @@ class GitWorktreeCreationError(GitWorktreeError):
 
 
 class GitWorktreeMissingPathError(GitWorktreeError):
-    """Exception raised when a specified worktree path does not exist.
+    """Error raised when a specified worktree path does not exist.
 
     This is typically used when attempting to operate on an existing worktree
     (e.g., `remove`, `move`, `lock`, `unlock`) and the path provided
@@ -379,7 +431,7 @@ class GitWorktreeMissingPathError(GitWorktreeError):
 
 
 class GitWorktreeMoveError(GitWorktreeError):
-    """Exception raised when a Git worktree fails to be moved.
+    """Error raised when a Git worktree fails to be moved.
 
     This indicates that the `git worktree move` command did not
     successfully relocate the worktree from its old path to the new one.

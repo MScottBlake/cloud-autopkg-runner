@@ -19,7 +19,7 @@ from cloud_autopkg_runner.exceptions import (
     GitWorktreeMissingPathError,
     GitWorktreeMoveError,
     PathNotGitRepoError,
-    ShellCommandException,
+    ShellCommandError,
 )
 
 # --- Fixtures ---
@@ -136,11 +136,11 @@ async def test_run_git_cmd_success(
 
 
 @pytest.mark.asyncio
-async def test_run_git_cmd_raises_git_error_on_shell_command_exception(
+async def test_run_git_cmd_raises_git_error_on_shell_command_error(
     git_client_instance: GitClient, mock_run_cmd: AsyncMock
 ) -> None:
-    """Test _run_git_cmd re-raises ShellCommandException as GitError."""
-    mock_run_cmd.side_effect = ShellCommandException("mock error")
+    """Test _run_git_cmd re-raises ShellCommandError as GitError."""
+    mock_run_cmd.side_effect = ShellCommandError("mock error")
     with pytest.raises(GitError) as exc_info:
         await git_client_instance._run_git_cmd(["status"])
     assert "git status" in str(exc_info.value)
@@ -165,7 +165,7 @@ async def test_run_git_cmd_raises_git_repo_does_not_exist_error_if_cwd_non_exist
 @pytest.mark.asyncio
 async def test_check_is_git_repo_success(git_client_instance: GitClient) -> None:
     """Test _check_is_git_repo with a valid Git repository."""
-    # No exception should be raised. The fixture provides a valid repo.
+    # No error should be raised. The fixture provides a valid repo.
     await git_client_instance._check_is_git_repo(git_client_instance.repo_path)
 
 
@@ -700,7 +700,7 @@ async def test_get_current_branch_error(
     git_client_instance: GitClient, mock_run_cmd: AsyncMock
 ) -> None:
     """Test get_current_branch raises GitError on underlying failure."""
-    mock_run_cmd.side_effect = ShellCommandException("mock error")
+    mock_run_cmd.side_effect = ShellCommandError("mock error")
     with pytest.raises(GitError):
         await git_client_instance.get_current_branch()
 
@@ -773,7 +773,7 @@ async def test_get_default_branch_raises_git_error_on_underlying_failure(
     git_client_instance: GitClient, mock_run_cmd: AsyncMock
 ) -> None:
     """Test get_default_branch raises GitError on underlying shell failure."""
-    mock_run_cmd.side_effect = ShellCommandException("remote not found")
+    mock_run_cmd.side_effect = ShellCommandError("remote not found")
     with pytest.raises(GitError):
         await git_client_instance.get_default_branch("nonexistent")
 
@@ -877,7 +877,7 @@ async def test_add_worktree_raises_creation_error_on_git_failure(
 ) -> None:
     """Test add_worktree raises GitWorktreeCreationError on underlying Git failure."""
     worktree_path = tmp_path / "worktree_fail"
-    mock_run_cmd.side_effect = ShellCommandException("git worktree add failed")
+    mock_run_cmd.side_effect = ShellCommandError("git worktree add failed")
 
     with pytest.raises(GitWorktreeCreationError) as exc_info:
         await git_client_instance.add_worktree(worktree_path, "branch")
@@ -1063,7 +1063,7 @@ async def test_move_worktree_raises_move_error_on_git_failure(
         parents=True, exist_ok=True
     )  # Ensure old_path exists for is_dir check
 
-    mock_run_cmd.side_effect = ShellCommandException(
+    mock_run_cmd.side_effect = ShellCommandError(
         "git move failed"
     )  # Simulate Git command failure
 

@@ -30,10 +30,10 @@ from cloud_autopkg_runner import (
     shell,
 )
 from cloud_autopkg_runner.exceptions import (
-    InvalidPlistContents,
-    InvalidYamlContents,
-    RecipeFormatException,
-    RecipeInputException,
+    InvalidPlistContentsError,
+    InvalidYamlContentsError,
+    RecipeFormatError,
+    RecipeInputError,
 )
 from cloud_autopkg_runner.metadata_cache import DownloadMetadata, RecipeCache
 from cloud_autopkg_runner.recipe_report import ConsolidatedReport
@@ -129,11 +129,11 @@ class Recipe:
                 be created.
 
         Raises:
-            RecipeFormatException: If the recipe file's extension is not
+            RecipeFormatError: If the recipe file's extension is not
                 recognized as a valid AutoPkg recipe format.
-            InvalidPlistContents: If the recipe is a PLIST and its contents are
+            InvalidPlistContentsError: If the recipe is a PLIST and its contents are
                 malformed.
-            InvalidYamlContents: If the recipe is a YAML and its contents are
+            InvalidYamlContentsError: If the recipe is a YAML and its contents are
                 malformed.
         """
         self._logger = logging_config.get_logger(__name__)
@@ -231,13 +231,13 @@ class Recipe:
             The recipe's `NAME` input variable as a `str`.
 
         Raises:
-            RecipeInputException: If the recipe's "Input" dictionary does not
+            RecipeInputError: If the recipe's "Input" dictionary does not
                 contain a "NAME" key, indicating a missing required input.
         """
         try:
             return str(self._contents["Input"]["NAME"])
         except KeyError as exc:
-            raise RecipeInputException(self._path) from exc
+            raise RecipeInputError(self._path) from exc
 
     @property
     def minimum_version(self) -> str:
@@ -402,9 +402,9 @@ class Recipe:
             A `RecipeContents` TypedDict containing the recipe's parsed contents.
 
         Raises:
-            InvalidPlistContents: If the recipe is a PLIST and its contents are
+            InvalidPlistContentsError: If the recipe is a PLIST and its contents are
                 malformed.
-            InvalidYamlContents: If the recipe is a YAML and its contents are
+            InvalidYamlContentsError: If the recipe is a YAML and its contents are
                 malformed.
         """
         file_contents: str = self._path.read_text()
@@ -428,14 +428,14 @@ class Recipe:
             A `RecipeContents` TypedDict containing the recipe's parsed contents.
 
         Raises:
-            InvalidPlistContents: If `plistlib.loads()` encounters an
+            InvalidPlistContentsError: If `plistlib.loads()` encounters an
                 `plistlib.InvalidFileException`, indicating that the file
                 content is not a valid PLIST.
         """
         try:
             return plistlib.loads(file_contents.encode())
         except plistlib.InvalidFileException as exc:
-            raise InvalidPlistContents(self._path) from exc
+            raise InvalidPlistContentsError(self._path) from exc
 
     def _get_contents_yaml(self, file_contents: str) -> RecipeContents:
         """Parse a recipe in YAML format.
@@ -451,13 +451,13 @@ class Recipe:
             A `RecipeContents` TypedDict containing the recipe's parsed contents.
 
         Raises:
-            InvalidYamlContents: If `yaml.safe_load()` encounters a `yaml.YAMLError`,
-                indicating that the file content is not valid YAML.
+            InvalidYamlContentsError: If `yaml.safe_load()` encounters a
+                `yaml.YAMLError`, indicating that the file content is not valid YAML.
         """
         try:
             return yaml.safe_load(file_contents)
         except yaml.YAMLError as exc:
-            raise InvalidYamlContents(self._path) from exc
+            raise InvalidYamlContentsError(self._path) from exc
 
     async def _get_metadata(self, download_items: list[dict[str, str]]) -> RecipeCache:
         """Retrieves metadata for a list of downloaded items.
@@ -563,7 +563,7 @@ class Recipe:
             `RecipeFormat.PLIST`) indicating the identified format.
 
         Raises:
-            RecipeFormatException: If the file extension is not recognized
+            RecipeFormatError: If the file extension is not recognized
                 as a valid AutoPkg recipe format (i.e., not `.yaml`, `.plist`, or
                 `.recipe`).
         """
@@ -571,7 +571,7 @@ class Recipe:
             return RecipeFormat.YAML
         if self._path.suffix in {".plist", ".recipe"}:
             return RecipeFormat.PLIST
-        raise RecipeFormatException(self._path.suffix)
+        raise RecipeFormatError(self._path.suffix)
 
     async def run(self) -> ConsolidatedReport:
         """Runs the recipe and saves metadata.

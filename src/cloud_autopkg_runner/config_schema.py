@@ -13,7 +13,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from cloud_autopkg_runner.exceptions import InvalidConfigurationKey
+from cloud_autopkg_runner.exceptions import InvalidConfigurationKeyError
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,12 +62,12 @@ class ConfigSchema:
             A `ConfigSchema` instance populated with values from the mapping.
 
         Raises:
-            InvalidConfigurationKey: If the mapping contains unsupported keys.
+            InvalidConfigurationKeyError: If the mapping contains unsupported keys.
         """
         try:
             return cls(**data)
         except TypeError as exc:
-            raise InvalidConfigurationKey from exc
+            raise InvalidConfigurationKeyError from exc
 
     def with_overrides(self, overrides: dict[str, Any]) -> "ConfigSchema":
         """Return a new schema with the provided overrides applied.
@@ -79,9 +79,9 @@ class ConfigSchema:
             A new `ConfigSchema` instance with overrides applied.
 
         Raises:
-            InvalidConfigurationKey: If overrides contain unsupported keys.
+            InvalidConfigurationKeyError: If overrides contain unsupported keys.
         """
         try:
             return replace(self, **overrides)
         except TypeError as exc:
-            raise InvalidConfigurationKey from exc
+            raise InvalidConfigurationKeyError from exc

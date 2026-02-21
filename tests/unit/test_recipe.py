@@ -7,9 +7,9 @@ import pytest
 
 from cloud_autopkg_runner import AutoPkgPrefs, Recipe
 from cloud_autopkg_runner.exceptions import (
-    InvalidFileContents,
-    RecipeFormatException,
-    RecipeInputException,
+    InvalidFileContentsError,
+    RecipeFormatError,
+    RecipeInputError,
 )
 from cloud_autopkg_runner.recipe import RecipeContents, RecipeFormat
 
@@ -98,7 +98,7 @@ def test_recipe_invalid_format(tmp_path: Path, mock_autopkg_prefs: MagicMock) ->
             "cloud_autopkg_runner.recipe_finder.RecipeFinder.find_recipe",
             return_value=recipe_file,
         ),
-        pytest.raises(RecipeFormatException),
+        pytest.raises(RecipeFormatError),
     ):
         Recipe(recipe_file, report_dir, mock_autopkg_prefs)
 
@@ -110,7 +110,7 @@ def test_recipe_invalid_content(tmp_path: Path, mock_autopkg_prefs: MagicMock) -
     report_dir = tmp_path / "report_dir"
     report_dir.mkdir()
 
-    with pytest.raises(InvalidFileContents):
+    with pytest.raises(InvalidFileContentsError):
         Recipe(recipe_file, report_dir, mock_autopkg_prefs)
 
 
@@ -128,7 +128,7 @@ def test_recipe_missing_name(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> N
     report_dir.mkdir()
 
     recipe = Recipe(recipe_file, report_dir, mock_autopkg_prefs)
-    with pytest.raises(RecipeInputException):
+    with pytest.raises(RecipeInputError):
         _ = recipe.input_name
 
 

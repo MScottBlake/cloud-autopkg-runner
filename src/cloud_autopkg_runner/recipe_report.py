@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 from cloud_autopkg_runner import logging_config
-from cloud_autopkg_runner.exceptions import InvalidPlistContents
+from cloud_autopkg_runner.exceptions import InvalidPlistContentsError
 
 
 class RecipeReportFailedItem(TypedDict):
@@ -144,7 +144,7 @@ class RecipeReport:
         """Parses the recipe report from the plist file and stores the results.
 
         Raises:
-            InvalidPlistContents: If the plist file is invalid or cannot be parsed.
+            InvalidPlistContentsError: If the plist file is invalid or cannot be parsed.
         """
         try:
             self._contents: RecipeReportContents = plistlib.loads(
@@ -153,7 +153,7 @@ class RecipeReport:
             self._parsed = True
         except plistlib.InvalidFileException as exc:
             self._parsed = False
-            raise InvalidPlistContents(self.file_path()) from exc
+            raise InvalidPlistContentsError(self.file_path()) from exc
 
     def consolidate_report(self) -> ConsolidatedReport:
         """Consolidates a report of the recipe run for final processing.

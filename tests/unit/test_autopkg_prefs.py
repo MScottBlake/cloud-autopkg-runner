@@ -22,7 +22,7 @@ from hypothesis import strategies as st
 
 from cloud_autopkg_runner import AutoPkgPrefs
 from cloud_autopkg_runner.exceptions import (
-    InvalidFileContents,
+    InvalidFileContentsError,
     PreferenceFileNotFoundError,
 )
 
@@ -159,13 +159,13 @@ def test_init_with_json_and_plist_like_keys(tmp_path: Path) -> None:
 def test_init_with_invalid_file_contents_raises_error(tmp_path: Path) -> None:
     """Test initialization with a file that is neither JSON nor Plist.
 
-    Verifies that an `InvalidFileContents` error is raised when the
+    Verifies that an `InvalidFileContentsError` error is raised when the
     preference file cannot be parsed.
     """
     invalid_file = tmp_path / "invalid_prefs.txt"
     invalid_file.write_text("This is not valid JSON or Plist.", encoding="utf-8")
 
-    with pytest.raises(InvalidFileContents):
+    with pytest.raises(InvalidFileContentsError):
         AutoPkgPrefs(invalid_file)
 
 

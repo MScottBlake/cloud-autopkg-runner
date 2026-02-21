@@ -30,7 +30,7 @@ from typing import Any
 
 from cloud_autopkg_runner import logging_config
 from cloud_autopkg_runner.exceptions import (
-    InvalidFileContents,
+    InvalidFileContentsError,
     PreferenceFileNotFoundError,
 )
 
@@ -194,7 +194,7 @@ class AutoPkgPrefs:
 
         Attempts to read and parse the specified file first as JSON, then as a
         macOS plist if JSON decoding fails. Only if both formats fail will an
-        `InvalidFileContents` exception be raised.
+        `InvalidFileContentsError` error be raised.
 
         Args:
             file_path: The path to the preference file.
@@ -204,7 +204,7 @@ class AutoPkgPrefs:
 
         Raises:
             PreferenceFileNotFoundError: If the specified `file_path` does not exist.
-            InvalidFileContents: If the file exists but cannot be parsed as
+            InvalidFileContentsError: If the file exists but cannot be parsed as
                 either JSON or a plist.
         """
         try:
@@ -219,7 +219,7 @@ class AutoPkgPrefs:
             try:
                 prefs = plistlib.loads(file_contents)
             except plistlib.InvalidFileException as exc:
-                raise InvalidFileContents(file_path) from exc
+                raise InvalidFileContentsError(file_path) from exc
 
         return prefs
 

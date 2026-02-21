@@ -43,9 +43,9 @@ from cloud_autopkg_runner import (
     logging_config,
 )
 from cloud_autopkg_runner.exceptions import (
-    InvalidFileContents,
-    InvalidJsonContents,
-    RecipeException,
+    InvalidFileContentsError,
+    InvalidJsonContentsError,
+    RecipeError,
 )
 from cloud_autopkg_runner.logging_context import recipe_context
 from cloud_autopkg_runner.recipe_report import ConsolidatedReport
@@ -122,9 +122,9 @@ async def _create_recipe(
     """Create a `Recipe` object, handling potential exceptions during initialization.
 
     This private asynchronous helper function attempts to create a `Recipe` object
-    for a given recipe name. If any exceptions occur during the recipe's
+    for a given recipe name. If any errors occur during the recipe's
     initialization (e.g., the recipe file is invalid or cannot be found due to
-    `InvalidFileContents` or `RecipeException`), the exception is caught,
+    `InvalidFileContentsError` or `RecipeError`), the error is caught,
     logged, and the function returns `None`. This allows the application to
     continue processing other recipes even if some are malformed or missing.
 
@@ -141,7 +141,7 @@ async def _create_recipe(
     try:
         recipe_path = await _get_recipe_path(recipe_name, autopkg_prefs)
         return Recipe(recipe_path, report_dir, autopkg_prefs)
-    except (InvalidFileContents, RecipeException):
+    except (InvalidFileContentsError, RecipeError):
         logger.exception("Failed to create `Recipe` object: %s", recipe_name)
         return None
 
@@ -167,7 +167,7 @@ def _generate_recipe_list(schema: ConfigSchema, args: Namespace) -> set[str]:
         A `set` of strings, where each string is a unique recipe name to be processed.
 
     Raises:
-        InvalidJsonContents: If the JSON file specified by `args.recipe_list`
+        InvalidJsonContentsError: If the JSON file specified by `args.recipe_list`
             contains invalid JSON, indicating a malformed input file.
     """
     logger.debug("Generating recipe list...")
@@ -178,7 +178,7 @@ def _generate_recipe_list(schema: ConfigSchema, args: Namespace) -> set[str]:
             try:
                 output.update(json.loads(Path(args.recipe_list).read_text("utf-8")))
             except json.JSONDecodeError as exc:
-                raise InvalidJsonContents(args.recipe_list) from exc
+                raise InvalidJsonContentsError(args.recipe_list) from exc
         if args.recipe:
             output.update(args.recipe)
     elif schema.recipes:
