@@ -4,6 +4,13 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      skip_testpypi:
+        description: "Skip TestPyPI publication and testing"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -36,6 +43,7 @@ jobs:
     name: Publish to TestPyPI
     runs-on: ubuntu-latest
     needs: [build]
+    if: ${{ !inputs.skip_testpypi }}
     environment:
       name: TestPyPi
       url: https://test.pypi.org/p/cloud-autopkg-runner
@@ -64,6 +72,7 @@ jobs:
     name: Test Installation from TestPyPI
     needs: [publish-to-testpypi]
     runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_testpypi }}
     permissions: {} # No token access needed
     steps:
       - name: Setup uv
@@ -76,7 +85,14 @@ jobs:
 
   publish-to-pypi:
     name: Publish to PyPI
-    needs: [install-library-from-testpypi]
+    needs: [build, publish-to-testpypi, install-library-from-testpypi]
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      (
+        inputs.skip_testpypi == true ||
+        (needs.publish-to-testpypi.result == 'success' && needs.install-library-from-testpypi.result == 'success')
+      )
     runs-on: ubuntu-latest
     environment:
       name: PyPi
