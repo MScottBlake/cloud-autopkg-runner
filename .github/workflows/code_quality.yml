@@ -135,15 +135,18 @@ jobs:
       - name: Start LocalStack
         uses: LocalStack/setup-localstack@2e0e14048ddaf0db551b45fdaa39d3553f2c6399 # v0.2.3
         env:
+          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
+        with:
+          image-tag: 'latest'
+          install-awslocal: 'false'
+
+      - name: Run Pytest for S3 Cache
+        env:
           AWS_ENDPOINT_URL: https://localhost.localstack.cloud:4566
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
           AWS_DEFAULT_REGION: us-east-1
-          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
-        with:
-          state-backend: ephemeral
-          state-action: start
-          preview-cmd: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
+        run: uv run --extra ${{ matrix.install_extras }} pytest ${{ matrix.test_path }} --no-cov
 
   azure-integration-tests:
     name: "🧪 Integration Test: Azure Emulator (Python ${{ matrix.python-version }})"
