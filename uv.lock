@@ -1106,7 +1106,7 @@ wheels = [
 
 [[package]]
 name = "localstack"
-version = "4.14.0"
+version = "2026.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asn1crypto" },
@@ -1130,9 +1130,9 @@ dependencies = [
     { name = "tabulate" },
     { name = "windows-curses", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e5/a5/ad352fa626de1514500abf6ec002e479cf854d9a250e254ca2a1925bbbb6/localstack-4.14.0.tar.gz", hash = "sha256:68f27e2c30a0e9b476eb5ee9b76cb8d78a1871031d9842d6b6d79cc0c182df90", size = 240848, upload-time = "2026-02-26T09:27:07.86Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a2/16/8231e7b97a3e0c5187754b65be2d7a6c550dea6d71a00318068e95953560/localstack-2026.3.0.tar.gz", hash = "sha256:c06b06ed205ae6c52637b75b6f72640f2876ebbb1981fc4ae22d71ab047851b6", size = 241841, upload-time = "2026-03-23T07:15:23.439Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/24/34/bc0e140bb1e47ab42bef627f2d643ebab8a71348a7bec686440050af6666/localstack-4.14.0-py3-none-any.whl", hash = "sha256:1cd6263a7cf724eaa2a47fcccfcff73484b898f613562beb895eb537b95f90fe", size = 263943, upload-time = "2026-02-26T09:27:05.819Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/84/b0c55496e83f71032d0e4fa9609ec12a9dcc0a98be84e07eb88b23276edd/localstack-2026.3.0-py3-none-any.whl", hash = "sha256:097ba82618fb3937cb3b71fb2f0a6e10fa1f152346decb59c82bfa0e7997e342", size = 264807, upload-time = "2026-03-23T07:15:21.465Z" },
 ]
 
 [[package]]
