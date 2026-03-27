@@ -133,7 +133,7 @@ jobs:
           enable-cache: true
 
       - name: Start LocalStack
-        uses: LocalStack/setup-localstack@2e0e14048ddaf0db551b45fdaa39d3553f2c6399 # v0.2.3
+        uses: LocalStack/setup-localstack@2e0e14048ddaf0db551b45fdaa39d3553f2c6399 # v0.3.0
         env:
           LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
         with:
