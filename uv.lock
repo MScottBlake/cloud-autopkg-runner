@@ -1106,7 +1106,7 @@ wheels = [
 
 [[package]]
 name = "localstack"
-version = "2026.4.0"
+version = "2026.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asn1crypto" },
@@ -1130,9 +1130,8 @@ dependencies = [
     { name = "tabulate" },
     { name = "windows-curses", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/81/0d/f4f39ab3fcc7e82a67a391c4262e30fe1b9d4f67ef2cc2232d241db418ec/localstack-2026.4.0.tar.gz", hash = "sha256:062986fb33f34f180a98ef349263f7160d26323f7cfd06efad3857f56aae6f62", size = 241913, upload-time = "2026-04-29T07:16:17.659Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d1/d4/b7513c41f296deb27ee42e7e0b1c27b5c292c4b268a7e044b5df2345f5f9/localstack-2026.4.0-py3-none-any.whl", hash = "sha256:cca93efb06a4cd3c093f32e8e84a3cd6d499f7c26abfc2c3d14f71532312f551", size = 264848, upload-time = "2026-04-29T07:16:15.372Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/f8/db8aec450a9cb55167013966327d48ccb3ee32e2b73d6430a8e9a5fc6cfd/localstack-2026.5.0-py3-none-any.whl", hash = "sha256:b248060af7b89d417317a1a5450b2213b7d91d342f1bf6f78846ada1c2a0b867", size = 175939, upload-time = "2026-05-20T09:39:30.622Z" },
 ]
 
 [[package]]
@@ -1358,11 +1357,11 @@ wheels = [
 
 [[package]]
 name = "plux"
-version = "1.14.0"
+version = "1.16.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b5/6f/8502a12f12c49a5e2e7c5f9bbb23ec5a4b35cd4cbe9bce4382e5b2078fe3/plux-1.14.0.tar.gz", hash = "sha256:e335d0bb4b67e1cb18abce8b92370568394f75edfb8505398f51c577525467fe", size = 103137, upload-time = "2026-01-26T12:23:22.809Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c1/11/55fae32807e1227a4f72e9460ee10818c800beb0b856460cb11164b6e1a3/plux-1.16.0.tar.gz", hash = "sha256:226ed9dbb52f0ed64ee1969d541544e2e67af6da010b7ecebcf145c20e92245a", size = 114744, upload-time = "2026-03-31T14:18:18.33Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e6/70/d6f645bed6e27ee46a670540360af3586d0708314d18e0e4a6fac08dfc5e/plux-1.14.0-py3-none-any.whl", hash = "sha256:f117345586b17e1878bf339b595141f5f476bddd61bcc070182839f1b0287f7a", size = 48770, upload-time = "2026-01-26T12:23:21.383Z" },
+    { url = "https://files.pythonhosted.org/packages/ea/40/06cf1264bec1938cc94013dde7c120c0bcf6ffbaed9b4899f8db6202c8ff/plux-1.16.0-py3-none-any.whl", hash = "sha256:d31a46809f6160278d8726a9e2e2b0eda5fa959fe489ec0d65951c123ed37534", size = 55311, upload-time = "2026-03-31T14:18:17.067Z" },
 ]
 
 [[package]]
