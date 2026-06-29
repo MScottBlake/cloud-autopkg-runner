@@ -1123,7 +1123,7 @@ wheels = [
 
 [[package]]
 name = "localstack"
-version = "2026.5.0"
+version = "2026.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asn1crypto" },
@@ -1148,7 +1148,7 @@ dependencies = [
     { name = "windows-curses", marker = "sys_platform == 'win32'" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/f8/db8aec450a9cb55167013966327d48ccb3ee32e2b73d6430a8e9a5fc6cfd/localstack-2026.5.0-py3-none-any.whl", hash = "sha256:b248060af7b89d417317a1a5450b2213b7d91d342f1bf6f78846ada1c2a0b867", size = 175939, upload-time = "2026-05-20T09:39:30.622Z" },
+    { url = "https://files.pythonhosted.org/packages/05/55/3593277c02aa3e99dc60b426c1c283b0ab3e0571ecd983d43eaa7712cb35/localstack-2026.6.0-py3-none-any.whl", hash = "sha256:4bd80688fe26b1a52b1dea636cfe098a0773e43041d2b2b1290ebc751c1dc698", size = 176817, upload-time = "2026-06-24T09:12:06.211Z" },
 ]
 
 [[package]]
