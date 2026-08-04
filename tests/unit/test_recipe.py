@@ -12,6 +12,7 @@ from cloud_autopkg_runner.exceptions import (
     RecipeInputError,
 )
 from cloud_autopkg_runner.recipe import RecipeContents, RecipeFormat
+from cloud_autopkg_runner.recipe_report import ConsolidatedReport
 
 
 def create_test_file(path: Path, content: str) -> None:
@@ -534,3 +535,99 @@ async def test_get_metadata_for_item_last_modified_error() -> None:
         mock_get_file_metadata.assert_any_call(
             test_file_path, "com.github.autopkg.last-modified"
         )
+
+
+def _run_test_recipe(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> Recipe:
+    """Creates a minimal Recipe for exercising `run`.
+
+    Returns:
+        Recipe: A Recipe object backed by a throwaway YAML file.
+    """
+    recipe_file = tmp_path / "Test.recipe.yaml"
+    create_test_file(
+        recipe_file,
+        """
+    Description: Test
+    Identifier: com.example.test
+    Input:
+        NAME: TestRecipe
+    Process: []
+    """,
+    )
+    return Recipe(recipe_file, tmp_path, mock_autopkg_prefs)
+
+
+def _consolidated_report(*, failed: bool) -> ConsolidatedReport:
+    """Builds a report with one downloaded item and optionally one failure.
+
+    Returns:
+        ConsolidatedReport: A report suitable for stubbing out a recipe run.
+    """
+    return ConsolidatedReport(
+        failed_items=[{"recipe": "Test.recipe.yaml", "message": "boom"}]
+        if failed
+        else [],
+        downloaded_items=[{"download_path": "/tmp/Test.dmg"}],
+        pkg_built_items=[],
+        munki_imported_items=[],
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_caches_metadata_after_successful_full_run(
+    tmp_path: Path, mock_autopkg_prefs: MagicMock
+) -> None:
+    """Metadata is cached once the full run reports no failures."""
+    mock_cache = AsyncMock()
+
+    with (
+        patch("cloud_autopkg_runner.recipe.Settings"),
+        patch(
+            "cloud_autopkg_runner.recipe.metadata_cache.get_cache_plugin",
+            return_value=mock_cache,
+        ),
+    ):
+        recipe = _run_test_recipe(tmp_path, mock_autopkg_prefs)
+        recipe.run_check_phase = AsyncMock(  # type: ignore[method-assign]
+            return_value=_consolidated_report(failed=False)
+        )
+        recipe.run_full = AsyncMock(  # type: ignore[method-assign]
+            return_value=_consolidated_report(failed=False)
+        )
+        recipe._get_metadata = AsyncMock(return_value={})  # type: ignore[method-assign]
+
+        report = await recipe.run()
+
+        recipe.run_full.assert_awaited_once()
+        mock_cache.set_item.assert_awaited_once()
+        assert report["failed_items"] == []
+
+
+@pytest.mark.asyncio
+async def test_run_does_not_cache_metadata_after_failed_full_run(
+    tmp_path: Path, mock_autopkg_prefs: MagicMock
+) -> None:
+    """A failed full run leaves the cache alone so the next run retries."""
+    mock_cache = AsyncMock()
+
+    with (
+        patch("cloud_autopkg_runner.recipe.Settings"),
+        patch(
+            "cloud_autopkg_runner.recipe.metadata_cache.get_cache_plugin",
+            return_value=mock_cache,
+        ),
+    ):
+        recipe = _run_test_recipe(tmp_path, mock_autopkg_prefs)
+        recipe.run_check_phase = AsyncMock(  # type: ignore[method-assign]
+            return_value=_consolidated_report(failed=False)
+        )
+        recipe.run_full = AsyncMock(  # type: ignore[method-assign]
+            return_value=_consolidated_report(failed=True)
+        )
+        recipe._get_metadata = AsyncMock(return_value={})  # type: ignore[method-assign]
+
+        report = await recipe.run()
+
+        recipe.run_full.assert_awaited_once()
+        mock_cache.set_item.assert_not_awaited()
+        assert report["failed_items"]
