@@ -578,9 +578,9 @@ class Recipe:
 
         This asynchronous method orchestrates the execution of an AutoPkg recipe.
         It first performs a "check phase" to determine if there are any updates
-        available. If updates lead to downloaded items, it then extracts metadata from
-        these downloaded files, saves this metadata to the configured cache using the
-        `metadata_cache` plugin, and finally performs a full run of the recipe. If no
+        available. If updates lead to downloaded items, it then performs a full run of
+        the recipe. If that full run succeeds, metadata is extracted from the downloaded
+        files and saved to the configured cache using the `metadata_cache` plugin. If no
         new downloads are detected during the check phase, the full run is skipped, and
         the report from the check phase is returned.
 
@@ -591,17 +591,28 @@ class Recipe:
         # First, run the check phase to see if there are any updates
         output: ConsolidatedReport = await self.run_check_phase()
 
-        # If the check phase indicates new downloads or built packages, process metadata
-        # and run the full recipe
+        # If the check phase indicates new downloads or built packages, run the full
+        # recipe, then cache the download metadata only if that run succeeded
         if output["downloaded_items"] or output["pkg_built_items"]:
             self._logger.info(
                 "New downloads detected for %s. Running full recipe.", self.name
             )
-            metadata: RecipeCache = await self._get_metadata(output["downloaded_items"])
-            metadata_cache_manager = metadata_cache.get_cache_plugin()
-            await metadata_cache_manager.set_item(self.name, metadata)
+            report: ConsolidatedReport = await self.run_full()
 
-            return await self.run_full()
+            if report["failed_items"]:
+                self._logger.warning(
+                    "%s failed, so its download metadata was not cached. "
+                    "The next run will retry the download.",
+                    self.name,
+                )
+            else:
+                metadata: RecipeCache = await self._get_metadata(
+                    output["downloaded_items"]
+                )
+                metadata_cache_manager = metadata_cache.get_cache_plugin()
+                await metadata_cache_manager.set_item(self.name, metadata)
+
+            return report
 
         self._logger.info(
             "No new downloads for %s. Skipping full recipe run.", self.name
