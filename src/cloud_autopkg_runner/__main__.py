@@ -27,6 +27,7 @@ import signal
 import sys
 from argparse import ArgumentParser, ArgumentTypeError, Namespace
 from collections.abc import Iterable
+from dataclasses import dataclass, field
 from importlib.metadata import metadata
 from pathlib import Path
 from types import FrameType
@@ -56,6 +57,68 @@ T = TypeVar("T")
 
 # Constant that indicates a worker queue is empty and can be stopped
 STOP_WORKER = "<<STOP_WORKER>>"
+
+# Process exit codes
+EXIT_SUCCESS = 0
+EXIT_FAILURE = 1
+
+
+@dataclass
+class RunResults:
+    """Aggregated outcome of processing a list of recipes.
+
+    A recipe can fail in two distinct ways, and both must be visible to the
+    caller so that an accurate process exit code can be produced:
+
+    1.  It never produced a report at all, because the recipe could not be
+        loaded or its run exceeded the configured timeout. These are recorded
+        in `failures`.
+    2.  It produced a report that AutoPkg populated with failed items. These
+        remain in `reports` and are detected via `has_failures`.
+
+    Attributes:
+        reports: A mapping of recipe names to the `ConsolidatedReport`
+            produced by a completed run.
+        failures: A mapping of requested recipe names to a human-readable
+            reason describing why no report was produced.
+    """
+
+    reports: dict[str, ConsolidatedReport] = field(
+        default_factory=dict[str, ConsolidatedReport]
+    )
+    failures: dict[str, str] = field(default_factory=dict[str, str])
+
+    @property
+    def failed_recipe_count(self) -> int:
+        """Count the recipes that did not complete successfully.
+
+        Returns:
+            The number of recipes that either produced no report or produced
+            a report containing at least one failed item.
+        """
+        reports_with_failures = sum(
+            1 for report in self.reports.values() if report["failed_items"]
+        )
+        return len(self.failures) + reports_with_failures
+
+    @property
+    def has_failures(self) -> bool:
+        """Whether any recipe failed to complete successfully.
+
+        Returns:
+            `True` if at least one recipe failed, otherwise `False`.
+        """
+        return self.failed_recipe_count > 0
+
+    def merge(self, other: "RunResults") -> None:
+        """Merge another result set into this one, in place.
+
+        Args:
+            other: The partial results to absorb, typically produced by a
+                single worker.
+        """
+        self.reports.update(other.reports)
+        self.failures.update(other.failures)
 
 
 def _schema_overrides_from_cli(args: Namespace) -> dict[str, object]:
@@ -388,7 +451,7 @@ def _parse_arguments() -> Namespace:
 
 async def _process_recipe_list(
     recipe_list: Iterable[str], autopkg_prefs: AutoPkgPrefs
-) -> dict[str, ConsolidatedReport]:
+) -> RunResults:
     """Create and run AutoPkg recipes using a worker queue pattern.
 
     This orchestrates execution by populating a work queue with recipe names
@@ -400,7 +463,7 @@ async def _process_recipe_list(
         autopkg_prefs: AutoPkg preferences.
 
     Returns:
-        A dictionary of recipe names mapped to their reports.
+        A `RunResults` aggregating every worker's reports and failures.
     """
     settings = Settings()
 
@@ -429,16 +492,16 @@ async def _process_recipe_list(
         await queue.join()
         worker_results = await asyncio.gather(*workers)
 
-    final_results: dict[str, ConsolidatedReport] = {}
+    final_results = RunResults()
     for result_chunk in worker_results:
-        final_results.update(result_chunk)
+        final_results.merge(result_chunk)
 
     return final_results
 
 
 async def _recipe_worker(
     queue: asyncio.Queue[str], settings: Settings, autopkg_prefs: AutoPkgPrefs
-) -> dict[str, ConsolidatedReport]:
+) -> RunResults:
     """Consume recipe names from the shared work queue and execute them to completion.
 
     Each worker processes items until it encounters the `STOP_WORKER` sentinel. For
@@ -468,14 +531,14 @@ async def _recipe_worker(
             execution.
 
     Returns:
-        A dictionary mapping recipe names to their corresponding
-        `ConsolidatedReport` instances.
+        A `RunResults` containing the reports produced by this worker and the
+        recipes it was unable to complete.
 
     Raises:
         Exception: Any unexpected error inside the worker is logged and re-raised
             to allow the caller to fail fast, while still ensuring proper cleanup.
     """
-    results: dict[str, ConsolidatedReport] = {}
+    results = RunResults()
 
     while True:
         recipe_name = await queue.get()
@@ -493,6 +556,7 @@ async def _recipe_worker(
                 recipe_name, settings.report_dir, autopkg_prefs
             )
             if not recipe:
+                results.failures[recipe_name] = "Recipe could not be loaded"
                 continue
 
             logger.debug("Executing recipe %s", recipe_name)
@@ -501,12 +565,15 @@ async def _recipe_worker(
                 report = await asyncio.wait_for(
                     recipe.run(), timeout=settings.recipe_timeout
                 )
-                results[recipe.name] = report
+                results.reports[recipe.name] = report
             except (asyncio.TimeoutError, TimeoutError):
                 logger.error(  # noqa: TRY400
                     "Recipe %s timed out after %s seconds",
                     recipe_name,
                     settings.recipe_timeout,
+                )
+                results.failures[recipe_name] = (
+                    f"Timed out after {settings.recipe_timeout} seconds"
                 )
 
         except Exception:
@@ -537,7 +604,38 @@ def _signal_handler(sig: int, _frame: FrameType | None) -> NoReturn:
     sys.exit(0)
 
 
-async def _async_main() -> None:
+def _log_run_summary(results: RunResults) -> None:
+    """Log a summary of the run and the reason each failed recipe failed.
+
+    Args:
+        results: The aggregated results of processing every recipe.
+    """
+    succeeded = len(results.reports) - sum(
+        1 for report in results.reports.values() if report["failed_items"]
+    )
+
+    for recipe_name, reason in sorted(results.failures.items()):
+        logger.error("Recipe %s did not complete: %s", recipe_name, reason)
+
+    for recipe_name, report in sorted(results.reports.items()):
+        if report["failed_items"]:
+            logger.error(
+                "Recipe %s reported %d failed item(s)",
+                recipe_name,
+                len(report["failed_items"]),
+            )
+
+    if results.has_failures:
+        logger.error(
+            "Run complete: %d succeeded, %d failed.",
+            succeeded,
+            results.failed_recipe_count,
+        )
+    else:
+        logger.info("Run complete: %d succeeded, 0 failed.", succeeded)
+
+
+async def _async_main() -> int:
     """Asynchronous main function to orchestrate the application's workflow.
 
     This private asynchronous function serves as the central orchestration point
@@ -556,6 +654,10 @@ async def _async_main() -> None:
 
     This function coordinates the overall flow of the application from start to
     recipe processing completion.
+
+    Returns:
+        `EXIT_SUCCESS` if every recipe completed without failures, otherwise
+        `EXIT_FAILURE`.
     """
     args = _parse_arguments()
     cli_overrides = _schema_overrides_from_cli(args)
@@ -573,7 +675,13 @@ async def _async_main() -> None:
     autopkg_prefs = AutoPkgPrefs(settings.autopkg_pref_file)
 
     recipe_list = _generate_recipe_list(schema, args)
-    _results = await _process_recipe_list(recipe_list, autopkg_prefs)
+    results = await _process_recipe_list(recipe_list, autopkg_prefs)
+
+    _log_run_summary(results)
+
+    if results.has_failures:
+        return EXIT_FAILURE
+    return EXIT_SUCCESS
 
 
 def main() -> None:
@@ -588,11 +696,13 @@ def main() -> None:
     2.  Asynchronous Execution: Initializes a new `asyncio` event loop and
         runs the `_async_main()` asynchronous function within it, thereby
         starting the core application logic.
+    3.  Exit Status: Terminates the process with a non-zero exit code when any
+        recipe failed, so that CI/CD pipelines detect the failure.
     """
     signal.signal(signal.SIGINT, _signal_handler)
     signal.signal(signal.SIGTERM, _signal_handler)
 
-    asyncio.run(_async_main())
+    sys.exit(asyncio.run(_async_main()))
 
 
 if __name__ == "__main__":
