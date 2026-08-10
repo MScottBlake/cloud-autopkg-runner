@@ -14,7 +14,11 @@ import pytest
 
 from cloud_autopkg_runner import AutoPkgPrefs, ConfigSchema, Recipe, Settings
 from cloud_autopkg_runner.__main__ import (
+    EXIT_FAILURE,
+    EXIT_SUCCESS,
     STOP_WORKER,
+    RunResults,
+    _async_main,
     _count_iterable,
     _create_recipe,
     _generate_recipe_list,
@@ -24,6 +28,7 @@ from cloud_autopkg_runner.__main__ import (
     _process_recipe_list,
     _recipe_worker,
     _schema_overrides_from_cli,
+    main,
 )
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContentsError,
@@ -31,6 +36,7 @@ from cloud_autopkg_runner.exceptions import (
     RecipeError,
     RecipeLookupError,
 )
+from cloud_autopkg_runner.recipe_report import ConsolidatedReport
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable
@@ -394,7 +400,8 @@ async def test_recipe_worker_success(tmp_path: Path) -> None:
     ):
         results = await _recipe_worker(queue, mock_settings, MagicMock())
 
-    assert results == {"TestRecipe": mock_report}
+    assert results.reports == {"TestRecipe": mock_report}
+    assert results.failures == {}
     assert queue.empty()
 
 
@@ -414,7 +421,8 @@ async def test_recipe_worker_skips_invalid_recipe(tmp_path: Path) -> None:
     ):
         results = await _recipe_worker(queue, mock_settings, MagicMock())
 
-    assert results == {}
+    assert results.reports == {}
+    assert results.failures == {"BadRecipe": "Recipe could not be loaded"}
     assert queue.empty()
 
 
@@ -442,7 +450,8 @@ async def test_recipe_worker_timeout_logged(tmp_path: Path) -> None:
     ):
         results = await _recipe_worker(queue, mock_settings, MagicMock())
 
-    assert results == {}
+    assert results.reports == {}
+    assert results.failures == {"TimeoutRecipe": "Timed out after 3 seconds"}
     mock_logger.error.assert_called()
 
 
@@ -452,14 +461,14 @@ async def test_process_recipe_list_success() -> None:
 
     async def fake_worker(
         queue: asyncio.Queue, _settings: Settings, _prefs: AutoPkgPrefs
-    ) -> dict[typing.Any, typing.Any]:
-        results = {}
+    ) -> RunResults:
+        results = RunResults()
         while True:
             item = await queue.get()
             if item is STOP_WORKER:
                 queue.task_done()
                 break
-            results[item] = f"report-{item}"
+            results.reports[item] = f"report-{item}"
             queue.task_done()
         return results
 
@@ -476,7 +485,7 @@ async def test_process_recipe_list_success() -> None:
     ):
         results = await _process_recipe_list(["R1", "R2"], MagicMock())
 
-    assert results == {
+    assert results.reports == {
         "R1": "report-R1",
         "R2": "report-R2",
     }
@@ -494,14 +503,14 @@ async def test_process_recipe_list_inserts_correct_number_of_stops() -> None:
 
     async def fake_worker(
         queue: asyncio.Queue, _settings: Settings, _prefs: AutoPkgPrefs
-    ) -> dict[typing.Any, typing.Any]:
+    ) -> RunResults:
         # drain queue to avoid block
         while True:
             item = await queue.get()
             queue.task_done()
             if item is STOP_WORKER:
                 break
-        return {}
+        return RunResults()
 
     with (
         patch("cloud_autopkg_runner.__main__.asyncio.Queue", LoggingQueue),
@@ -515,3 +524,130 @@ async def test_process_recipe_list_inserts_correct_number_of_stops() -> None:
         await _process_recipe_list(["A", "B"], MagicMock())
 
     assert pushed.count(STOP_WORKER) == 2
+
+
+def _report(*, failed: bool = False) -> ConsolidatedReport:
+    """Build a ConsolidatedReport, optionally containing a failed item.
+
+    Returns:
+        A ConsolidatedReport suitable for exercising RunResults.
+    """
+    return ConsolidatedReport(
+        failed_items=(
+            [{"message": "boom", "recipe": "R", "traceback": "tb"}] if failed else []
+        ),
+        downloaded_items=[],
+        pkg_built_items=[],
+        munki_imported_items=[],
+    )
+
+
+def test_run_results_clean_run_has_no_failures() -> None:
+    """A run where every report is clean should not report failures."""
+    results = RunResults(reports={"A.recipe": _report(), "B.recipe": _report()})
+
+    assert results.has_failures is False
+    assert results.failed_recipe_count == 0
+
+
+def test_run_results_counts_reports_with_failed_items() -> None:
+    """A report containing failed items should count as a failure."""
+    results = RunResults(
+        reports={"A.recipe": _report(), "B.recipe": _report(failed=True)}
+    )
+
+    assert results.has_failures is True
+    assert results.failed_recipe_count == 1
+
+
+def test_run_results_counts_recipes_that_produced_no_report() -> None:
+    """Recipes that never produced a report should count as failures."""
+    results = RunResults(
+        reports={"A.recipe": _report()},
+        failures={"B": "Recipe could not be loaded", "C": "Timed out after 5 seconds"},
+    )
+
+    assert results.has_failures is True
+    assert results.failed_recipe_count == 2
+
+
+def test_run_results_merge_combines_both_sides() -> None:
+    """Merging should absorb another result set's reports and failures."""
+    results = RunResults(reports={"A.recipe": _report()}, failures={"B": "nope"})
+    results.merge(RunResults(reports={"C.recipe": _report()}, failures={"D": "nope"}))
+
+    assert set(results.reports) == {"A.recipe", "C.recipe"}
+    assert set(results.failures) == {"B", "D"}
+
+
+def _cli_namespace() -> Namespace:
+    """Build a Namespace with every CLI option unset.
+
+    Returns:
+        A Namespace matching the attributes _async_main reads.
+    """
+    return Namespace(
+        autopkg_pref_file=None,
+        azure_account_url=None,
+        cache_file=None,
+        cache_plugin=None,
+        cloud_container_name=None,
+        config_file=None,
+        key=None,
+        log_file=None,
+        log_format=None,
+        max_concurrency=None,
+        post_processor=None,
+        pre_processor=None,
+        recipe=None,
+        recipe_list=None,
+        recipe_timeout=None,
+        report_dir=None,
+        verbose=None,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("results", "expected"),
+    [
+        (RunResults(reports={"A.recipe": _report()}), EXIT_SUCCESS),
+        (RunResults(reports={"A.recipe": _report(failed=True)}), EXIT_FAILURE),
+        (RunResults(failures={"A": "Recipe could not be loaded"}), EXIT_FAILURE),
+        (RunResults(), EXIT_SUCCESS),
+    ],
+)
+async def test_async_main_exit_code(results: RunResults, expected: int) -> None:
+    """_async_main should signal recipe failures through its exit code."""
+    mock_loader = MagicMock()
+    mock_loader.return_value.load.return_value = {}
+
+    with (
+        patch("cloud_autopkg_runner.__main__._parse_arguments", _cli_namespace),
+        patch("cloud_autopkg_runner.__main__.ConfigLoader", mock_loader),
+        patch("cloud_autopkg_runner.__main__.AutoPkgPrefs", MagicMock()),
+        patch("cloud_autopkg_runner.__main__.logging_config", MagicMock()),
+        patch(
+            "cloud_autopkg_runner.__main__._generate_recipe_list",
+            return_value={"A"},
+        ),
+        patch(
+            "cloud_autopkg_runner.__main__._process_recipe_list",
+            new=AsyncMock(return_value=results),
+        ),
+    ):
+        assert await _async_main() == expected
+
+
+def test_main_propagates_exit_code() -> None:
+    """main() should terminate the process with _async_main's exit code."""
+    with (
+        patch("cloud_autopkg_runner.__main__.signal.signal"),
+        # Patched so no un-awaited coroutine is created by main().
+        patch("cloud_autopkg_runner.__main__._async_main", MagicMock()),
+        patch("cloud_autopkg_runner.__main__.asyncio.run", return_value=EXIT_FAILURE),
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        main()
+
+    assert exc_info.value.code == EXIT_FAILURE
