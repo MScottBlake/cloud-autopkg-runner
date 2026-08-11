@@ -432,12 +432,23 @@ async def _process_recipe_list(
             asyncio.create_task(_recipe_worker(queue, settings, autopkg_prefs))
             for _ in range(num_workers)
         ]
-        await queue.join()
-        worker_results = await asyncio.gather(*workers)
+        # Barrier on the workers, not the queue: a dead worker strands a sentinel
+        worker_results = await asyncio.gather(*workers, return_exceptions=True)
 
     final_results = RunResults()
     for result_chunk in worker_results:
+        if isinstance(result_chunk, BaseException):
+            logger.error("A recipe worker terminated early: %s", result_chunk)
+            continue
         final_results.merge(result_chunk)
+
+    # Items left behind by a worker that terminated early
+    while not queue.empty():
+        abandoned = queue.get_nowait()
+        if abandoned is not STOP_WORKER:
+            final_results.failures[abandoned] = (
+                "Not processed; a worker terminated early"
+            )
 
     return final_results
 
@@ -461,9 +472,13 @@ async def _recipe_worker(
         other workers.
     5.  Reset the logging context and mark the queue item as processed.
 
-    The worker returns a mapping of recipe names to their final `ConsolidatedReport`
-    objects. Multiple workers may run concurrently; their partial result maps are
-    merged by the caller.
+    No recipe failure terminates the worker. Each worker is responsible for
+    consuming exactly one `STOP_WORKER` sentinel, so exiting the loop early
+    would strand the rest of its queue items and the sentinel reserved for it.
+    Failures are recorded and the loop continues.
+
+    Multiple workers may run concurrently; their partial results are merged by
+    the caller.
 
     Args:
         queue: A work queue containing recipe names followed by sentinel values
@@ -476,10 +491,6 @@ async def _recipe_worker(
     Returns:
         A `RunResults` containing the reports produced by this worker and the
         recipes it was unable to complete.
-
-    Raises:
-        Exception: Any unexpected error inside the worker is logged and re-raised
-            to allow the caller to fail fast, while still ensuring proper cleanup.
     """
     results = RunResults()
 
@@ -519,9 +530,9 @@ async def _recipe_worker(
                     f"Timed out after {settings.recipe_timeout} seconds"
                 )
 
-        except Exception:
-            logger.exception("Worker failed unexpectedly on recipe '%s'", recipe_name)
-            raise
+        except Exception as exc:
+            logger.exception("Unexpected error processing recipe %s", recipe_name)
+            results.failures[recipe_name] = f"{type(exc).__name__}: {exc}"
         finally:
             queue.task_done()
             recipe_context.reset(token)
