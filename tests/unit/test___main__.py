@@ -17,13 +17,13 @@ from cloud_autopkg_runner.__main__ import (
     EXIT_FAILURE,
     EXIT_SUCCESS,
     STOP_WORKER,
-    RunResults,
     _async_main,
     _count_iterable,
     _create_recipe,
     _generate_recipe_list,
     _get_recipe_path,
     _key_value_pair,
+    _log_run_summary,
     _parse_arguments,
     _process_recipe_list,
     _recipe_worker,
@@ -36,7 +36,7 @@ from cloud_autopkg_runner.exceptions import (
     RecipeError,
     RecipeLookupError,
 )
-from cloud_autopkg_runner.recipe_report import ConsolidatedReport
+from cloud_autopkg_runner.recipe_report import ConsolidatedReport, RunResults
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable
@@ -287,9 +287,8 @@ async def test_create_recipe_invalid_file_contents(
     ):
         result = await _create_recipe("bad_recipe", tmp_path, mock_autopkg_prefs)
 
-        mock_logger.exception.assert_called_once_with(
-            "Failed to create `Recipe` object: %s", "bad_recipe"
-        )
+        mock_logger.error.assert_called_once()
+        assert mock_logger.error.call_args.args[1] == "bad_recipe"
         assert result is None
 
 
@@ -307,9 +306,8 @@ async def test_create_recipe_recipe_error(
     ):
         result = await _create_recipe("error_recipe", tmp_path, mock_autopkg_prefs)
 
-        mock_logger.exception.assert_called_once_with(
-            "Failed to create `Recipe` object: %s", "error_recipe"
-        )
+        mock_logger.error.assert_called_once()
+        assert mock_logger.error.call_args.args[1] == "error_recipe"
         assert result is None
 
 
@@ -542,44 +540,6 @@ def _report(*, failed: bool = False) -> ConsolidatedReport:
     )
 
 
-def test_run_results_clean_run_has_no_failures() -> None:
-    """A run where every report is clean should not report failures."""
-    results = RunResults(reports={"A.recipe": _report(), "B.recipe": _report()})
-
-    assert results.has_failures is False
-    assert results.failed_recipe_count == 0
-
-
-def test_run_results_counts_reports_with_failed_items() -> None:
-    """A report containing failed items should count as a failure."""
-    results = RunResults(
-        reports={"A.recipe": _report(), "B.recipe": _report(failed=True)}
-    )
-
-    assert results.has_failures is True
-    assert results.failed_recipe_count == 1
-
-
-def test_run_results_counts_recipes_that_produced_no_report() -> None:
-    """Recipes that never produced a report should count as failures."""
-    results = RunResults(
-        reports={"A.recipe": _report()},
-        failures={"B": "Recipe could not be loaded", "C": "Timed out after 5 seconds"},
-    )
-
-    assert results.has_failures is True
-    assert results.failed_recipe_count == 2
-
-
-def test_run_results_merge_combines_both_sides() -> None:
-    """Merging should absorb another result set's reports and failures."""
-    results = RunResults(reports={"A.recipe": _report()}, failures={"B": "nope"})
-    results.merge(RunResults(reports={"C.recipe": _report()}, failures={"D": "nope"}))
-
-    assert set(results.reports) == {"A.recipe", "C.recipe"}
-    assert set(results.failures) == {"B", "D"}
-
-
 def _cli_namespace() -> Namespace:
     """Build a Namespace with every CLI option unset.
 
@@ -637,6 +597,71 @@ async def test_async_main_exit_code(results: RunResults, expected: int) -> None:
         ),
     ):
         assert await _async_main() == expected
+
+
+def test_log_run_summary_is_silent_at_error_level_on_success() -> None:
+    """A successful run must not emit ERROR or WARNING output."""
+    results = RunResults(reports={"A.recipe": _report(), "B.recipe": _report()})
+
+    with patch("cloud_autopkg_runner.__main__.logger") as mock_logger:
+        _log_run_summary(results)
+
+    mock_logger.error.assert_not_called()
+    mock_logger.warning.assert_not_called()
+    mock_logger.info.assert_called_once()
+
+
+def test_log_run_summary_reports_failures_at_error_level() -> None:
+    """A failing run must state the tally at ERROR so it is always visible."""
+    results = RunResults(
+        reports={"A.recipe": _report(failed=True)},
+        failures={"B": "Timed out after 5 seconds"},
+    )
+
+    with patch("cloud_autopkg_runner.__main__.logger") as mock_logger:
+        _log_run_summary(results)
+
+    error_messages = [call.args[0] for call in mock_logger.error.call_args_list]
+    assert any("failed item(s)" in message for message in error_messages)
+    assert any("Run complete" in message for message in error_messages)
+    mock_logger.info.assert_not_called()
+
+
+def test_log_run_summary_restates_recorded_failures_only_at_debug() -> None:
+    """Failures already logged at their origin must not be repeated at ERROR."""
+    results = RunResults(failures={"B": "Recipe could not be loaded"})
+
+    with patch("cloud_autopkg_runner.__main__.logger") as mock_logger:
+        _log_run_summary(results)
+
+    mock_logger.debug.assert_called_once()
+    error_messages = [call.args[0] for call in mock_logger.error.call_args_list]
+    assert all("did not complete" not in message for message in error_messages)
+
+
+def test_create_recipe_keeps_traceback_for_debug(
+    mock_autopkg_prefs: MagicMock, tmp_path: Path
+) -> None:
+    """Recipe load failures log a one-line error, with the traceback at DEBUG."""
+
+    async def run() -> None:
+        with (
+            patch("cloud_autopkg_runner.__main__.logger") as mock_logger,
+            patch(
+                "cloud_autopkg_runner.__main__._get_recipe_path",
+                new=AsyncMock(side_effect=RecipeLookupError("Missing.recipe")),
+            ),
+        ):
+            assert (
+                await _create_recipe("Missing.recipe", tmp_path, mock_autopkg_prefs)
+                is None
+            )
+
+        mock_logger.exception.assert_not_called()
+        mock_logger.error.assert_called_once()
+        assert mock_logger.debug.call_args.kwargs["exc_info"] is True
+
+    asyncio.run(run())
 
 
 def test_main_propagates_exit_code() -> None:

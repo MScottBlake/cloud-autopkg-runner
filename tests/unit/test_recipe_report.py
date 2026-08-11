@@ -6,6 +6,23 @@ import pytest
 
 from cloud_autopkg_runner import recipe_report
 from cloud_autopkg_runner.exceptions import InvalidPlistContentsError
+from cloud_autopkg_runner.recipe_report import ConsolidatedReport, RunResults
+
+
+def build_report(*, failed: bool = False) -> ConsolidatedReport:
+    """Build a ConsolidatedReport, optionally containing a failed item.
+
+    Returns:
+        A ConsolidatedReport suitable for exercising RunResults.
+    """
+    return ConsolidatedReport(
+        failed_items=(
+            [{"message": "boom", "recipe": "R", "traceback": "tb"}] if failed else []
+        ),
+        downloaded_items=[],
+        pkg_built_items=[],
+        munki_imported_items=[],
+    )
 
 
 def create_test_file(content: str, path: Path) -> None:
@@ -106,3 +123,57 @@ def test_recipe_report_consolidate_report(tmp_path: Path) -> None:
         "pkg_built_items": [{"pkg": "text"}, {"pkg": "text"}],
         "munki_imported_items": [{"imported": "here"}, {"imported": "here"}],
     }
+
+
+def test_run_results_clean_run_has_no_failures() -> None:
+    """A run where every report is clean should not report failures."""
+    results = RunResults(
+        reports={"A.recipe": build_report(), "B.recipe": build_report()}
+    )
+
+    assert results.has_failures is False
+    assert results.failed_recipe_count == 0
+    assert results.succeeded_recipe_count == 2
+
+
+def test_run_results_counts_reports_with_failed_items() -> None:
+    """A report containing failed items should count as a failure."""
+    results = RunResults(
+        reports={"A.recipe": build_report(), "B.recipe": build_report(failed=True)}
+    )
+
+    assert results.has_failures is True
+    assert results.failed_recipe_count == 1
+    assert results.succeeded_recipe_count == 1
+
+
+def test_run_results_counts_recipes_that_produced_no_report() -> None:
+    """Recipes that never produced a report should count as failures."""
+    results = RunResults(
+        reports={"A.recipe": build_report()},
+        failures={"B": "Recipe could not be loaded", "C": "Timed out after 5 seconds"},
+    )
+
+    assert results.has_failures is True
+    assert results.failed_recipe_count == 2
+    assert results.succeeded_recipe_count == 1
+
+
+def test_run_results_empty_run_has_no_failures() -> None:
+    """A run with no recipes at all should not be treated as a failure."""
+    results = RunResults()
+
+    assert results.has_failures is False
+    assert results.failed_recipe_count == 0
+    assert results.succeeded_recipe_count == 0
+
+
+def test_run_results_merge_combines_both_sides() -> None:
+    """Merging should absorb another result set's reports and failures."""
+    results = RunResults(reports={"A.recipe": build_report()}, failures={"B": "nope"})
+    results.merge(
+        RunResults(reports={"C.recipe": build_report()}, failures={"D": "nope"})
+    )
+
+    assert set(results.reports) == {"A.recipe", "C.recipe"}
+    assert set(results.failures) == {"B", "D"}
