@@ -5,7 +5,10 @@ from typing import Any
 import pytest
 
 from cloud_autopkg_runner import recipe_report
-from cloud_autopkg_runner.exceptions import InvalidPlistContentsError
+from cloud_autopkg_runner.exceptions import (
+    InvalidPlistContentsError,
+    RecipeReportNotFoundError,
+)
 from cloud_autopkg_runner.recipe_report import ConsolidatedReport, RunResults
 
 
@@ -70,6 +73,34 @@ def test_recipe_report_refresh_contents_invalid_plist(tmp_path: Path) -> None:
     """Test parsing an invalid report file raises the appropriate error."""
     report_path = tmp_path / "report.plist"
     create_test_file("invalid plist content", report_path)
+    report = recipe_report.RecipeReport(report_path)
+
+    with pytest.raises(InvalidPlistContentsError):
+        report.refresh_contents()
+
+
+def test_recipe_report_refresh_contents_missing_file(tmp_path: Path) -> None:
+    """A report AutoPkg never wrote raises a typed error, not FileNotFoundError."""
+    report = recipe_report.RecipeReport(tmp_path / "never_written.plist")
+
+    with pytest.raises(RecipeReportNotFoundError):
+        report.refresh_contents()
+
+
+def test_recipe_report_refresh_contents_malformed_xml(tmp_path: Path) -> None:
+    """Truncated XML raises InvalidPlistContentsError rather than ExpatError."""
+    report_path = tmp_path / "report.plist"
+    create_test_file('<?xml version="1.0"?><plist version="1.0"><dict>', report_path)
+    report = recipe_report.RecipeReport(report_path)
+
+    with pytest.raises(InvalidPlistContentsError):
+        report.refresh_contents()
+
+
+def test_recipe_report_refresh_contents_not_a_mapping(tmp_path: Path) -> None:
+    """A valid plist that is not a mapping is rejected."""
+    report_path = tmp_path / "report.plist"
+    report_path.write_bytes(plistlib.dumps("just a string"))
     report = recipe_report.RecipeReport(report_path)
 
     with pytest.raises(InvalidPlistContentsError):
