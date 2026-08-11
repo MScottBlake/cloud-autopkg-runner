@@ -27,7 +27,6 @@ import signal
 import sys
 from argparse import ArgumentParser, ArgumentTypeError, Namespace
 from collections.abc import Iterable
-from dataclasses import dataclass, field
 from importlib.metadata import metadata
 from pathlib import Path
 from types import FrameType
@@ -49,7 +48,7 @@ from cloud_autopkg_runner.exceptions import (
     RecipeError,
 )
 from cloud_autopkg_runner.logging_context import recipe_context
-from cloud_autopkg_runner.recipe_report import ConsolidatedReport
+from cloud_autopkg_runner.recipe_report import RunResults
 
 logger = logging_config.get_logger(__name__)
 
@@ -61,64 +60,6 @@ STOP_WORKER = "<<STOP_WORKER>>"
 # Process exit codes
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
-
-
-@dataclass
-class RunResults:
-    """Aggregated outcome of processing a list of recipes.
-
-    A recipe can fail in two distinct ways, and both must be visible to the
-    caller so that an accurate process exit code can be produced:
-
-    1.  It never produced a report at all, because the recipe could not be
-        loaded or its run exceeded the configured timeout. These are recorded
-        in `failures`.
-    2.  It produced a report that AutoPkg populated with failed items. These
-        remain in `reports` and are detected via `has_failures`.
-
-    Attributes:
-        reports: A mapping of recipe names to the `ConsolidatedReport`
-            produced by a completed run.
-        failures: A mapping of requested recipe names to a human-readable
-            reason describing why no report was produced.
-    """
-
-    reports: dict[str, ConsolidatedReport] = field(
-        default_factory=dict[str, ConsolidatedReport]
-    )
-    failures: dict[str, str] = field(default_factory=dict[str, str])
-
-    @property
-    def failed_recipe_count(self) -> int:
-        """Count the recipes that did not complete successfully.
-
-        Returns:
-            The number of recipes that either produced no report or produced
-            a report containing at least one failed item.
-        """
-        reports_with_failures = sum(
-            1 for report in self.reports.values() if report["failed_items"]
-        )
-        return len(self.failures) + reports_with_failures
-
-    @property
-    def has_failures(self) -> bool:
-        """Whether any recipe failed to complete successfully.
-
-        Returns:
-            `True` if at least one recipe failed, otherwise `False`.
-        """
-        return self.failed_recipe_count > 0
-
-    def merge(self, other: "RunResults") -> None:
-        """Merge another result set into this one, in place.
-
-        Args:
-            other: The partial results to absorb, typically produced by a
-                single worker.
-        """
-        self.reports.update(other.reports)
-        self.failures.update(other.failures)
 
 
 def _schema_overrides_from_cli(args: Namespace) -> dict[str, object]:
@@ -204,8 +145,10 @@ async def _create_recipe(
     try:
         recipe_path = await _get_recipe_path(recipe_name, autopkg_prefs)
         return Recipe(recipe_path, report_dir, autopkg_prefs)
-    except (InvalidFileContentsError, RecipeError):
-        logger.exception("Failed to create `Recipe` object: %s", recipe_name)
+    except (InvalidFileContentsError, RecipeError) as exc:
+        # Operator error, not a crash. Traceback stays at DEBUG.
+        logger.error("Failed to load recipe %s: %s", recipe_name, exc)  # noqa: TRY400
+        logger.debug("Traceback for %s", recipe_name, exc_info=True)
         return None
 
 
@@ -605,17 +548,21 @@ def _signal_handler(sig: int, _frame: FrameType | None) -> NoReturn:
 
 
 def _log_run_summary(results: RunResults) -> None:
-    """Log a summary of the run and the reason each failed recipe failed.
+    """Log the outcome of the run.
+
+    Recipes recorded in `results.failures` already reported their reason at
+    the point of failure, so they are only restated at DEBUG. Recipes whose
+    report contains failed items are surfaced here at ERROR, because this is
+    the only place those failures are reported.
+
+    A successful run stays silent unless the operator asked for detail; a run
+    with failures always states its tally.
 
     Args:
         results: The aggregated results of processing every recipe.
     """
-    succeeded = len(results.reports) - sum(
-        1 for report in results.reports.values() if report["failed_items"]
-    )
-
     for recipe_name, reason in sorted(results.failures.items()):
-        logger.error("Recipe %s did not complete: %s", recipe_name, reason)
+        logger.debug("Recipe %s did not complete: %s", recipe_name, reason)
 
     for recipe_name, report in sorted(results.reports.items()):
         if report["failed_items"]:
@@ -628,11 +575,13 @@ def _log_run_summary(results: RunResults) -> None:
     if results.has_failures:
         logger.error(
             "Run complete: %d succeeded, %d failed.",
-            succeeded,
+            results.succeeded_recipe_count,
             results.failed_recipe_count,
         )
     else:
-        logger.info("Run complete: %d succeeded, 0 failed.", succeeded)
+        logger.info(
+            "Run complete: %d succeeded, 0 failed.", results.succeeded_recipe_count
+        )
 
 
 async def _async_main() -> int:
