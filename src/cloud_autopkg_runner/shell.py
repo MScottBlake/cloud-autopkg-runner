@@ -12,6 +12,9 @@ import shlex
 from cloud_autopkg_runner import logging_config
 from cloud_autopkg_runner.exceptions import ShellCommandError
 
+# Reported when a command is killed before it could produce an exit code
+TIMEOUT_RETURNCODE = -1
+
 
 def _normalize_cmd(cmd: str | list[str]) -> list[str]:
     """Normalizes a command into a list of strings.
@@ -38,6 +41,17 @@ def _normalize_cmd(cmd: str | list[str]) -> list[str]:
         raise ShellCommandError(  # noqa: TRY003
             f"Invalid command string: {cmd}. Error: {exc}"
         ) from exc
+
+
+def _kill_process(proc: "asyncio.subprocess.Process") -> None:
+    """Kill a subprocess if it is still running.
+
+    Args:
+        proc: The subprocess to kill.
+    """
+    if proc.returncode is None:
+        with contextlib.suppress(ProcessLookupError):
+            proc.kill()
 
 
 async def _run_and_capture(
@@ -82,12 +96,16 @@ async def _run_and_capture(
 
     except (asyncio.TimeoutError, TimeoutError):
         logger.warning("Command timed out: %s", " ".join(cmd))
-        if proc.returncode is None:  # Process still running
-            with contextlib.suppress(ProcessLookupError):
-                proc.kill()
+        _kill_process(proc)
+        await proc.wait()
 
-        stdout = ""
-        stderr = f"Command timed out after {timeout} seconds."
+        # -1 rather than the signal-derived code, to keep the documented contract
+        return TIMEOUT_RETURNCODE, "", f"Command timed out after {timeout} seconds."
+    except asyncio.CancelledError:
+        # The caller gave up on us; do not leave the child running
+        logger.warning("Command cancelled: %s", " ".join(cmd))
+        _kill_process(proc)
+        raise
 
     returncode = proc.returncode if proc.returncode is not None else -1
 
@@ -124,11 +142,18 @@ async def _run_without_capture(
         await asyncio.wait_for(proc.wait(), timeout=timeout)
     except (asyncio.TimeoutError, TimeoutError):
         logger.warning("Command timed out: %s", " ".join(cmd))
-        if proc.returncode is None:  # Process still running
-            with contextlib.suppress(ProcessLookupError):
-                proc.kill()
+        _kill_process(proc)
+        await proc.wait()
 
-    returncode = proc.returncode if proc.returncode is not None else -1
+        # -1 rather than the signal-derived code, to keep the documented contract
+        return TIMEOUT_RETURNCODE, "", ""
+    except asyncio.CancelledError:
+        # The caller gave up on us; do not leave the child running
+        logger.warning("Command cancelled: %s", " ".join(cmd))
+        _kill_process(proc)
+        raise
+
+    returncode = proc.returncode if proc.returncode is not None else TIMEOUT_RETURNCODE
 
     return returncode, "", ""
 

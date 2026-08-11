@@ -1,9 +1,14 @@
+import asyncio
+import sys
 from pathlib import Path
 
 import pytest
 
 from cloud_autopkg_runner import shell
 from cloud_autopkg_runner.exceptions import ShellCommandError
+
+# Portable long-running command; `sleep` is unavailable on Windows.
+SLEEP_CMD = [sys.executable, "-c", "import time; time.sleep(30)"]
 
 
 @pytest.mark.asyncio
@@ -115,6 +120,65 @@ async def test_run_cmd_file_not_found_error(tmp_path: Path) -> None:
     assert "Command failed with exit code 1: cat non_existent_file.txt" in str(
         exc_info.value
     )
+
+
+class ProcessTracker:
+    """Wraps `create_subprocess_exec` so tests can inspect spawned processes."""
+
+    def __init__(self) -> None:
+        """Initialize the tracker and capture the real spawn function."""
+        self.processes: list[asyncio.subprocess.Process] = []
+        self.started = asyncio.Event()
+        self._real_exec = asyncio.create_subprocess_exec
+
+    async def exec(self, *args: object, **kwargs: object) -> object:
+        """Spawn the process and record it.
+
+        Returns:
+            The spawned subprocess.
+        """
+        proc = await self._real_exec(*args, **kwargs)  # pyright: ignore[reportArgumentType]
+        self.processes.append(proc)
+        self.started.set()
+        return proc
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("capture_output", [True, False])
+async def test_run_cmd_kills_subprocess_when_cancelled(*, capture_output: bool) -> None:
+    """Cancelling run_cmd must not leave the subprocess running."""
+    tracker = ProcessTracker()
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(asyncio, "create_subprocess_exec", tracker.exec)
+        task = asyncio.create_task(
+            shell.run_cmd(SLEEP_CMD, capture_output=capture_output)
+        )
+        await asyncio.wait_for(tracker.started.wait(), timeout=10)
+
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    assert len(tracker.processes) == 1
+    await asyncio.wait_for(tracker.processes[0].wait(), timeout=10)
+    assert tracker.processes[0].returncode is not None
+
+
+@pytest.mark.asyncio
+async def test_run_cmd_reaps_subprocess_on_timeout() -> None:
+    """A timed-out command must be killed and reaped, not left running."""
+    tracker = ProcessTracker()
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(asyncio, "create_subprocess_exec", tracker.exec)
+        returncode, _stdout, stderr = await shell.run_cmd(
+            SLEEP_CMD, timeout=1, check=False
+        )
+
+    assert returncode == shell.TIMEOUT_RETURNCODE
+    assert "timed out" in stderr
+    assert tracker.processes[0].returncode is not None
 
 
 @pytest.mark.asyncio
