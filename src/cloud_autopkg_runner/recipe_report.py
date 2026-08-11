@@ -3,10 +3,14 @@
 import plistlib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
+from xml.parsers.expat import ExpatError
 
 from cloud_autopkg_runner import logging_config
-from cloud_autopkg_runner.exceptions import InvalidPlistContentsError
+from cloud_autopkg_runner.exceptions import (
+    InvalidPlistContentsError,
+    RecipeReportNotFoundError,
+)
 
 
 class RecipeReportFailedItem(TypedDict):
@@ -211,16 +215,23 @@ class RecipeReport:
         """Parses the recipe report from the plist file and stores the results.
 
         Raises:
+            RecipeReportNotFoundError: If AutoPkg never wrote the report file.
             InvalidPlistContentsError: If the plist file is invalid or cannot be parsed.
         """
+        self._parsed = False
+
         try:
-            self._contents: RecipeReportContents = plistlib.loads(
-                self.file_path().read_bytes()
-            )
-            self._parsed = True
-        except plistlib.InvalidFileException as exc:
-            self._parsed = False
+            contents = plistlib.loads(self.file_path().read_bytes())
+        except FileNotFoundError as exc:
+            raise RecipeReportNotFoundError(self.file_path()) from exc
+        except (plistlib.InvalidFileException, ExpatError) as exc:
             raise InvalidPlistContentsError(self.file_path()) from exc
+
+        if not isinstance(contents, dict):
+            raise InvalidPlistContentsError(self.file_path())
+
+        self._contents: RecipeReportContents = cast("RecipeReportContents", contents)
+        self._parsed = True
 
     def consolidate_report(self) -> ConsolidatedReport:
         """Consolidates a report of the recipe run for final processing.

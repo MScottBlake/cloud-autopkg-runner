@@ -247,6 +247,23 @@ class RecipeLookupError(RecipeError):
 RecipeLookupException = RecipeLookupError
 
 
+class RecipeReportNotFoundError(RecipeError):
+    """Error class for handling a missing AutoPkg report file.
+
+    This error is raised when AutoPkg exited without writing the report
+    plist it was asked to produce, which generally means the run failed
+    before any processor could record a result.
+    """
+
+    def __init__(self, file_path: Path) -> None:
+        """Initializes RecipeReportNotFoundError with the expected report path.
+
+        Args:
+            file_path: The path where the report was expected to be written.
+        """
+        super().__init__(f"AutoPkg did not write a report at {file_path}")
+
+
 class RecipeFormatError(RecipeError):
     """Error class for handling unknown recipe formats.
 

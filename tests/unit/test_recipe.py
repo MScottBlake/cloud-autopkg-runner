@@ -115,6 +115,46 @@ def test_recipe_invalid_content(tmp_path: Path, mock_autopkg_prefs: MagicMock) -
         Recipe(recipe_file, report_dir, mock_autopkg_prefs)
 
 
+def test_recipe_malformed_xml(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
+    """Truncated XML raises InvalidFileContentsError rather than ExpatError."""
+    recipe_file = tmp_path / "Test.recipe"
+    create_test_file(recipe_file, '<?xml version="1.0"?><plist version="1.0"><dict>')
+    report_dir = tmp_path / "report_dir"
+    report_dir.mkdir()
+
+    with pytest.raises(InvalidFileContentsError):
+        Recipe(recipe_file, report_dir, mock_autopkg_prefs)
+
+
+def test_recipe_plist_not_a_mapping(
+    tmp_path: Path, mock_autopkg_prefs: MagicMock
+) -> None:
+    """A valid plist that is not a mapping is rejected at load time."""
+    recipe_file = tmp_path / "Test.recipe"
+    create_test_file(
+        recipe_file,
+        '<?xml version="1.0"?><plist version="1.0"><string>nope</string></plist>',
+    )
+    report_dir = tmp_path / "report_dir"
+    report_dir.mkdir()
+
+    with pytest.raises(InvalidFileContentsError):
+        Recipe(recipe_file, report_dir, mock_autopkg_prefs)
+
+
+def test_recipe_yaml_not_a_mapping(
+    tmp_path: Path, mock_autopkg_prefs: MagicMock
+) -> None:
+    """A valid YAML document that is not a mapping is rejected at load time."""
+    recipe_file = tmp_path / "Test.recipe.yaml"
+    create_test_file(recipe_file, "- just\n- a\n- list\n")
+    report_dir = tmp_path / "report_dir"
+    report_dir.mkdir()
+
+    with pytest.raises(InvalidFileContentsError):
+        Recipe(recipe_file, report_dir, mock_autopkg_prefs)
+
+
 def test_recipe_missing_name(tmp_path: Path, mock_autopkg_prefs: MagicMock) -> None:
     """Test initializing a Recipe object with missing NAME input."""
     yaml_content = """

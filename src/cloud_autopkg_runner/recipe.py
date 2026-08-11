@@ -16,7 +16,8 @@ import plistlib
 from datetime import datetime, timezone
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
+from xml.parsers.expat import ExpatError
 
 import yaml
 
@@ -428,14 +429,18 @@ class Recipe:
             A `RecipeContents` TypedDict containing the recipe's parsed contents.
 
         Raises:
-            InvalidPlistContentsError: If `plistlib.loads()` encounters an
-                `plistlib.InvalidFileException`, indicating that the file
-                content is not a valid PLIST.
+            InvalidPlistContentsError: If the content is not a valid PLIST, or
+                parses to something other than a mapping.
         """
         try:
-            return plistlib.loads(file_contents.encode())
-        except plistlib.InvalidFileException as exc:
+            contents = plistlib.loads(file_contents.encode())
+        except (plistlib.InvalidFileException, ExpatError) as exc:
             raise InvalidPlistContentsError(self._path) from exc
+
+        if not isinstance(contents, dict):
+            raise InvalidPlistContentsError(self._path)
+
+        return cast("RecipeContents", contents)
 
     def _get_contents_yaml(self, file_contents: str) -> RecipeContents:
         """Parse a recipe in YAML format.
@@ -451,13 +456,18 @@ class Recipe:
             A `RecipeContents` TypedDict containing the recipe's parsed contents.
 
         Raises:
-            InvalidYamlContentsError: If `yaml.safe_load()` encounters a
-                `yaml.YAMLError`, indicating that the file content is not valid YAML.
+            InvalidYamlContentsError: If the content is not valid YAML, or parses
+                to something other than a mapping.
         """
         try:
-            return yaml.safe_load(file_contents)
+            contents = yaml.safe_load(file_contents)
         except yaml.YAMLError as exc:
             raise InvalidYamlContentsError(self._path) from exc
+
+        if not isinstance(contents, dict):
+            raise InvalidYamlContentsError(self._path)
+
+        return cast("RecipeContents", contents)
 
     async def _get_metadata(self, download_items: list[dict[str, str]]) -> RecipeCache:
         """Retrieves metadata for a list of downloaded items.
