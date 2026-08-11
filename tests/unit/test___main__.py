@@ -524,6 +524,66 @@ async def test_process_recipe_list_inserts_correct_number_of_stops() -> None:
     assert pushed.count(STOP_WORKER) == 2
 
 
+@pytest.mark.asyncio
+async def test_recipe_worker_survives_unexpected_error(tmp_path: Path) -> None:
+    """An unexpected error must not terminate the worker mid-queue."""
+    queue = asyncio.Queue()
+    queue.put_nowait("Exploding")
+    queue.put_nowait("Healthy")
+    queue.put_nowait(STOP_WORKER)
+
+    mock_report = MagicMock()
+    healthy_recipe = MagicMock()
+    healthy_recipe.name = "Healthy"
+    healthy_recipe.run = AsyncMock(return_value=mock_report)
+
+    async def create(recipe_name: str, *_args: typing.Any) -> MagicMock:
+        if recipe_name == "Exploding":
+            msg = "report file vanished"
+            raise FileNotFoundError(msg)
+        return healthy_recipe
+
+    mock_settings = MagicMock()
+    mock_settings.recipe_timeout = 10
+    mock_settings.report_dir = tmp_path
+
+    with patch("cloud_autopkg_runner.__main__._create_recipe", new=create):
+        results = await _recipe_worker(queue, mock_settings, MagicMock())
+
+    assert results.reports == {"Healthy": mock_report}
+    assert "Exploding" in results.failures
+    assert "FileNotFoundError" in results.failures["Exploding"]
+    assert queue.empty()
+
+
+@pytest.mark.asyncio
+async def test_process_recipe_list_does_not_hang_when_a_worker_dies() -> None:
+    """A worker that terminates early must not stall the whole run."""
+
+    async def dying_worker(
+        queue: asyncio.Queue, _settings: Settings, _prefs: AutoPkgPrefs
+    ) -> RunResults:
+        await queue.get()
+        queue.task_done()
+        msg = "worker died before consuming its sentinel"
+        raise RuntimeError(msg)
+
+    with (
+        patch("cloud_autopkg_runner.__main__._recipe_worker", new=dying_worker),
+        patch(
+            "cloud_autopkg_runner.__main__.get_cache_plugin",
+            return_value=AsyncMock().__aenter__.return_value,
+        ),
+        patch("cloud_autopkg_runner.settings.Settings.max_concurrency", 1),
+    ):
+        results = await asyncio.wait_for(
+            _process_recipe_list(["A", "B"], MagicMock()), timeout=10
+        )
+
+    assert results.has_failures is True
+    assert "B" in results.failures
+
+
 def _report(*, failed: bool = False) -> ConsolidatedReport:
     """Build a ConsolidatedReport, optionally containing a failed item.
 
