@@ -79,7 +79,7 @@ class RecipeFinder:
             ):
                 return recipe_path
 
-        self.logger.error(
+        self.logger.debug(
             "Recipe '%s' not found in any lookup directories.", recipe_name
         )
         raise RecipeLookupError(recipe_name)
