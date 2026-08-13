@@ -34,7 +34,11 @@ def generate_unique_name(prefix: str) -> str:
 
 @pytest.fixture
 def settings() -> Settings:
-    """Setup the Settings class."""
+    """Setup the Settings class.
+
+    Returns:
+        Settings: Settings pointing at a container unique to this test.
+    """
     settings = Settings()
     settings.cache_plugin = "azure"
     settings.cloud_container_name = generate_unique_name("cloud-autopkg-test-azure")
@@ -43,9 +47,7 @@ def settings() -> Settings:
         "AZURE_ACCOUNT_URL", "https://127.0.0.1:10000/devstoreaccount1"
     )
 
-    yield settings
-
-    Settings._instance = None
+    return settings
 
 
 @pytest.fixture

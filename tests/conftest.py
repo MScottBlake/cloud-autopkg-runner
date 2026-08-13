@@ -51,11 +51,13 @@ def _reset_singletons() -> None:
 def reset_singletons() -> Generator[None, None, None]:
     """Fixture to reset the singleton instances around each test.
 
+    Applies to the unit and integration suites alike.
+
     Settings, PluginManager, and every cache backend cache their first
     instance for the lifetime of the process. Each cache backend also latches
-    onto the cache file it was constructed with, so without this the first
-    test to touch the cache pins that file and its contents for every test
-    that follows.
+    onto the container and cache file it was constructed with, along with the
+    data it has already loaded, so without this the first test to touch the
+    cache pins all of that for every test that follows.
 
     Resetting before as well as after keeps a test from inheriting state built
     during collection or left behind by a test that errored.
