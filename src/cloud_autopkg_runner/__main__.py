@@ -26,11 +26,11 @@ import os
 import signal
 import sys
 from argparse import ArgumentParser, ArgumentTypeError, Namespace
-from collections.abc import Iterable
+from collections.abc import Collection
 from importlib.metadata import metadata
 from pathlib import Path
 from types import FrameType
-from typing import NoReturn, TypeVar
+from typing import NoReturn
 
 from cloud_autopkg_runner import (
     AutoPkgPrefs,
@@ -51,8 +51,6 @@ from cloud_autopkg_runner.logging_context import recipe_context
 from cloud_autopkg_runner.recipe_report import RunResults
 
 logger = logging_config.get_logger(__name__)
-
-T = TypeVar("T")
 
 # Constant that indicates a worker queue is empty and can be stopped
 STOP_WORKER = "<<STOP_WORKER>>"
@@ -107,21 +105,6 @@ def _schema_overrides_from_cli(args: Namespace) -> dict[str, object]:
         overrides["input_variables"] = dict(args.key)
 
     return overrides
-
-
-def _count_iterable(iterable: Iterable[T]) -> int:
-    """Count the number of elements in an iterable.
-
-    This function consumes the entire iterable to determine its length,
-    which means it should not be used on infinite iterators.
-
-    Args:
-        iterable: An iterable collection of elements of type T.
-
-    Returns:
-        The number of elements in the iterable.
-    """
-    return sum(1 for _element in iterable)
 
 
 async def _create_recipe(
@@ -402,7 +385,7 @@ def _parse_arguments() -> Namespace:
 
 
 async def _process_recipe_list(
-    recipe_list: Iterable[str], autopkg_prefs: AutoPkgPrefs
+    recipe_list: Collection[str], autopkg_prefs: AutoPkgPrefs
 ) -> RunResults:
     """Create and run AutoPkg recipes using a worker queue pattern.
 
@@ -411,7 +394,7 @@ async def _process_recipe_list(
     issues during recipe object creation and allows for cleaner timeout handling.
 
     Args:
-        recipe_list: An iterable of recipe names.
+        recipe_list: A collection of recipe names.
         autopkg_prefs: AutoPkg preferences.
 
     Returns:
@@ -419,7 +402,7 @@ async def _process_recipe_list(
     """
     settings = Settings()
 
-    num_workers = min(settings.max_concurrency, _count_iterable(recipe_list))
+    num_workers = min(settings.max_concurrency, len(recipe_list))
 
     # Populate the Queue
     queue: asyncio.Queue[str] = asyncio.Queue()
