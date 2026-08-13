@@ -512,7 +512,7 @@ source = { editable = "." }
 dependencies = [
     { name = "pyyaml" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
-    { name = "xattr" },
+    { name = "xattr", marker = "sys_platform != 'win32'" },
 ]
 
 [package.optional-dependencies]
@@ -548,7 +548,7 @@ requires-dist = [
     { name = "google-cloud-storage", marker = "extra == 'gcs'" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.3.0" },
-    { name = "xattr", specifier = ">=1.1.4" },
+    { name = "xattr", marker = "sys_platform != 'win32'", specifier = ">=1.1.4" },
 ]
 provides-extras = ["azure", "gcs", "json", "s3", "sqlite"]
 

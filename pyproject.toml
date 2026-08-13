@@ -45,7 +45,7 @@ classifiers = [
 dependencies = [
     "pyyaml>=6.0.2",
     "tomli>=2.3.0; python_version<'3.11'",
-    "xattr>=1.1.4",
+    "xattr>=1.1.4; sys_platform != 'win32'",
 ]
 
 [project.scripts]

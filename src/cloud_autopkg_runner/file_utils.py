@@ -23,7 +23,11 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import cast
 
-import xattr  # pyright: ignore[reportMissingTypeStubs]
+if sys.platform == "win32":  # pragma: no cover - exercised on Windows only
+    # xattr publishes no Windows build; extended attributes do not exist there.
+    xattr = None
+else:
+    import xattr  # pyright: ignore[reportMissingTypeStubs]
 
 from cloud_autopkg_runner import (
     AutoPkgPrefs,
@@ -34,9 +38,24 @@ from cloud_autopkg_runner import (
 from cloud_autopkg_runner.exceptions import InvalidFileSizeError
 from cloud_autopkg_runner.metadata_cache import DownloadMetadata
 
+# macOS reports a missing extended attribute as ENOATTR, Linux as ENODATA.
+# ENOATTR is only defined on BSD-derived platforms.
+_ENOATTR: int = getattr(errno, "ENOATTR", errno.ENODATA)
+_MISSING_ATTR_ERRNOS: frozenset[int] = frozenset({_ENOATTR, errno.ENODATA})
+
 
 def _create_and_set_attrs(file_path: Path, metadata_cache: DownloadMetadata) -> None:
-    """Create the file, set its size, and set extended attributes."""
+    """Create the file, set its size, and set extended attributes.
+
+    On platforms without extended attribute support the file is still created
+    at the cached size, but the etag and last-modified attributes are skipped.
+
+    Args:
+        file_path: The path of the placeholder file to create.
+        metadata_cache: The cached download metadata to apply to the file.
+    """
+    logger = logging_config.get_logger(__name__)
+
     # Create parent directory if needed
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -45,6 +64,14 @@ def _create_and_set_attrs(file_path: Path, metadata_cache: DownloadMetadata) -> 
 
     # Set file size
     _set_file_size(file_path, metadata_cache.get("file_size", 0))
+
+    if xattr is None:
+        logger.warning(
+            "Extended attributes are unsupported on this platform. "
+            "%s was created without its etag and last-modified metadata.",
+            file_path,
+        )
+        return
 
     # Set extended attributes
     if metadata_cache.get("etag"):
@@ -177,22 +204,33 @@ async def get_file_metadata(file_path: Path, attr: str) -> str | None:
 
     Returns:
         The decoded string representation of the extended attribute metadata,
-        or None if the attribute doesn't exist.
+        or None if the attribute doesn't exist or the platform has no
+        extended attribute support.
     """
+    # Bound to a local so the None check applies inside the thread's closure
+    xattr_module = xattr
+    if xattr_module is None:
+        logger = logging_config.get_logger(__name__)
+        logger.warning(
+            "Extended attributes are unsupported on this platform. "
+            "Cannot read %s from %s.",
+            attr,
+            file_path,
+        )
+        return None
+
     try:
         return await asyncio.to_thread(
             lambda: cast(
                 "bytes",
-                xattr.getxattr(  # pyright: ignore[reportUnknownMemberType]
+                xattr_module.getxattr(  # pyright: ignore[reportUnknownMemberType]
                     file_path, attr
                 ),
             ).decode()
         )
     except OSError as e:
-        # If attribute name is invalid, return None
-        if sys.platform == "darwin" and e.errno == errno.ENOATTR:
-            return None
-        if e.errno == errno.ENODATA:
+        # If the attribute is not set, report it as absent rather than failing
+        if e.errno in _MISSING_ATTR_ERRNOS:
             return None
 
         # Re-raise all other errors
