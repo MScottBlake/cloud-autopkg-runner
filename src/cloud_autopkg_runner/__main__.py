@@ -394,8 +394,7 @@ async def _process_recipe_list(
     issues during recipe object creation and allows for cleaner timeout handling.
 
     Args:
-        recipe_list: A collection of recipe names. It is both counted and
-            iterated, so a one-shot iterator is not accepted.
+        recipe_list: A collection of recipe names.
         autopkg_prefs: AutoPkg preferences.
 
     Returns:
