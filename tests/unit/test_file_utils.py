@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from cloud_autopkg_runner import Settings, file_utils
+from cloud_autopkg_runner.exceptions import InvalidFileSizeError
 from cloud_autopkg_runner.metadata_cache import MetadataCache
 
 
@@ -55,6 +56,106 @@ def metadata_cache(tmp_path: Path) -> MetadataCache:
             ],
         },
     }
+
+
+@pytest.mark.parametrize("size", [0, 1, 1024])
+def test_set_file_size(tmp_path: Path, size: int) -> None:
+    """A file is reported at the requested size, including zero."""
+    file_path = tmp_path / "placeholder.dmg"
+
+    file_utils._set_file_size(file_path, size)
+
+    assert file_path.stat().st_size == size
+
+
+def test_set_file_size_rejects_negative(tmp_path: Path) -> None:
+    """A negative size is rejected rather than raising a bare OSError."""
+    file_path = tmp_path / "placeholder.dmg"
+
+    with pytest.raises(InvalidFileSizeError):
+        file_utils._set_file_size(file_path, -1)
+
+
+def test_create_and_set_attrs_with_absent_file_size(
+    tmp_path: Path, mock_xattr: Any
+) -> None:
+    """Metadata with no file_size falls back to 0 without raising."""
+    file_path = tmp_path / "nested" / "placeholder.dmg"
+
+    file_utils._create_and_set_attrs(file_path, {"file_path": str(file_path)})
+
+    assert file_path.stat().st_size == 0
+    mock_xattr.setxattr.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_create_placeholder_files_with_zero_size(tmp_path: Path) -> None:
+    """A cached size of zero produces an empty placeholder, not a skip."""
+    settings = Settings()
+    settings.cache_file = tmp_path / "metadata_cache.json"
+    file_path = tmp_path / "path/to/empty.dmg"
+    settings.cache_file.write_text(
+        json.dumps(
+            {
+                "Recipe1": {
+                    "timestamp": "foo",
+                    "metadata": [{"file_path": str(file_path), "file_size": 0}],
+                }
+            }
+        )
+    )
+
+    with (
+        patch(
+            "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+            return_value={},
+        ),
+        patch(
+            "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
+            return_value=["Recipe1"],
+        ),
+    ):
+        await file_utils.create_placeholder_files(["Recipe1"])
+
+    assert file_path.exists()
+    assert file_path.stat().st_size == 0
+
+
+@pytest.mark.asyncio
+async def test_create_placeholder_files_skips_negative_size(tmp_path: Path) -> None:
+    """A corrupt negative size is skipped without failing the whole run."""
+    settings = Settings()
+    settings.cache_file = tmp_path / "metadata_cache.json"
+    bad_path = tmp_path / "path/to/bad.dmg"
+    good_path = tmp_path / "path/to/good.dmg"
+    settings.cache_file.write_text(
+        json.dumps(
+            {
+                "Recipe1": {
+                    "timestamp": "foo",
+                    "metadata": [
+                        {"file_path": str(bad_path), "file_size": -1},
+                        {"file_path": str(good_path), "file_size": 512},
+                    ],
+                }
+            }
+        )
+    )
+
+    with (
+        patch(
+            "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+            return_value={},
+        ),
+        patch(
+            "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
+            return_value=["Recipe1"],
+        ),
+    ):
+        await file_utils.create_placeholder_files(["Recipe1"])
+
+    assert not bad_path.exists()
+    assert good_path.stat().st_size == 512
 
 
 @pytest.mark.asyncio

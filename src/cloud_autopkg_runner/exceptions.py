@@ -58,6 +58,23 @@ InvalidCacheContents = InvalidCacheContentsError
 
 
 # File Contents
+class InvalidFileSizeError(AutoPkgRunnerError):
+    """Error class for handling an unusable file size.
+
+    This error is raised when a cached file size cannot describe a real
+    file, such as a negative byte count.
+    """
+
+    def __init__(self, file_path: Path, size: int) -> None:
+        """Initializes InvalidFileSizeError with the path and offending size.
+
+        Args:
+            file_path: The path to the file that would have been created.
+            size: The invalid size, in bytes.
+        """
+        super().__init__(f"Invalid file size {size} for {file_path}")
+
+
 class InvalidFileContentsError(AutoPkgRunnerError):
     """Base error class for handling invalid file contents.
 

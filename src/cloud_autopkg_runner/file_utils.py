@@ -31,6 +31,7 @@ from cloud_autopkg_runner import (
     metadata_cache,
     recipe_finder,
 )
+from cloud_autopkg_runner.exceptions import InvalidFileSizeError
 from cloud_autopkg_runner.metadata_cache import DownloadMetadata
 
 
@@ -61,7 +62,7 @@ def _create_and_set_attrs(file_path: Path, metadata_cache: DownloadMetadata) -> 
 
 
 def _set_file_size(file_path: Path, size: int) -> None:
-    """Set a file to a specified size by writing a null byte at the end.
+    """Set a file to a specified size without writing that many bytes.
 
     Effectively replicates the behavior of `mkfile -n` on macOS. This function
     does not actually write `size` bytes of data, but rather sets the file's
@@ -70,11 +71,18 @@ def _set_file_size(file_path: Path, size: int) -> None:
 
     Args:
         file_path: The path to the file.
-        size: The desired size of the file in bytes.
+        size: The desired size of the file in bytes. Zero is valid and
+            produces an empty file.
+
+    Raises:
+        InvalidFileSizeError: If `size` is negative.
     """
+    size = int(size)
+    if size < 0:
+        raise InvalidFileSizeError(file_path, size)
+
     with file_path.open("wb") as f:
-        f.seek(int(size) - 1)
-        f.write(b"\0")
+        f.truncate(size)
 
 
 async def create_placeholder_files(
@@ -120,9 +128,17 @@ async def create_placeholder_files(
                     recipe_name,
                 )
                 continue
-            if not the_cache.get("file_size"):
+            file_size = the_cache.get("file_size")
+            if file_size is None:
                 logger.warning(
                     "Skipping file creation: Missing 'file_size' in %s cache",
+                    recipe_name,
+                )
+                continue
+            if file_size < 0:
+                logger.warning(
+                    "Skipping file creation: Negative 'file_size' (%s) in %s cache",
+                    file_size,
                     recipe_name,
                 )
                 continue
