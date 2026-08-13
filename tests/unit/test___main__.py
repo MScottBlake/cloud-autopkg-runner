@@ -343,10 +343,9 @@ async def test_get_recipe_path_recipe_lookup_error(
         await _get_recipe_path("test_recipe", mock_autopkg_prefs)
 
 
-# `recipes` selects what the CLI orchestrator iterates rather than how a run
-# behaves. The config file sets it, `_generate_recipe_list` reads it from the
-# schema, and `--recipe`/`--recipe-list` cover the CLI, so it has neither a
-# matching argparse dest nor a Settings property.
+# `--recipe`/`--recipe-list` cover `recipes` on the CLI, and
+# `_generate_recipe_list` reads it from the schema, so it needs no dest and no
+# Settings property.
 _SCHEMA_ONLY_FIELDS = {"recipes"}
 
 
