@@ -18,7 +18,6 @@ from cloud_autopkg_runner.__main__ import (
     EXIT_SUCCESS,
     STOP_WORKER,
     _async_main,
-    _count_iterable,
     _create_recipe,
     _generate_recipe_list,
     _get_recipe_path,
@@ -37,9 +36,6 @@ from cloud_autopkg_runner.exceptions import (
     RecipeLookupError,
 )
 from cloud_autopkg_runner.recipe_report import ConsolidatedReport, RunResults
-
-if typing.TYPE_CHECKING:
-    from collections.abc import Iterable
 
 
 @pytest.fixture
@@ -343,24 +339,6 @@ async def test_get_recipe_path_recipe_lookup_error(
         pytest.raises(RecipeLookupError),
     ):
         await _get_recipe_path("test_recipe", mock_autopkg_prefs)
-
-
-def test_count_iterable_str() -> None:
-    """Test that _count_iterable returns the correct value."""
-    mock_iterable: Iterable[str] = iter(["foo", "bar", "baz"])
-    result = _count_iterable(mock_iterable)
-
-    assert result == 3
-    assert type(result) is int
-
-
-def test_count_iterable_int() -> None:
-    """Test that _count_iterable returns the correct value."""
-    mock_iterable: Iterable[int] = iter([1, 2, 3])
-    result = _count_iterable(mock_iterable)
-
-    assert result == 3
-    assert type(result) is int
 
 
 def test_key_value_pair() -> None:
