@@ -8,7 +8,11 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-import xattr
+
+if sys.platform == "win32":  # xattr publishes no Windows build
+    xattr = None
+else:
+    import xattr
 
 from cloud_autopkg_runner import Settings, file_utils
 from cloud_autopkg_runner.exceptions import InvalidFileSizeError
@@ -77,6 +81,10 @@ def test_set_file_size_rejects_negative(tmp_path: Path) -> None:
         file_utils._set_file_size(file_path, -1)
 
 
+@pytest.mark.skipif(
+    sys.platform != "darwin",
+    reason="AutoPkg's xattr namespace is only writable on macOS",
+)
 def test_placeholder_satisfies_urldownloader(tmp_path: Path) -> None:
     """A placeholder must survive the checks AutoPkg's URLDownloader makes.
 
@@ -123,6 +131,19 @@ def test_create_and_set_attrs_with_absent_file_size(
 
     assert file_path.stat().st_size == 0
     mock_xattr.setxattr.assert_not_called()
+
+
+def test_create_and_set_attrs_without_xattr_support(tmp_path: Path) -> None:
+    """Without extended attributes the placeholder is still created at size."""
+    file_path = tmp_path / "placeholder.dmg"
+
+    with patch("cloud_autopkg_runner.file_utils.xattr", new=None):
+        file_utils._create_and_set_attrs(
+            file_path,
+            {"file_path": str(file_path), "file_size": 1024, "etag": "test_etag"},
+        )
+
+    assert file_path.stat().st_size == 1024
 
 
 @pytest.mark.asyncio
@@ -195,6 +216,7 @@ async def test_create_placeholder_files_skips_negative_size(tmp_path: Path) -> N
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("mock_xattr")  # AutoPkg's xattr names are macOS-only
 async def test_create_placeholder_files(
     tmp_path: Path, metadata_cache: MetadataCache
 ) -> None:
@@ -274,40 +296,51 @@ async def test_get_file_metadata_invalid_attr(tmp_path: Path) -> None:
     file_path = tmp_path / "test_file.txt"
     file_path.touch()
 
-    result = await file_utils.get_file_metadata(file_path, "non_existant_attr")
+    # Linux only accepts names in a known namespace, so an unprefixed name
+    # would fail with EOPNOTSUPP rather than reporting the attribute as unset.
+    attr = "non_existant_attr" if sys.platform == "darwin" else "user.non_existant_attr"
+
+    result = await file_utils.get_file_metadata(file_path, attr)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_file_metadata_without_xattr_support(tmp_path: Path) -> None:
+    """Without extended attributes, metadata reads report the value as absent."""
+    file_path = tmp_path / "test_file.txt"
+    file_path.touch()
+
+    with patch("cloud_autopkg_runner.file_utils.xattr", new=None):
+        result = await file_utils.get_file_metadata(file_path, "test_attr")
 
     assert result is None
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("platform", "errno_to_simulate", "expected_result_is_none"),
+    ("errno_to_simulate", "expected_result_is_none"),
     [
         # --- Cases where None should be returned ---
-        ("darwin", errno.ENOATTR, True),
-        ("linux", errno.ENODATA, True),
-        ("win32", errno.ENODATA, True),
-        ("darwin", errno.ENODATA, True),
+        # ENOATTR on macOS, ENODATA on Linux; both mean "attribute not set"
+        (file_utils._ENOATTR, True),
+        (errno.ENODATA, True),
         # --- Cases where OSError should be re-raised ---
-        ("linux", errno.ENOATTR, False),
-        ("win32", errno.ENOATTR, False),
-        ("darwin", errno.EIO, False),
-        ("linux", errno.EIO, False),
+        (errno.EIO, False),
+        (errno.ENOTSUP, False),
     ],
 )
 async def test_get_file_metadata_errno_behavior(
     tmp_path: Path,
     mock_xattr: MagicMock,
-    platform: str,
     errno_to_simulate: int,
     expected_result_is_none: bool,
 ) -> None:
-    """Test get_file_metadata's platform-specific errno handling.
+    """Test get_file_metadata's errno handling.
 
     This test uses parametrization to cover:
-    - Returning None for specific 'attribute not found' errors.
+    - Returning None for the 'attribute not found' errors of both platforms.
     - Re-raising OSErrors for other errno codes.
-    - Simulating different platforms using `sys.platform`.
     """
     mock_file_path = tmp_path / "testfile.txt"
     mock_attr = "com.github.autopkg.etag"
@@ -317,25 +350,22 @@ async def test_get_file_metadata_errno_behavior(
         errno_to_simulate, f"Simulated error for errno {errno_to_simulate}"
     )
 
-    with patch.object(sys, "platform", new=platform):
-        if expected_result_is_none:
-            result = await file_utils.get_file_metadata(mock_file_path, mock_attr)
-            assert result is None, (
-                f"Expected None for errno {errno_to_simulate} on {platform}, "
-                f"but got {result}"
-            )
-        else:
-            with pytest.raises(OSError) as exc_info:  # noqa: PT011
-                await file_utils.get_file_metadata(mock_file_path, mock_attr)
-            assert exc_info.type is OSError
-            assert exc_info.value.errno == errno_to_simulate, (
-                f"Expected OSError with errno {errno_to_simulate} on {platform}, "
-                f"but got {exc_info.value.errno}"
-            )
+    if expected_result_is_none:
+        result = await file_utils.get_file_metadata(mock_file_path, mock_attr)
+        assert result is None, (
+            f"Expected None for errno {errno_to_simulate}, but got {result}"
+        )
+    else:
+        with pytest.raises(OSError) as exc_info:  # noqa: PT011
+            await file_utils.get_file_metadata(mock_file_path, mock_attr)
+        assert exc_info.type is OSError
+        assert exc_info.value.errno == errno_to_simulate, (
+            f"Expected OSError with errno {errno_to_simulate}, "
+            f"but got {exc_info.value.errno}"
+        )
 
-        # Assert that xattr.getxattr was called as expected in all cases
-        mock_xattr.getxattr.assert_called_once_with(mock_file_path, mock_attr)
-        mock_xattr.getxattr.reset_mock()  # Reset for the next parameter iteration
+    # Assert that xattr.getxattr was called as expected in all cases
+    mock_xattr.getxattr.assert_called_once_with(mock_file_path, mock_attr)
 
 
 @pytest.mark.asyncio

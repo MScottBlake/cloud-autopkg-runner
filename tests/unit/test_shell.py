@@ -7,14 +7,44 @@ import pytest
 from cloud_autopkg_runner import shell
 from cloud_autopkg_runner.exceptions import ShellCommandError
 
-# Portable long-running command; `sleep` is unavailable on Windows.
+# The unit suite runs on macOS, Linux and Windows, so every command here is
+# spelled as a Python invocation. Shell builtins and coreutils (`echo`,
+# `false`, `cat`, `sleep`) do not exist as executables on Windows, and
+# `create_subprocess_exec` never goes through a shell.
+PYTHON = Path(sys.executable).as_posix()
+
+ECHO_CMD = [sys.executable, "-c", 'print("Hello, world!")']
+FAIL_CMD = [sys.executable, "-c", "raise SystemExit(1)"]
 SLEEP_CMD = [sys.executable, "-c", "import time; time.sleep(30)"]
+READ_FILE_CMD = [
+    sys.executable,
+    "-c",
+    "import pathlib, sys; sys.stdout.write(pathlib.Path(sys.argv[1]).read_text())",
+]
+
+
+def python_cmd_str(code: str) -> str:
+    """Build a `python -c` command as a string that `shlex.split` can parse.
+
+    The interpreter path is quoted (it may contain spaces) and rendered with
+    forward slashes, since `shlex.split` strips Windows path separators as
+    escape characters. `code` must not contain single quotes.
+
+    Args:
+        code: The Python source to pass to `-c`.
+
+    Returns:
+        A command string suitable for `shell.run_cmd`.
+    """
+    return f"\"{PYTHON}\" -c '{code}'"
 
 
 @pytest.mark.asyncio
 async def test_run_cmd_success() -> None:
     """Test successful command execution."""
-    returncode, stdout, stderr = await shell.run_cmd("echo 'Hello, world!'")
+    returncode, stdout, stderr = await shell.run_cmd(
+        python_cmd_str('print("Hello, world!")')
+    )
     assert returncode == 0
     assert "Hello, world!" in stdout
     assert not stderr
@@ -24,25 +54,25 @@ async def test_run_cmd_success() -> None:
 async def test_run_cmd_failure() -> None:
     """Test command execution with a non-zero exit code."""
     with pytest.raises(ShellCommandError) as exc_info:
-        await shell.run_cmd("false")
-    assert "Command failed with exit code 1: false" in str(exc_info.value)
+        await shell.run_cmd(FAIL_CMD)
+    assert f"Command failed with exit code 1: {' '.join(FAIL_CMD)}" in str(
+        exc_info.value
+    )
 
 
 @pytest.mark.asyncio
 async def test_run_cmd_no_check() -> None:
     """Test command execution with check=False."""
-    returncode, stdout, stderr = await shell.run_cmd("false", check=False)
+    returncode, stdout, stderr = await shell.run_cmd(FAIL_CMD, check=False)
     assert returncode == 1
     assert not stdout
-    assert not stderr
+    assert not stderr  # SystemExit with an integer code prints nothing
 
 
 @pytest.mark.asyncio
 async def test_run_cmd_capture_output_false() -> None:
     """Test command execution with capture_output=False."""
-    returncode, stdout, stderr = await shell.run_cmd(
-        "echo 'Hello, world!'", capture_output=False
-    )
+    returncode, stdout, stderr = await shell.run_cmd(ECHO_CMD, capture_output=False)
     assert returncode == 0
     assert not stdout
     assert not stderr
@@ -55,9 +85,9 @@ async def test_run_cmd_cwd(tmp_path: Path) -> None:
     test_file = tmp_path / "test.txt"
     test_file.write_text("Test content")
 
-    # Run a command that reads the file in the temporary directory
+    # Read the file by its relative name, so it is only found via cwd
     returncode, stdout, stderr = await shell.run_cmd(
-        f"cat {test_file}", cwd=str(tmp_path)
+        [*READ_FILE_CMD, test_file.name], cwd=str(tmp_path)
     )
     assert returncode == 0
     assert "Test content" in stdout
@@ -68,8 +98,10 @@ async def test_run_cmd_cwd(tmp_path: Path) -> None:
 async def test_run_cmd_timeout() -> None:
     """Test command execution with a timeout."""
     with pytest.raises(ShellCommandError) as exc_info:
-        await shell.run_cmd("sleep 2", timeout=1)
-    assert "Command failed with exit code -1: sleep 2" in str(exc_info.value)
+        await shell.run_cmd(SLEEP_CMD, timeout=1)
+    assert f"Command failed with exit code -1: {' '.join(SLEEP_CMD)}" in str(
+        exc_info.value
+    )
 
 
 @pytest.mark.asyncio
@@ -85,7 +117,7 @@ async def test_run_cmd_shell_injection_safe() -> None:
     """Test that shell.run_cmd is safe from shell injection."""
     # Attempt to inject a command using a semicolon
     returncode, stdout, stderr = await shell.run_cmd(
-        "echo 'hello; rm -rf /'", check=False
+        python_cmd_str('print("hello; rm -rf /")'), check=False
     )  # Removed injection
     assert returncode == 0
     assert "hello; rm -rf /" in stdout  # Injection is treated as literal
@@ -102,7 +134,7 @@ async def test_run_cmd_shell_injection_safe() -> None:
 @pytest.mark.asyncio
 async def test_run_cmd_list_command() -> None:
     """Test command execution with a list command."""
-    returncode, stdout, stderr = await shell.run_cmd(["echo", "Hello, world!"])
+    returncode, stdout, stderr = await shell.run_cmd(ECHO_CMD)
     assert returncode == 0
     assert "Hello, world!" in stdout
     assert not stderr
@@ -114,12 +146,11 @@ async def test_run_cmd_file_not_found_error(tmp_path: Path) -> None:
     # Create a temporary directory
     cwd = str(tmp_path)
 
-    # Test running 'cat non_existent_file.txt' command in the directory
+    # Read a file that does not exist in the directory
+    cmd = [*READ_FILE_CMD, "non_existent_file.txt"]
     with pytest.raises(ShellCommandError) as exc_info:
-        await shell.run_cmd("cat non_existent_file.txt", cwd=cwd)
-    assert "Command failed with exit code 1: cat non_existent_file.txt" in str(
-        exc_info.value
-    )
+        await shell.run_cmd(cmd, cwd=cwd)
+    assert f"Command failed with exit code 1: {' '.join(cmd)}" in str(exc_info.value)
 
 
 class ProcessTracker:
@@ -182,10 +213,11 @@ async def test_run_cmd_reaps_subprocess_on_timeout() -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_cmd_os_error() -> None:
+async def test_run_cmd_os_error(tmp_path: Path) -> None:
     """Test OSError when the command encounters an OS-level error."""
-    # Use an invalid command that will cause an OSError
+    # A directory exists but cannot be executed, so this fails with a
+    # PermissionError rather than a FileNotFoundError on every platform.
     with pytest.raises(ShellCommandError) as exc_info:
-        await shell.run_cmd("/dev/null")
+        await shell.run_cmd([str(tmp_path)])
     # Check if the error message contains "Permission denied" or "Not executable"
     assert "OS error" in str(exc_info.value)

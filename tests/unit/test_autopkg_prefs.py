@@ -634,7 +634,7 @@ async def test_to_json_file() -> None:
         loaded_json = json.loads(content)
         assert loaded_json["GITHUB_TOKEN"] == "file_token_123"  # noqa: S105
         assert loaded_json["ANOTHER_KEY"] == ["item1", "item2"]
-        assert loaded_json["MUNKI_REPO"] == "/tmp/munki"
+        assert loaded_json["MUNKI_REPO"] == str(Path("/tmp/munki"))
         # Ensure default prefs are also included
         assert "CACHE_DIR" in loaded_json
         assert isinstance(loaded_json["CACHE_DIR"], str)
