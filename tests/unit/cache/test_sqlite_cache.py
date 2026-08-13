@@ -35,16 +35,12 @@ async def sqlite_cache(tmp_path: Path) -> Generator[AsyncSQLiteCache, Any, None]
     conn.commit()
     conn.close()
 
-    with (
-        patch.object(Settings, "_instance", None),
-        patch.object(AsyncSQLiteCache, "_instance", None),
-    ):
-        settings = Settings()
-        settings.cache_file = cache_file
+    settings = Settings()
+    settings.cache_file = cache_file
 
-        cache = AsyncSQLiteCache()
-        yield cache
-        await cache.close()
+    cache = AsyncSQLiteCache()
+    yield cache
+    await cache.close()
 
 
 @pytest.mark.asyncio

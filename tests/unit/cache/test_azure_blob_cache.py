@@ -16,20 +16,16 @@ if TYPE_CHECKING:
 @pytest_asyncio.fixture
 async def azure_cache() -> Generator[AsyncAzureBlobCache, Any, None]:
     """Fixture to create an AsyncS3Cache instance with mocks."""
-    with (
-        patch.object(Settings, "_instance", None),
-        patch.object(AsyncAzureBlobCache, "_instance", None),
-    ):
-        settings = Settings()
-        settings.azure_account_url = "https://testaccount.blob.core.windows.net"
-        settings.cloud_container_name = "test-container"
-        settings.cache_file = "metadata_cache.json"
+    settings = Settings()
+    settings.azure_account_url = "https://testaccount.blob.core.windows.net"
+    settings.cloud_container_name = "test-container"
+    settings.cache_file = "metadata_cache.json"
 
-        cache = AsyncAzureBlobCache()
-        cache._client = AsyncMock(spec=BlobClient)
+    cache = AsyncAzureBlobCache()
+    cache._client = AsyncMock(spec=BlobClient)
 
-        yield cache
-        await cache.close()
+    yield cache
+    await cache.close()
 
 
 @pytest.mark.asyncio

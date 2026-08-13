@@ -18,26 +18,22 @@ from cloud_autopkg_runner.settings import Settings
 @pytest_asyncio.fixture
 async def gcs_cache() -> Generator[AsyncGCSCache, Any, None]:
     """Fixture to create an AsyncGCSCache instance with mocks."""
-    with (
-        patch.object(Settings, "_instance", None),
-        patch.object(AsyncGCSCache, "_instance", None),
-    ):
-        settings = Settings()
-        settings.cloud_container_name = "test-container"
-        settings.cache_file = "metadata_cache.json"
+    settings = Settings()
+    settings.cloud_container_name = "test-container"
+    settings.cache_file = "metadata_cache.json"
 
-        cache = AsyncGCSCache()
-        cache._client = AsyncMock(spec=Client)
-        mock_bucket = MagicMock(spec=Bucket)
-        cache._client.bucket.return_value = mock_bucket
-        mock_blob = MagicMock(spec=Blob)
-        mock_bucket.blob.return_value = mock_blob
-        mock_blob.download_as_bytes = MagicMock(
-            return_value=json.dumps({"recipe1": {"timestamp": "test"}}).encode("utf-8")
-        )
+    cache = AsyncGCSCache()
+    cache._client = AsyncMock(spec=Client)
+    mock_bucket = MagicMock(spec=Bucket)
+    cache._client.bucket.return_value = mock_bucket
+    mock_blob = MagicMock(spec=Blob)
+    mock_bucket.blob.return_value = mock_blob
+    mock_blob.download_as_bytes = MagicMock(
+        return_value=json.dumps({"recipe1": {"timestamp": "test"}}).encode("utf-8")
+    )
 
-        yield cache
-        await cache.close()
+    yield cache
+    await cache.close()
 
 
 @pytest.mark.asyncio

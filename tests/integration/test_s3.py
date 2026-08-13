@@ -31,15 +31,17 @@ def generate_unique_name(prefix: str) -> str:
 
 @pytest.fixture
 def settings() -> Settings:
-    """Setup the Settings class."""
+    """Setup the Settings class.
+
+    Returns:
+        Settings: Settings pointing at a bucket unique to this test.
+    """
     settings = Settings()
     settings.cache_plugin = "s3"
     settings.cloud_container_name = generate_unique_name("cloud-autopkg-test-s3")
     settings.cache_file = "metadata_cache.json"
 
-    yield settings
-
-    Settings._instance = None
+    return settings
 
 
 @pytest.fixture
