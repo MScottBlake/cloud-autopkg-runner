@@ -70,6 +70,7 @@ def test_cli_overrides_schema(tmp_path: Path) -> None:
         post_processor=["com.example.identifier/postProcessorName"],
         azure_account_url=None,
         cloud_container_name=None,
+        autopkg_path=Path("/opt/homebrew/bin/autopkg"),
         autopkg_pref_file=None,
         key=[("KEY1", "VALUE1"), ("KEY2", "VALUE2")],
     )
@@ -91,6 +92,7 @@ def test_cli_overrides_schema(tmp_path: Path) -> None:
     assert settings.pre_processors == ["com.example.identifier/preProcessorName"]
     assert settings.post_processors == ["com.example.identifier/postProcessorName"]
     assert settings.input_variables == {"KEY1": "VALUE1", "KEY2": "VALUE2"}
+    assert settings.autopkg_path == Path("/opt/homebrew/bin/autopkg")
 
 
 def test_generate_recipe_list_from_schema() -> None:
@@ -607,6 +609,7 @@ def _cli_namespace() -> Namespace:
         A Namespace matching the attributes _async_main reads.
     """
     return Namespace(
+        autopkg_path=None,
         autopkg_pref_file=None,
         azure_account_url=None,
         cache_file=None,

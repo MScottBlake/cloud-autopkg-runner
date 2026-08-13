@@ -48,6 +48,7 @@ class ConfigSchema:
     post_processors: list[str] | None = None
 
     # AutoPkg
+    autopkg_path: Path | None = None
     autopkg_pref_file: Path | None = None
 
     @classmethod

@@ -60,6 +60,7 @@ class Settings:
         if hasattr(self, "_initialized"):
             return  # Prevent re-initialization
 
+        self._autopkg_path: Path = Path("/usr/local/bin/autopkg")
         self._autopkg_pref_file: Path = Path(
             "~/Library/Preferences/com.github.autopkg.plist"
         ).expanduser()
@@ -91,6 +92,27 @@ class Settings:
             schema_value = getattr(schema, field.name)
             if schema_value is not None:
                 setattr(self, field.name, schema_value)
+
+    @property
+    def autopkg_path(self) -> Path:
+        """Get the path to the AutoPkg executable.
+
+        Returns:
+            The path to the AutoPkg executable.
+        """
+        return self._autopkg_path
+
+    @autopkg_path.setter
+    def autopkg_path(self, value: str | Path) -> None:
+        """Set the path to the AutoPkg executable.
+
+        Args:
+            value: The new path to the AutoPkg executable. Can be either a
+                string or a Path object. Homebrew on Apple silicon installs it
+                under `/opt/homebrew/bin`, and a virtualenv or a bundled copy
+                will be somewhere else again.
+        """
+        self._autopkg_path = self._convert_to_path(value).expanduser()
 
     @property
     def autopkg_pref_file(self) -> Path:

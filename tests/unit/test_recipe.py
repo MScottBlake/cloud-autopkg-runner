@@ -219,7 +219,10 @@ async def test_autopkg_run_cmd_basic(
     report_dir = tmp_path / "report"
     report_dir.mkdir()
 
+    autopkg_path = Path("/usr/local/bin/autopkg")
+
     with patch("cloud_autopkg_runner.recipe.Settings") as mock_settings:
+        mock_settings.return_value.autopkg_path = autopkg_path
         mock_settings.return_value.pre_processors = []
         mock_settings.return_value.post_processors = []
         mock_settings.return_value.verbosity_int.return_value = 0
@@ -228,7 +231,8 @@ async def test_autopkg_run_cmd_basic(
         recipe = Recipe(recipe_file, report_dir, mock_autopkg_prefs)
         cmd = await recipe._autopkg_run_cmd()
 
-        assert cmd[:3] == ["/usr/local/bin/autopkg", "run", recipe.name]
+        # str(Path) so the separator matches whatever platform this runs on
+        assert cmd[:3] == [str(autopkg_path), "run", recipe.name]
         assert any(arg.startswith("--report-plist=") for arg in cmd)
         assert "--check" not in cmd
         assert not any(arg.startswith("--key=") for arg in cmd)
@@ -252,6 +256,7 @@ async def test_autopkg_run_cmd_with_check(
     report_dir.mkdir()
 
     with patch("cloud_autopkg_runner.recipe.Settings") as mock_settings:
+        mock_settings.return_value.autopkg_path = Path("/usr/local/bin/autopkg")
         mock_settings.return_value.pre_processors = []
         mock_settings.return_value.post_processors = []
         mock_settings.return_value.verbosity_int.return_value = 0
@@ -261,6 +266,49 @@ async def test_autopkg_run_cmd_with_check(
         cmd = await recipe._autopkg_run_cmd(check=True)
 
         assert "--check" in cmd
+
+
+@pytest.mark.asyncio
+async def test_autopkg_run_cmd_honors_configured_autopkg_path(
+    tmp_path: Path, mock_autopkg_prefs: MagicMock
+) -> None:
+    """AutoPkg is invoked wherever it is installed, not at a fixed path."""
+    yaml_content = """
+    Description: Test
+    Identifier: com.example.test
+    Input:
+        NAME: TestRecipe
+    Process: []
+    """
+    recipe_file = tmp_path / "test.recipe.yaml"
+    create_test_file(recipe_file, yaml_content)
+    report_dir = tmp_path / "report"
+    report_dir.mkdir()
+
+    # Where Homebrew puts it on Apple silicon
+    autopkg_path = Path("/opt/homebrew/bin/autopkg")
+
+    with patch("cloud_autopkg_runner.recipe.Settings") as mock_settings:
+        mock_settings.return_value.autopkg_path = autopkg_path
+        mock_settings.return_value.pre_processors = []
+        mock_settings.return_value.post_processors = []
+        mock_settings.return_value.verbosity_int.return_value = 0
+        mock_settings.return_value.verbosity_str.return_value = ""
+
+        recipe = Recipe(recipe_file, report_dir, mock_autopkg_prefs)
+
+        assert (await recipe._autopkg_run_cmd())[0] == str(autopkg_path)
+
+        with patch(
+            "cloud_autopkg_runner.recipe.shell.run_cmd", new_callable=AsyncMock
+        ) as mock_run_cmd:
+            mock_run_cmd.return_value = (0, "", "")
+
+            await recipe.update_trust_info()
+            assert mock_run_cmd.call_args.args[0][0] == str(autopkg_path)
+
+            await recipe.verify_trust_info()
+            assert mock_run_cmd.call_args.args[0][0] == str(autopkg_path)
 
 
 @pytest.mark.asyncio
@@ -281,6 +329,7 @@ async def test_autopkg_run_cmd_with_processors_and_verbosity(
     report_dir.mkdir()
 
     with patch("cloud_autopkg_runner.recipe.Settings") as mock_settings:
+        mock_settings.return_value.autopkg_path = Path("/usr/local/bin/autopkg")
         mock_settings.return_value.pre_processors = [
             "PreA",
             "com.example.test/PreProcessorB",
@@ -319,6 +368,7 @@ async def test_autopkg_run_cmd_with_input_variables(
     report_dir.mkdir()
 
     with patch("cloud_autopkg_runner.recipe.Settings") as mock_settings:
+        mock_settings.return_value.autopkg_path = Path("/usr/local/bin/autopkg")
         mock_settings.return_value.pre_processors = []
         mock_settings.return_value.post_processors = []
         mock_settings.return_value.input_variables = {
