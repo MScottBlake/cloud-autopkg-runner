@@ -26,6 +26,27 @@ def test_attribute_access() -> None:
     assert isinstance(settings.report_dir, Path)
     assert isinstance(settings.verbosity_level, int)
     assert isinstance(settings.input_variables, dict)
+    assert isinstance(settings.autopkg_path, Path)
+
+
+def test_autopkg_path_default() -> None:
+    """AutoPkg's usual location stays the default."""
+    settings = Settings()
+    assert settings.autopkg_path == Path("/usr/local/bin/autopkg")
+
+
+def test_autopkg_path_setter() -> None:
+    """Test setting autopkg_path from a string or a Path, including a `~`."""
+    settings = Settings()
+
+    settings.autopkg_path = Path("/opt/homebrew/bin/autopkg")
+    assert settings.autopkg_path == Path("/opt/homebrew/bin/autopkg")
+
+    settings.autopkg_path = "/opt/homebrew/bin/autopkg"
+    assert settings.autopkg_path == Path("/opt/homebrew/bin/autopkg")
+
+    settings.autopkg_path = "~/.venv/bin/autopkg"
+    assert settings.autopkg_path == Path("~/.venv/bin/autopkg").expanduser()
 
 
 def test_cache_file_setter() -> None:

@@ -81,6 +81,7 @@ def _schema_overrides_from_cli(args: Namespace) -> dict[str, object]:
     overrides: dict[str, object] = {}
 
     for key in (
+        "autopkg_path",
         "autopkg_pref_file",
         "azure_account_url",
         "cache_file",
@@ -386,6 +387,11 @@ def _parse_arguments() -> Namespace:
 
     # AutoPkg
     autopkg = parser.add_argument_group("AutoPkg Preferences")
+    autopkg.add_argument(
+        "--autopkg-path",
+        help="Path to the AutoPkg executable. Defaults to /usr/local/bin/autopkg.",
+        type=Path,
+    )
     autopkg.add_argument(
         "--autopkg-pref-file",
         help="Path to the AutoPkg preferences file.",

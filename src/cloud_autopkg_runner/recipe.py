@@ -317,7 +317,7 @@ class Recipe:
         prefs_file_path: Path = await self._autopkg_prefs.to_json_file(indent=2)
 
         cmd: list[str] = [
-            "/usr/local/bin/autopkg",
+            str(self._settings.autopkg_path),
             "run",
             self.name,
             "--quiet",
@@ -754,7 +754,7 @@ class Recipe:
         prefs_file_path: Path = await self._autopkg_prefs.to_json_file(indent=2)
 
         cmd: list[str] = [
-            "/usr/local/bin/autopkg",
+            str(self._settings.autopkg_path),
             "update-trust-info",
             self.name,
             f"--override-dir={self._path.parent}",
@@ -793,7 +793,7 @@ class Recipe:
             prefs_file_path: Path = await self._autopkg_prefs.to_json_file(indent=2)
 
             cmd: list[str] = [
-                "/usr/local/bin/autopkg",
+                str(self._settings.autopkg_path),
                 "verify-trust-info",
                 self.name,
                 f"--override-dir={self._path.parent}",
