@@ -49,6 +49,30 @@ def test_autopkg_path_setter() -> None:
     assert settings.autopkg_path == Path("~/.venv/bin/autopkg").expanduser()
 
 
+@pytest.mark.parametrize("setting_name", ["azure_account_url", "cloud_container_name"])
+def test_cloud_setting_unset_raises(setting_name: str) -> None:
+    """Reading a cloud setting that was never configured names the setting."""
+    settings = Settings()
+
+    with pytest.raises(SettingsValidationError, match=setting_name):
+        getattr(settings, setting_name)
+
+
+@pytest.mark.parametrize(
+    ("setting_name", "value"),
+    [
+        ("azure_account_url", "https://myaccount.blob.core.windows.net"),
+        ("cloud_container_name", "my-bucket"),
+    ],
+)
+def test_cloud_setting_returns_configured_value(setting_name: str, value: str) -> None:
+    """A configured cloud setting reads back as a plain string."""
+    settings = Settings()
+    setattr(settings, setting_name, value)
+
+    assert getattr(settings, setting_name) == value
+
+
 def test_cache_file_setter() -> None:
     """Test setting the cache_file attribute with a Path object."""
     settings = Settings()
