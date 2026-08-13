@@ -5,7 +5,9 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "hypothesis>=6.138.8",
-    "localstack>=4.7.0",
+    # localstack drives the integration suite, which only runs on Linux. It
+    # pulls in windows-curses, which has no wheel for every Python we test.
+    "localstack>=4.7.0; sys_platform != 'win32'",
     "pre-commit>=4.1.0",
     "pyright>=1.1.397",
     "pytest-asyncio>=0.26.0",
@@ -13,6 +15,9 @@ dev = [
     "pytest-xdist>=3.8.0",
     "ruff>=0.12.7",
     "types-boto3-lite[s3]>=1.40.70",
+    # Windows ships no time zone database, which Hypothesis needs when it
+    # generates aware datetimes.
+    "tzdata>=2025.1; sys_platform == 'win32'",
 ]
 
 [project]
