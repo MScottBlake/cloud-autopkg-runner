@@ -1,26 +1,11 @@
 """Tests for the settings module."""
 
-from collections.abc import Generator
 from pathlib import Path
-from typing import Any
-from unittest.mock import patch
 
 import pytest
 
 from cloud_autopkg_runner import Settings
 from cloud_autopkg_runner.exceptions import SettingsValidationError
-
-
-@pytest.fixture
-def settings() -> Generator[Settings, Any, None]:
-    """Fixture to get the settings instance.
-
-    Returns:
-        Settings: A new instance of the Settings class.
-    """
-    with patch.object(Settings, "_instance", None):
-        instance = Settings()
-        yield instance
 
 
 def test_singleton_pattern() -> None:
@@ -30,8 +15,9 @@ def test_singleton_pattern() -> None:
     assert settings1 is settings2
 
 
-def test_attribute_access(settings: Settings) -> None:
+def test_attribute_access() -> None:
     """Test getting and setting each attribute of the Settings class."""
+    settings = Settings()
     assert isinstance(settings.cache_file, str)
     assert isinstance(settings.log_file, Path | None)
     assert isinstance(settings.max_concurrency, int)
@@ -42,15 +28,17 @@ def test_attribute_access(settings: Settings) -> None:
     assert isinstance(settings.input_variables, dict)
 
 
-def test_cache_file_setter(settings: Settings) -> None:
+def test_cache_file_setter() -> None:
     """Test setting the cache_file attribute with a Path object."""
+    settings = Settings()
     new_cache_file = "new_cache.json"
     settings.cache_file = new_cache_file
     assert settings.cache_file == new_cache_file
 
 
-def test_log_file_setter(tmp_path: Path, settings: Settings) -> None:
+def test_log_file_setter(tmp_path: Path) -> None:
     """Test setting the log_file attribute with a Path object or None."""
+    settings = Settings()
     new_log_file = tmp_path / "new_log.log"
     settings.log_file = new_log_file
     assert settings.log_file == new_log_file
@@ -62,32 +50,37 @@ def test_log_file_setter(tmp_path: Path, settings: Settings) -> None:
     assert settings.log_file is None
 
 
-def test_log_format_setter_text(settings: Settings) -> None:
+def test_log_format_setter_text() -> None:
     """Test setting the cache_file attribute with a Path object."""
+    settings = Settings()
     settings.cache_file = "text"
     assert settings.cache_file == "text"
 
 
-def test_log_format_setter_json(settings: Settings) -> None:
+def test_log_format_setter_json() -> None:
     """Test setting the cache_file attribute with a Path object."""
+    settings = Settings()
     settings.cache_file = "json"
     assert settings.cache_file == "json"
 
 
-def test_log_format_validation(settings: Settings) -> None:
+def test_log_format_validation() -> None:
     """Test setting the verbosity_level attribute with invalid values."""
+    settings = Settings()
     with pytest.raises(SettingsValidationError):
         settings.log_format = "invalid"
 
 
-def test_max_concurrency_setter(settings: Settings) -> None:
+def test_max_concurrency_setter() -> None:
     """Test setting the max_concurrency attribute with a valid integer."""
+    settings = Settings()
     settings.max_concurrency = 20
     assert settings.max_concurrency == 20
 
 
-def test_max_concurrency_setter_validation(settings: Settings) -> None:
+def test_max_concurrency_setter_validation() -> None:
     """Test setting the max_concurrency attribute with invalid values."""
+    settings = Settings()
     with pytest.raises(SettingsValidationError):
         settings.max_concurrency = 0
 
@@ -98,8 +91,9 @@ def test_max_concurrency_setter_validation(settings: Settings) -> None:
         settings.max_concurrency = "invalid"
 
 
-def test_report_dir_setter(tmp_path: Path, settings: Settings) -> None:
+def test_report_dir_setter(tmp_path: Path) -> None:
     """Test setting the report_dir attribute with a Path object."""
+    settings = Settings()
     new_report_dir = tmp_path / "new_reports"
     settings.report_dir = new_report_dir
     assert settings.report_dir == new_report_dir
@@ -108,14 +102,16 @@ def test_report_dir_setter(tmp_path: Path, settings: Settings) -> None:
     assert settings.report_dir == new_report_dir
 
 
-def test_verbosity_level_setter(settings: Settings) -> None:
+def test_verbosity_level_setter() -> None:
     """Test setting the verbosity_level attribute with a valid integer."""
+    settings = Settings()
     settings.verbosity_level = 3
     assert settings.verbosity_level == 3
 
 
-def test_verbosity_level_setter_validation(settings: Settings) -> None:
+def test_verbosity_level_setter_validation() -> None:
     """Test setting the verbosity_level attribute with invalid values."""
+    settings = Settings()
     with pytest.raises(SettingsValidationError):
         settings.verbosity_level = -1
 
@@ -139,10 +135,9 @@ def test_verbosity_level_setter_validation(settings: Settings) -> None:
         (2, -4, 0),
     ],
 )
-def test_verbosity_int(
-    level: int, delta: int, expected: str, settings: Settings
-) -> None:
+def test_verbosity_int(level: int, delta: int, expected: str) -> None:
     """Test the verbosity_str method with different delta values."""
+    settings = Settings()
     settings.verbosity_level = level
     assert settings.verbosity_int(delta) == expected
 
@@ -163,16 +158,16 @@ def test_verbosity_int(
         (2, -4, ""),
     ],
 )
-def test_verbosity_str(
-    level: int, delta: int, expected: str, settings: Settings
-) -> None:
+def test_verbosity_str(level: int, delta: int, expected: str) -> None:
     """Test the verbosity_str method with different delta values."""
+    settings = Settings()
     settings.verbosity_level = level
     assert settings.verbosity_str(delta) == expected
 
 
-def test_convert_to_path(settings: Settings) -> None:
+def test_convert_to_path() -> None:
     """Test the _convert_to_path method."""
+    settings = Settings()
     test_path = Path("/test/path")
     assert settings._convert_to_path("/test/path") == test_path
     assert settings._convert_to_path(test_path) == test_path
@@ -189,9 +184,10 @@ def test_convert_to_path(settings: Settings) -> None:
     ],
 )
 def test_pre_processors_setter(
-    input_value: str | list[str], expected_output: list[str], settings: Settings
+    input_value: str | list[str], expected_output: list[str]
 ) -> None:
     """Test setting the pre_processors attribute with various inputs."""
+    settings = Settings()
     settings.pre_processors = input_value
     assert settings.pre_processors == expected_output
 
@@ -207,9 +203,10 @@ def test_pre_processors_setter(
     ],
 )
 def test_post_processors_setter(
-    input_value: str | list[str], expected_output: list[str], settings: Settings
+    input_value: str | list[str], expected_output: list[str]
 ) -> None:
     """Test setting the post_processors attribute with various inputs."""
+    settings = Settings()
     settings.post_processors = input_value
     assert settings.post_processors == expected_output
 
@@ -223,8 +220,9 @@ def test_post_processors_setter(
     ],
 )
 def test_input_variables_setter(
-    input_value: dict[str, str], expected_output: dict[str, str], settings: Settings
+    input_value: dict[str, str], expected_output: dict[str, str]
 ) -> None:
     """Test setting the override_variables attribute with various dicts."""
+    settings = Settings()
     settings.input_variables = input_value
     assert settings.input_variables == expected_output

@@ -17,16 +17,12 @@ async def json_cache(tmp_path: Path) -> Generator[AsyncJsonFileCache, Any, None]
     cache_file = tmp_path / "metadata_cache.json"
     cache_file.write_text(json.dumps({"recipe1": {"timestamp": "test"}}))
 
-    with (
-        patch.object(Settings, "_instance", None),
-        patch.object(AsyncJsonFileCache, "_instance", None),
-    ):
-        settings = Settings()
-        settings.cache_file = cache_file
+    settings = Settings()
+    settings.cache_file = cache_file
 
-        cache = AsyncJsonFileCache()
-        yield cache
-        await cache.close()
+    cache = AsyncJsonFileCache()
+    yield cache
+    await cache.close()
 
 
 @pytest.mark.asyncio

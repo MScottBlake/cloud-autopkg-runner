@@ -15,11 +15,7 @@ from cloud_autopkg_runner.cache.s3_cache import AsyncS3Cache
 @pytest_asyncio.fixture
 async def s3_cache() -> Generator[AsyncS3Cache, Any, None]:
     """Fixture to create an AsyncS3Cache instance with mocks."""
-    with (
-        patch.object(Settings, "_instance", None),
-        patch.object(AsyncS3Cache, "_instance", None),
-        patch("cloud_autopkg_runner.cache.s3_cache.boto3.Session"),
-    ):
+    with patch("cloud_autopkg_runner.cache.s3_cache.boto3.Session"):
         settings = Settings()
         settings.cloud_container_name = "test-bucket"
         settings.cache_file = "metadata_cache.json"

@@ -1,7 +1,5 @@
 """Tests for the metadata_cache module."""
 
-from collections.abc import Generator
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,16 +18,6 @@ from cloud_autopkg_runner.metadata_cache import (
 )
 
 
-@pytest.fixture
-def plugin_manager() -> Generator[PluginManager, Any, None]:
-    """Fixture that yields PluginManager and removes _instance after."""
-    with (
-        patch.object(Settings, "_instance", None),
-        patch.object(PluginManager, "_instance", None),
-    ):
-        yield PluginManager()
-
-
 def test_plugin_manager_singleton() -> None:
     """Test that PluginManager is a singleton."""
     plugin_manager1 = PluginManager()
@@ -37,8 +25,9 @@ def test_plugin_manager_singleton() -> None:
     assert plugin_manager1 is plugin_manager2
 
 
-def test_plugin_manager_get_plugin(plugin_manager: PluginManager) -> None:
+def test_plugin_manager_get_plugin() -> None:
     """Test that PluginManager returns the correct plugin."""
+    plugin_manager = PluginManager()
     plugin_manager.plugin = MagicMock()
     assert plugin_manager.get_plugin() == plugin_manager.plugin
 
@@ -54,8 +43,9 @@ def test_get_cache_plugin() -> None:
         mock_get_plugin.assert_called_once()
 
 
-def test_plugin_manager_load_plugin_default(plugin_manager: PluginManager) -> None:
+def test_plugin_manager_load_plugin_default() -> None:
     """Test successful plugin loading."""
+    plugin_manager = PluginManager()
     settings = Settings()
     settings.cache_plugin = "default"
     settings.cache_file = "cache_file.json"
@@ -66,8 +56,9 @@ def test_plugin_manager_load_plugin_default(plugin_manager: PluginManager) -> No
     assert isinstance(plugin_manager.plugin, MetadataCachePlugin)
 
 
-def test_plugin_manager_load_plugin_json(plugin_manager: PluginManager) -> None:
+def test_plugin_manager_load_plugin_json() -> None:
     """Test successful plugin loading."""
+    plugin_manager = PluginManager()
     settings = Settings()
     settings.cache_plugin = "json"
     settings.cache_file = "cache_file.json"
@@ -78,8 +69,9 @@ def test_plugin_manager_load_plugin_json(plugin_manager: PluginManager) -> None:
     assert isinstance(plugin_manager.plugin, MetadataCachePlugin)
 
 
-def test_plugin_manager_load_plugin_azure(plugin_manager: PluginManager) -> None:
+def test_plugin_manager_load_plugin_azure() -> None:
     """Test successful plugin loading."""
+    plugin_manager = PluginManager()
     settings = Settings()
     settings.cache_plugin = "azure"
     settings.cache_file = "cache_file.json"
@@ -92,8 +84,9 @@ def test_plugin_manager_load_plugin_azure(plugin_manager: PluginManager) -> None
     assert isinstance(plugin_manager.plugin, MetadataCachePlugin)
 
 
-def test_plugin_manager_load_plugin_gcs(plugin_manager: PluginManager) -> None:
+def test_plugin_manager_load_plugin_gcs() -> None:
     """Test successful plugin loading."""
+    plugin_manager = PluginManager()
     settings = Settings()
     settings.cache_plugin = "gcs"
     settings.cache_file = "cache_file.json"
@@ -105,8 +98,9 @@ def test_plugin_manager_load_plugin_gcs(plugin_manager: PluginManager) -> None:
     assert isinstance(plugin_manager.plugin, MetadataCachePlugin)
 
 
-def test_plugin_manager_load_plugin_s3(plugin_manager: PluginManager) -> None:
+def test_plugin_manager_load_plugin_s3() -> None:
     """Test successful plugin loading."""
+    plugin_manager = PluginManager()
     settings = Settings()
     settings.cache_plugin = "s3"
     settings.cache_file = "cache_file.json"
@@ -118,8 +112,9 @@ def test_plugin_manager_load_plugin_s3(plugin_manager: PluginManager) -> None:
     assert isinstance(plugin_manager.plugin, MetadataCachePlugin)
 
 
-def test_plugin_manager_load_plugin_sqlite(plugin_manager: PluginManager) -> None:
+def test_plugin_manager_load_plugin_sqlite() -> None:
     """Test successful plugin loading."""
+    plugin_manager = PluginManager()
     settings = Settings()
     settings.cache_plugin = "sqlite"
     settings.cache_file = "cache_file.sqlite"
@@ -130,10 +125,9 @@ def test_plugin_manager_load_plugin_sqlite(plugin_manager: PluginManager) -> Non
     assert isinstance(plugin_manager.plugin, MetadataCachePlugin)
 
 
-def test_plugin_manager_load_plugin_error_handling(
-    plugin_manager: PluginManager,
-) -> None:
+def test_plugin_manager_load_plugin_error_handling() -> None:
     """Test that PluginManager handles plugin loading errors correctly."""
+    plugin_manager = PluginManager()
     settings = Settings()
     settings.cache_plugin = "nonexistent"
 
