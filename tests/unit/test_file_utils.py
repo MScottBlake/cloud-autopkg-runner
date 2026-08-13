@@ -2,6 +2,7 @@
 
 import errno
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any
@@ -138,6 +139,23 @@ def test_create_and_set_attrs_with_absent_file_size(
     mock_xattr.setxattr.assert_not_called()
 
 
+def test_create_and_set_attrs_survives_unwritable_attrs(
+    tmp_path: Path, mock_xattr: MagicMock, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A file system that rejects extended attributes must not fail the run."""
+    file_path = tmp_path / "placeholder.dmg"
+    mock_xattr.setxattr.side_effect = OSError(errno.ENOTSUP, "Operation not supported")
+
+    with caplog.at_level(logging.WARNING):
+        file_utils._create_and_set_attrs(
+            file_path,
+            {"file_path": str(file_path), "file_size": 1024, "etag": "test_etag"},
+        )
+
+    assert file_path.stat().st_size == 1024
+    assert "Could not set extended attributes" in caplog.text
+
+
 def test_create_and_set_attrs_without_xattr_support(tmp_path: Path) -> None:
     """Without extended attributes the placeholder is still created at size."""
     file_path = tmp_path / "placeholder.dmg"
@@ -252,6 +270,76 @@ async def test_create_placeholder_files(
 
 
 @pytest.mark.asyncio
+async def test_create_placeholder_files_survives_a_failure(
+    tmp_path: Path, metadata_cache: MetadataCache, caplog: pytest.LogCaptureFixture
+) -> None:
+    """One unwritable placeholder must not cost the rest of the run."""
+    settings = Settings()
+    settings.cache_file = tmp_path / "metatadata_cache.json"
+    settings.cache_file.write_text(json.dumps(metadata_cache))
+    recipe_list = ["Recipe1", "Recipe2"]
+    file_path1 = tmp_path / "path/to/file1.dmg"
+    file_path2 = tmp_path / "path/to/file2.pkg"
+
+    real_create = file_utils._create_and_set_attrs
+
+    def fail_for_file1(file_path: Path, metadata: Any) -> None:
+        """Fail the first placeholder the way a read-only volume would."""
+        if file_path == file_path1:
+            raise OSError(errno.EROFS, "Read-only file system")
+        real_create(file_path, metadata)
+
+    with (
+        patch(
+            "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+            return_value={},
+        ),
+        patch(
+            "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
+            return_value=recipe_list,
+        ),
+        patch(
+            "cloud_autopkg_runner.file_utils._create_and_set_attrs",
+            side_effect=fail_for_file1,
+        ),
+        caplog.at_level(logging.WARNING),
+    ):
+        await file_utils.create_placeholder_files(recipe_list)
+
+    assert not file_path1.exists()
+    assert file_path2.stat().st_size == 2048
+    assert "Could not create placeholder" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_create_placeholder_files_reraises_unexpected_errors(
+    tmp_path: Path, metadata_cache: MetadataCache
+) -> None:
+    """Only file system errors are absorbed; anything else still surfaces."""
+    settings = Settings()
+    settings.cache_file = tmp_path / "metatadata_cache.json"
+    settings.cache_file.write_text(json.dumps(metadata_cache))
+    recipe_list = ["Recipe1", "Recipe2"]
+
+    with (
+        patch(
+            "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+            return_value={},
+        ),
+        patch(
+            "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
+            return_value=recipe_list,
+        ),
+        patch(
+            "cloud_autopkg_runner.file_utils._create_and_set_attrs",
+            side_effect=ValueError("boom"),
+        ),
+        pytest.raises(ValueError, match="boom"),
+    ):
+        await file_utils.create_placeholder_files(recipe_list)
+
+
+@pytest.mark.asyncio
 async def test_create_placeholder_files_skips_existing(
     tmp_path: Path, metadata_cache: MetadataCache
 ) -> None:
@@ -323,28 +411,29 @@ async def test_get_file_metadata_without_xattr_support(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("errno_to_simulate", "expected_result_is_none"),
+    ("errno_to_simulate", "expect_warning"),
     [
-        # --- Cases where None should be returned ---
+        # An unset attribute is the ordinary case, and stays quiet.
         # ENOATTR on macOS, ENODATA on Linux; both mean "attribute not set"
-        (file_utils._ENOATTR, True),
-        (errno.ENODATA, True),
-        # --- Cases where OSError should be re-raised ---
-        (errno.EIO, False),
-        (errno.ENOTSUP, False),
+        (file_utils._ENOATTR, False),
+        (errno.ENODATA, False),
+        # A read that fails is reported, but never raised at the caller
+        (errno.ENOTSUP, True),
+        (errno.EIO, True),
     ],
 )
 async def test_get_file_metadata_errno_behavior(
     tmp_path: Path,
     mock_xattr: MagicMock,
+    caplog: pytest.LogCaptureFixture,
     errno_to_simulate: int,
-    expected_result_is_none: bool,
+    expect_warning: bool,
 ) -> None:
-    """Test get_file_metadata's errno handling.
+    """A metadata read never raises, whatever the file system reports.
 
-    This test uses parametrization to cover:
-    - Returning None for the 'attribute not found' errors of both platforms.
-    - Re-raising OSErrors for other errno codes.
+    Losing the metadata costs a re-download on the next run. Failing the run
+    over it would cost far more, so every errno reads as "no value", and only
+    the unexpected ones are reported.
     """
     mock_file_path = tmp_path / "testfile.txt"
     mock_attr = file_utils.XATTR_ETAG
@@ -354,19 +443,14 @@ async def test_get_file_metadata_errno_behavior(
         errno_to_simulate, f"Simulated error for errno {errno_to_simulate}"
     )
 
-    if expected_result_is_none:
+    with caplog.at_level(logging.WARNING):
         result = await file_utils.get_file_metadata(mock_file_path, mock_attr)
-        assert result is None, (
-            f"Expected None for errno {errno_to_simulate}, but got {result}"
-        )
-    else:
-        with pytest.raises(OSError) as exc_info:  # noqa: PT011
-            await file_utils.get_file_metadata(mock_file_path, mock_attr)
-        assert exc_info.type is OSError
-        assert exc_info.value.errno == errno_to_simulate, (
-            f"Expected OSError with errno {errno_to_simulate}, "
-            f"but got {exc_info.value.errno}"
-        )
+
+    assert result is None, (
+        f"Expected None for errno {errno_to_simulate}, but got {result}"
+    )
+    warned = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert bool(warned) is expect_warning
 
     # Assert that xattr.getxattr was called as expected in all cases
     mock_xattr.getxattr.assert_called_once_with(mock_file_path, mock_attr)

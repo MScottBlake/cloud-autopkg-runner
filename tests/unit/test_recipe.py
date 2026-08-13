@@ -1,4 +1,5 @@
 import errno
+import logging
 import plistlib
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -482,11 +483,12 @@ async def test_get_metadata_for_item_missing_optional_metadata() -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_metadata_for_item_file_size_error() -> None:
-    """Test _get_metadata_for_item when get_file_size raises an OSError."""
+async def test_get_metadata_for_item_file_size_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An unreadable download is left uncached rather than failing the recipe."""
     test_file_path_str = "/tmp/test_downloaded_file.dmg"
     test_file_path = Path(test_file_path_str)
-    # Use EIO for a generic OSError that should cause the function to raise
     expected_error = OSError(errno.EIO, "Input/output error")
 
     with patch(
@@ -494,17 +496,23 @@ async def test_get_metadata_for_item_file_size_error() -> None:
     ) as mock_get_file_size:
         mock_get_file_size.side_effect = expected_error
 
-        with pytest.raises(OSError) as exc_info:  # noqa: PT011
-            await Recipe._get_metadata_for_item(test_file_path_str)
+        with caplog.at_level(logging.WARNING):
+            result = await Recipe._get_metadata_for_item(test_file_path_str)
 
-        assert exc_info.type is OSError
-        assert exc_info.value.errno == expected_error.errno
+        assert result is None
+        assert "Could not read metadata" in caplog.text
         mock_get_file_size.assert_called_once_with(test_file_path)
 
 
 @pytest.mark.asyncio
-async def test_get_metadata_for_item_etag_error() -> None:
-    """Test _get_metadata_for_item when etag retrieval raises an OSError."""
+async def test_get_metadata_for_item_etag_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An etag read that raises leaves the item uncached, not the recipe failed.
+
+    `get_file_metadata` reports an unreadable attribute as absent rather than
+    raising, so this covers the belt-and-braces path.
+    """
     test_file_path_str = "/tmp/test_downloaded_file.dmg"
     test_file_path = Path(test_file_path_str)
     expected_file_size = 12345
@@ -525,18 +533,20 @@ async def test_get_metadata_for_item_etag_error() -> None:
             "some_last_modified",  # for the last-modified attribute
         ]
 
-        with pytest.raises(OSError) as exc_info:  # noqa: PT011
-            await Recipe._get_metadata_for_item(test_file_path_str)
+        with caplog.at_level(logging.WARNING):
+            result = await Recipe._get_metadata_for_item(test_file_path_str)
 
-        assert exc_info.type is OSError
-        assert exc_info.value.errno == expected_error.errno
+        assert result is None
+        assert "Could not read metadata" in caplog.text
         mock_get_file_size.assert_called_once_with(test_file_path)
         mock_get_file_metadata.assert_any_call(test_file_path, file_utils.XATTR_ETAG)
 
 
 @pytest.mark.asyncio
-async def test_get_metadata_for_item_last_modified_error() -> None:
-    """Test _get_metadata_for_item when last_modified retrieval raises an OSError."""
+async def test_get_metadata_for_item_last_modified_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A last-modified read that raises leaves the item uncached."""
     test_file_path_str = "/tmp/test_downloaded_file.dmg"
     test_file_path = Path(test_file_path_str)
     expected_file_size = 12345
@@ -557,11 +567,11 @@ async def test_get_metadata_for_item_last_modified_error() -> None:
             expected_error,  # for the last-modified attribute
         ]
 
-        with pytest.raises(OSError) as exc_info:  # noqa: PT011
-            await Recipe._get_metadata_for_item(test_file_path_str)
+        with caplog.at_level(logging.WARNING):
+            result = await Recipe._get_metadata_for_item(test_file_path_str)
 
-        assert exc_info.type is OSError
-        assert exc_info.value.errno == expected_error.errno
+        assert result is None
+        assert "Could not read metadata" in caplog.text
         mock_get_file_size.assert_called_once_with(test_file_path)
         mock_get_file_metadata.assert_any_call(test_file_path, file_utils.XATTR_ETAG)
         mock_get_file_metadata.assert_any_call(
