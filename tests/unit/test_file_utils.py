@@ -8,8 +8,10 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+import xattr
 
 from cloud_autopkg_runner import Settings, file_utils
+from cloud_autopkg_runner.exceptions import InvalidFileSizeError
 from cloud_autopkg_runner.metadata_cache import MetadataCache
 
 
@@ -55,6 +57,141 @@ def metadata_cache(tmp_path: Path) -> MetadataCache:
             ],
         },
     }
+
+
+@pytest.mark.parametrize("size", [0, 1, 1024])
+def test_set_file_size(tmp_path: Path, size: int) -> None:
+    """A file is reported at the requested size, including zero."""
+    file_path = tmp_path / "placeholder.dmg"
+
+    file_utils._set_file_size(file_path, size)
+
+    assert file_path.stat().st_size == size
+
+
+def test_set_file_size_rejects_negative(tmp_path: Path) -> None:
+    """A negative size is rejected rather than raising a bare OSError."""
+    file_path = tmp_path / "placeholder.dmg"
+
+    with pytest.raises(InvalidFileSizeError):
+        file_utils._set_file_size(file_path, -1)
+
+
+def test_placeholder_satisfies_urldownloader(tmp_path: Path) -> None:
+    """A placeholder must survive the checks AutoPkg's URLDownloader makes.
+
+    URLDownloader deletes any empty file before reading its xattrs
+    (clear_zero_file), then reads the size and the etag/last-modified xattrs
+    to build its conditional request (produce_etag_headers). It never reads
+    the file's contents.
+    """
+    file_path = tmp_path / "GoogleChrome" / "googlechrome.dmg"
+    file_utils._create_and_set_attrs(
+        file_path,
+        {
+            "file_path": str(file_path),
+            "file_size": 219045888,
+            "etag": '"3f8a9c1d"',
+            "last_modified": "Wed, 21 Oct 2025 07:28:00 GMT",
+        },
+    )
+
+    # clear_zero_file() would delete anything empty.
+    assert file_path.stat().st_size != 0
+
+    # produce_etag_headers() reports this as existing_file_size.
+    assert file_path.stat().st_size == 219045888
+
+    # getxattr() looks the name up in listxattr() before reading it.
+    listed = xattr.listxattr(file_path)
+    assert "com.github.autopkg.etag" in listed
+    assert "com.github.autopkg.last-modified" in listed
+    assert xattr.getxattr(file_path, "com.github.autopkg.etag").decode() == '"3f8a9c1d"'
+    assert (
+        xattr.getxattr(file_path, "com.github.autopkg.last-modified").decode()
+        == "Wed, 21 Oct 2025 07:28:00 GMT"
+    )
+
+
+def test_create_and_set_attrs_with_absent_file_size(
+    tmp_path: Path, mock_xattr: Any
+) -> None:
+    """Metadata with no file_size falls back to 0 without raising."""
+    file_path = tmp_path / "nested" / "placeholder.dmg"
+
+    file_utils._create_and_set_attrs(file_path, {"file_path": str(file_path)})
+
+    assert file_path.stat().st_size == 0
+    mock_xattr.setxattr.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_create_placeholder_files_skips_zero_size(tmp_path: Path) -> None:
+    """A cached size of zero is skipped, since AutoPkg discards empty files."""
+    settings = Settings()
+    settings.cache_file = tmp_path / "metadata_cache.json"
+    file_path = tmp_path / "path/to/empty.dmg"
+    settings.cache_file.write_text(
+        json.dumps(
+            {
+                "Recipe1": {
+                    "timestamp": "foo",
+                    "metadata": [{"file_path": str(file_path), "file_size": 0}],
+                }
+            }
+        )
+    )
+
+    with (
+        patch(
+            "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+            return_value={},
+        ),
+        patch(
+            "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
+            return_value=["Recipe1"],
+        ),
+    ):
+        await file_utils.create_placeholder_files(["Recipe1"])
+
+    assert not file_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_create_placeholder_files_skips_negative_size(tmp_path: Path) -> None:
+    """A corrupt negative size is skipped without failing the whole run."""
+    settings = Settings()
+    settings.cache_file = tmp_path / "metadata_cache.json"
+    bad_path = tmp_path / "path/to/bad.dmg"
+    good_path = tmp_path / "path/to/good.dmg"
+    settings.cache_file.write_text(
+        json.dumps(
+            {
+                "Recipe1": {
+                    "timestamp": "foo",
+                    "metadata": [
+                        {"file_path": str(bad_path), "file_size": -1},
+                        {"file_path": str(good_path), "file_size": 512},
+                    ],
+                }
+            }
+        )
+    )
+
+    with (
+        patch(
+            "cloud_autopkg_runner.autopkg_prefs.AutoPkgPrefs._get_preference_file_contents",
+            return_value={},
+        ),
+        patch(
+            "cloud_autopkg_runner.recipe_finder.RecipeFinder.possible_file_names",
+            return_value=["Recipe1"],
+        ),
+    ):
+        await file_utils.create_placeholder_files(["Recipe1"])
+
+    assert not bad_path.exists()
+    assert good_path.stat().st_size == 512
 
 
 @pytest.mark.asyncio
