@@ -219,8 +219,10 @@ async def test_autopkg_run_cmd_basic(
     report_dir = tmp_path / "report"
     report_dir.mkdir()
 
+    autopkg_path = Path("/usr/local/bin/autopkg")
+
     with patch("cloud_autopkg_runner.recipe.Settings") as mock_settings:
-        mock_settings.return_value.autopkg_path = Path("/usr/local/bin/autopkg")
+        mock_settings.return_value.autopkg_path = autopkg_path
         mock_settings.return_value.pre_processors = []
         mock_settings.return_value.post_processors = []
         mock_settings.return_value.verbosity_int.return_value = 0
@@ -229,7 +231,8 @@ async def test_autopkg_run_cmd_basic(
         recipe = Recipe(recipe_file, report_dir, mock_autopkg_prefs)
         cmd = await recipe._autopkg_run_cmd()
 
-        assert cmd[:3] == ["/usr/local/bin/autopkg", "run", recipe.name]
+        # str(Path) so the separator matches whatever platform this runs on
+        assert cmd[:3] == [str(autopkg_path), "run", recipe.name]
         assert any(arg.startswith("--report-plist=") for arg in cmd)
         assert "--check" not in cmd
         assert not any(arg.startswith("--key=") for arg in cmd)
