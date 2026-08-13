@@ -19,11 +19,16 @@ Functions:
 import asyncio
 import errno
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import cast
 
-import xattr  # pyright: ignore[reportMissingTypeStubs]
+if sys.platform == "win32":  # pragma: no cover - exercised on Windows only
+    # xattr publishes no Windows build, so there is nothing to read or write
+    # extended attributes with there.
+    xattr = None
+else:
+    import xattr  # pyright: ignore[reportMissingTypeStubs]
 
 from cloud_autopkg_runner import (
     AutoPkgPrefs,
@@ -34,9 +39,33 @@ from cloud_autopkg_runner import (
 from cloud_autopkg_runner.exceptions import InvalidFileSizeError
 from cloud_autopkg_runner.metadata_cache import DownloadMetadata
 
+# macOS reports a missing extended attribute as ENOATTR, Linux as ENODATA.
+# ENOATTR is only defined on BSD-derived platforms.
+_ENOATTR: int = getattr(errno, "ENOATTR", errno.ENODATA)
+_MISSING_ATTR_ERRNOS: frozenset[int] = frozenset({_ENOATTR, errno.ENODATA})
+
+# AutoPkg's URLDownloader prefixes its extended attribute names with "user."
+# on Linux, whose kernel only accepts attributes in a known namespace. These
+# must match `URLDownloader.clear_vars()` or the placeholders it reads and the
+# metadata we read back are looked up under names nothing ever wrote.
+_BUNDLE_ID = "com.github.autopkg"
+_XATTR_PREFIX = "user." if sys.platform.startswith("linux") else ""
+XATTR_ETAG = f"{_XATTR_PREFIX}{_BUNDLE_ID}.etag"
+XATTR_LAST_MODIFIED = f"{_XATTR_PREFIX}{_BUNDLE_ID}.last-modified"
+
 
 def _create_and_set_attrs(file_path: Path, metadata_cache: DownloadMetadata) -> None:
-    """Create the file, set its size, and set extended attributes."""
+    """Create the file, set its size, and set extended attributes.
+
+    Where extended attributes are unavailable, the file is still created at
+    the cached size, but the etag and last-modified attributes are skipped.
+
+    Args:
+        file_path: The path of the placeholder file to create.
+        metadata_cache: The cached download metadata to apply to the file.
+    """
+    logger = logging_config.get_logger(__name__)
+
     # Create parent directory if needed
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -46,19 +75,38 @@ def _create_and_set_attrs(file_path: Path, metadata_cache: DownloadMetadata) -> 
     # Set file size
     _set_file_size(file_path, metadata_cache.get("file_size", 0))
 
+    if xattr is None:
+        logger.warning(
+            "Extended attributes are unavailable on this platform. "
+            "%s was created without its etag and last-modified metadata.",
+            file_path,
+        )
+        return
+
     # Set extended attributes
-    if metadata_cache.get("etag"):
-        xattr.setxattr(  # pyright: ignore[reportUnknownMemberType]
+    try:
+        if metadata_cache.get("etag"):
+            xattr.setxattr(  # pyright: ignore[reportUnknownMemberType]
+                file_path,
+                XATTR_ETAG,
+                metadata_cache.get("etag", "").encode("utf-8"),
+            )
+        if metadata_cache.get("last_modified"):
+            xattr.setxattr(  # pyright: ignore[reportUnknownMemberType]
+                file_path,
+                XATTR_LAST_MODIFIED,
+                metadata_cache.get("last_modified", "").encode("utf-8"),
+            )
+    except OSError as e:
+        # A file system that rejects extended attributes leaves a placeholder
+        # AutoPkg will re-download, which beats failing every other recipe
+        logger.warning(
+            "Could not set extended attributes on %s: %s. "
+            "AutoPkg will download this file again.",
             file_path,
-            "com.github.autopkg.etag",
-            metadata_cache.get("etag", "").encode("utf-8"),
+            e,
         )
-    if metadata_cache.get("last_modified"):
-        xattr.setxattr(  # pyright: ignore[reportUnknownMemberType]
-            file_path,
-            "com.github.autopkg.last-modified",
-            metadata_cache.get("last_modified", "").encode("utf-8"),
-        )
+        logger.debug("Setting extended attributes failed", exc_info=True)
 
 
 def _set_file_size(file_path: Path, size: int) -> None:
@@ -85,6 +133,36 @@ def _set_file_size(file_path: Path, size: int) -> None:
         f.truncate(size)
 
 
+def _report_placeholder_results(
+    task_paths: Sequence[Path], results: Sequence[BaseException | None]
+) -> None:
+    """Report the placeholder files that could not be written.
+
+    A placeholder that cannot be written costs a download rather than
+    correctness, so a file system error is reported and the remaining
+    placeholders stand. Anything else is left for the caller to handle.
+
+    Args:
+        task_paths: The placeholder paths, in the order they were scheduled.
+        results: What each of those tasks returned or raised, in the same order.
+
+    Raises:
+        BaseException: Whatever a task raised, unless it was an OSError.
+    """
+    logger = logging_config.get_logger(__name__)
+
+    for path, result in zip(task_paths, results, strict=True):
+        if isinstance(result, OSError):
+            logger.warning(
+                "Could not create placeholder %s: %s. "
+                "AutoPkg will download this file again.",
+                path,
+                result,
+            )
+        elif isinstance(result, BaseException):
+            raise result
+
+
 async def create_placeholder_files(
     recipe_list: Iterable[str], autopkg_prefs: AutoPkgPrefs | None = None
 ) -> None:
@@ -109,6 +187,7 @@ async def create_placeholder_files(
 
     cache = await metadata_cache.get_cache_plugin().load()
     tasks: list[asyncio.Task[None]] = []
+    task_paths: list[Path] = []
 
     possible_names: set[str] = set()
     for recipe_name in recipe_list:
@@ -162,9 +241,12 @@ async def create_placeholder_files(
                 asyncio.to_thread(_create_and_set_attrs, file_path, the_cache)
             )
             tasks.append(task)
+            task_paths.append(file_path)
 
     # Await all the tasks
-    await asyncio.gather(*tasks)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    _report_placeholder_results(task_paths, results)
+
     logger.debug("Placeholder files created.")
 
 
@@ -177,26 +259,43 @@ async def get_file_metadata(file_path: Path, attr: str) -> str | None:
 
     Returns:
         The decoded string representation of the extended attribute metadata,
-        or None if the attribute doesn't exist.
+        or None if the attribute is not set on the file, if the attribute
+        cannot be read, or if there is no xattr module on this platform to
+        read it with. Metadata that cannot be read costs a re-download on the
+        next run, which is not worth failing over.
     """
+    # Bound to a local so the None check applies inside the thread's closure
+    xattr_module = xattr
+    if xattr_module is None:
+        logger = logging_config.get_logger(__name__)
+        logger.warning(
+            "Extended attributes are unavailable on this platform. "
+            "Cannot read %s from %s.",
+            attr,
+            file_path,
+        )
+        return None
+
     try:
         return await asyncio.to_thread(
             lambda: cast(
                 "bytes",
-                xattr.getxattr(  # pyright: ignore[reportUnknownMemberType]
+                xattr_module.getxattr(  # pyright: ignore[reportUnknownMemberType]
                     file_path, attr
                 ),
             ).decode()
         )
     except OSError as e:
-        # If attribute name is invalid, return None
-        if sys.platform == "darwin" and e.errno == errno.ENOATTR:
-            return None
-        if e.errno == errno.ENODATA:
+        # An unset attribute is the ordinary case, and not worth reporting
+        if e.errno in _MISSING_ATTR_ERRNOS:
             return None
 
-        # Re-raise all other errors
-        raise
+        # Anything else - a file system without extended attribute support,
+        # an I/O error - leaves the value unknown rather than the run broken
+        logger = logging_config.get_logger(__name__)
+        logger.warning("Could not read %s from %s: %s", attr, file_path, e)
+        logger.debug("Reading %s failed", attr, exc_info=True)
+        return None
 
 
 async def get_file_size(file_path: Path) -> int:

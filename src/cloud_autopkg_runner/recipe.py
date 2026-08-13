@@ -488,11 +488,16 @@ class Recipe:
             A `RecipeCache` dictionary containing a "timestamp" (`str`) and
             a `list` of `DownloadMetadata` dictionaries, one for each
             downloaded item for which metadata was successfully retrieved.
+            Items whose metadata could not be read are left out, so the next
+            run downloads them again.
         """
         download_paths: list[str] = self._extract_download_paths(download_items)
-        metadata_list: list[DownloadMetadata] = await asyncio.gather(
+        results = await asyncio.gather(
             *[self._get_metadata_for_item(path) for path in download_paths]
         )
+        metadata_list: list[DownloadMetadata] = [
+            item for item in results if item is not None
+        ]
 
         return {
             "timestamp": str(datetime.now(tz=timezone.utc)),
@@ -500,7 +505,7 @@ class Recipe:
         }
 
     @staticmethod
-    async def _get_metadata_for_item(downloaded_item: str) -> DownloadMetadata:
+    async def _get_metadata_for_item(downloaded_item: str) -> DownloadMetadata | None:
         """Retrieves metadata for a single downloaded item.
 
         This static asynchronous private method takes the `str` path to a
@@ -510,28 +515,46 @@ class Recipe:
         for the file's size. These operations are run concurrently using
         `asyncio.gather` for efficiency.
 
+        The recipe has already run and its downloads have already happened by
+        the time this is called, so a file that cannot be read costs a
+        re-download on the next run rather than failing this one.
+
         Args:
             downloaded_item: The `str` path to the downloaded item.
 
         Returns:
             A `DownloadMetadata` dictionary containing the ETag (`str` or `None`),
             file size (`int` or `None`), last modified date (`str` or `None`),
-            and the original file path (`str`) of the downloaded item.
+            and the original file path (`str`) of the downloaded item, or None
+            if the file could not be read.
         """
+        logger = logging_config.get_logger(__name__)
         downloaded_item_path: Path = Path(downloaded_item).expanduser()
 
         file_size_task = file_utils.get_file_size(downloaded_item_path)
         etag_task = file_utils.get_file_metadata(
-            downloaded_item_path, "com.github.autopkg.etag"
+            downloaded_item_path, file_utils.XATTR_ETAG
         )
         last_modified_task = file_utils.get_file_metadata(
-            downloaded_item_path, "com.github.autopkg.last-modified"
+            downloaded_item_path, file_utils.XATTR_LAST_MODIFIED
         )
 
         # Run the tasks concurrently and await all of them to finish
-        file_size, etag, last_modified = await asyncio.gather(
-            file_size_task, etag_task, last_modified_task
-        )
+        try:
+            file_size, etag, last_modified = await asyncio.gather(
+                file_size_task, etag_task, last_modified_task
+            )
+        except OSError as exc:
+            logger.warning(
+                "Could not read metadata for %s: %s. "
+                "The next run will download it again.",
+                downloaded_item,
+                exc,
+            )
+            logger.debug(
+                "Reading metadata for %s failed", downloaded_item, exc_info=True
+            )
+            return None
 
         output: DownloadMetadata = {
             "file_path": downloaded_item,

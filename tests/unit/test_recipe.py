@@ -1,11 +1,12 @@
 import errno
+import logging
 import plistlib
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cloud_autopkg_runner import AutoPkgPrefs, Recipe
+from cloud_autopkg_runner import AutoPkgPrefs, Recipe, file_utils
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContentsError,
     RecipeFormatError,
@@ -418,8 +419,8 @@ async def test_get_metadata_for_item_all_present() -> None:
         mock_get_file_size.return_value = expected_file_size
         # Configure get_file_metadata for specific attributes
         mock_get_file_metadata.side_effect = [
-            expected_etag,  # for "com.github.autopkg.etag"
-            expected_last_modified,  # for "com.github.autopkg.last-modified"
+            expected_etag,  # for the etag attribute
+            expected_last_modified,  # for the last-modified attribute
         ]
 
         result = await Recipe._get_metadata_for_item(test_file_path_str)
@@ -427,11 +428,9 @@ async def test_get_metadata_for_item_all_present() -> None:
         # Assertions for the mock calls
         mock_get_file_size.assert_called_once_with(test_file_path)
         assert mock_get_file_metadata.call_count == 2
+        mock_get_file_metadata.assert_any_call(test_file_path, file_utils.XATTR_ETAG)
         mock_get_file_metadata.assert_any_call(
-            test_file_path, "com.github.autopkg.etag"
-        )
-        mock_get_file_metadata.assert_any_call(
-            test_file_path, "com.github.autopkg.last-modified"
+            test_file_path, file_utils.XATTR_LAST_MODIFIED
         )
 
         # Assertions for the returned DownloadMetadata
@@ -461,19 +460,17 @@ async def test_get_metadata_for_item_missing_optional_metadata() -> None:
         mock_get_file_size.return_value = expected_file_size
         # Simulate missing metadata by returning None
         mock_get_file_metadata.side_effect = [
-            None,  # for "com.github.autopkg.etag"
-            None,  # for "com.github.autopkg.last-modified"
+            None,  # for the etag attribute
+            None,  # for the last-modified attribute
         ]
 
         result = await Recipe._get_metadata_for_item(test_file_path_str)
 
         mock_get_file_size.assert_called_once_with(test_file_path)
         assert mock_get_file_metadata.call_count == 2
+        mock_get_file_metadata.assert_any_call(test_file_path, file_utils.XATTR_ETAG)
         mock_get_file_metadata.assert_any_call(
-            test_file_path, "com.github.autopkg.etag"
-        )
-        mock_get_file_metadata.assert_any_call(
-            test_file_path, "com.github.autopkg.last-modified"
+            test_file_path, file_utils.XATTR_LAST_MODIFIED
         )
 
         # Ensure only file_path and file_size are present
@@ -486,11 +483,12 @@ async def test_get_metadata_for_item_missing_optional_metadata() -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_metadata_for_item_file_size_error() -> None:
-    """Test _get_metadata_for_item when get_file_size raises an OSError."""
+async def test_get_metadata_for_item_file_size_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An unreadable download is left uncached rather than failing the recipe."""
     test_file_path_str = "/tmp/test_downloaded_file.dmg"
     test_file_path = Path(test_file_path_str)
-    # Use EIO for a generic OSError that should cause the function to raise
     expected_error = OSError(errno.EIO, "Input/output error")
 
     with patch(
@@ -498,17 +496,23 @@ async def test_get_metadata_for_item_file_size_error() -> None:
     ) as mock_get_file_size:
         mock_get_file_size.side_effect = expected_error
 
-        with pytest.raises(OSError) as exc_info:  # noqa: PT011
-            await Recipe._get_metadata_for_item(test_file_path_str)
+        with caplog.at_level(logging.WARNING):
+            result = await Recipe._get_metadata_for_item(test_file_path_str)
 
-        assert exc_info.type is OSError
-        assert exc_info.value.errno == expected_error.errno
+        assert result is None
+        assert "Could not read metadata" in caplog.text
         mock_get_file_size.assert_called_once_with(test_file_path)
 
 
 @pytest.mark.asyncio
-async def test_get_metadata_for_item_etag_error() -> None:
-    """Test _get_metadata_for_item when etag retrieval raises an OSError."""
+async def test_get_metadata_for_item_etag_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An etag read that raises leaves the item uncached, not the recipe failed.
+
+    `get_file_metadata` reports an unreadable attribute as absent rather than
+    raising, so this covers the belt-and-braces path.
+    """
     test_file_path_str = "/tmp/test_downloaded_file.dmg"
     test_file_path = Path(test_file_path_str)
     expected_file_size = 12345
@@ -525,24 +529,24 @@ async def test_get_metadata_for_item_etag_error() -> None:
         mock_get_file_size.return_value = expected_file_size
         # Configure get_file_metadata to raise for etag
         mock_get_file_metadata.side_effect = [
-            expected_error,  # for "com.github.autopkg.etag"
-            "some_last_modified",  # for "com.github.autopkg.last-modified"
+            expected_error,  # for the etag attribute
+            "some_last_modified",  # for the last-modified attribute
         ]
 
-        with pytest.raises(OSError) as exc_info:  # noqa: PT011
-            await Recipe._get_metadata_for_item(test_file_path_str)
+        with caplog.at_level(logging.WARNING):
+            result = await Recipe._get_metadata_for_item(test_file_path_str)
 
-        assert exc_info.type is OSError
-        assert exc_info.value.errno == expected_error.errno
+        assert result is None
+        assert "Could not read metadata" in caplog.text
         mock_get_file_size.assert_called_once_with(test_file_path)
-        mock_get_file_metadata.assert_any_call(
-            test_file_path, "com.github.autopkg.etag"
-        )
+        mock_get_file_metadata.assert_any_call(test_file_path, file_utils.XATTR_ETAG)
 
 
 @pytest.mark.asyncio
-async def test_get_metadata_for_item_last_modified_error() -> None:
-    """Test _get_metadata_for_item when last_modified retrieval raises an OSError."""
+async def test_get_metadata_for_item_last_modified_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A last-modified read that raises leaves the item uncached."""
     test_file_path_str = "/tmp/test_downloaded_file.dmg"
     test_file_path = Path(test_file_path_str)
     expected_file_size = 12345
@@ -559,21 +563,19 @@ async def test_get_metadata_for_item_last_modified_error() -> None:
     ):
         mock_get_file_size.return_value = expected_file_size
         mock_get_file_metadata.side_effect = [
-            expected_etag,  # for "com.github.autopkg.etag"
-            expected_error,  # for "com.github.autopkg.last-modified"
+            expected_etag,  # for the etag attribute
+            expected_error,  # for the last-modified attribute
         ]
 
-        with pytest.raises(OSError) as exc_info:  # noqa: PT011
-            await Recipe._get_metadata_for_item(test_file_path_str)
+        with caplog.at_level(logging.WARNING):
+            result = await Recipe._get_metadata_for_item(test_file_path_str)
 
-        assert exc_info.type is OSError
-        assert exc_info.value.errno == expected_error.errno
+        assert result is None
+        assert "Could not read metadata" in caplog.text
         mock_get_file_size.assert_called_once_with(test_file_path)
+        mock_get_file_metadata.assert_any_call(test_file_path, file_utils.XATTR_ETAG)
         mock_get_file_metadata.assert_any_call(
-            test_file_path, "com.github.autopkg.etag"
-        )
-        mock_get_file_metadata.assert_any_call(
-            test_file_path, "com.github.autopkg.last-modified"
+            test_file_path, file_utils.XATTR_LAST_MODIFIED
         )
 
 
