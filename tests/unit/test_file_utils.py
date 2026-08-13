@@ -8,6 +8,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+import xattr
 
 from cloud_autopkg_runner import Settings, file_utils
 from cloud_autopkg_runner.exceptions import InvalidFileSizeError
@@ -76,6 +77,42 @@ def test_set_file_size_rejects_negative(tmp_path: Path) -> None:
         file_utils._set_file_size(file_path, -1)
 
 
+def test_placeholder_satisfies_urldownloader(tmp_path: Path) -> None:
+    """A placeholder must survive the checks AutoPkg's URLDownloader makes.
+
+    URLDownloader deletes any empty file before reading its xattrs
+    (clear_zero_file), then reads the size and the etag/last-modified xattrs
+    to build its conditional request (produce_etag_headers). It never reads
+    the file's contents.
+    """
+    file_path = tmp_path / "GoogleChrome" / "googlechrome.dmg"
+    file_utils._create_and_set_attrs(
+        file_path,
+        {
+            "file_path": str(file_path),
+            "file_size": 219045888,
+            "etag": '"3f8a9c1d"',
+            "last_modified": "Wed, 21 Oct 2025 07:28:00 GMT",
+        },
+    )
+
+    # clear_zero_file() would delete anything empty.
+    assert file_path.stat().st_size != 0
+
+    # produce_etag_headers() reports this as existing_file_size.
+    assert file_path.stat().st_size == 219045888
+
+    # getxattr() looks the name up in listxattr() before reading it.
+    listed = xattr.listxattr(file_path)
+    assert "com.github.autopkg.etag" in listed
+    assert "com.github.autopkg.last-modified" in listed
+    assert xattr.getxattr(file_path, "com.github.autopkg.etag").decode() == '"3f8a9c1d"'
+    assert (
+        xattr.getxattr(file_path, "com.github.autopkg.last-modified").decode()
+        == "Wed, 21 Oct 2025 07:28:00 GMT"
+    )
+
+
 def test_create_and_set_attrs_with_absent_file_size(
     tmp_path: Path, mock_xattr: Any
 ) -> None:
@@ -89,8 +126,8 @@ def test_create_and_set_attrs_with_absent_file_size(
 
 
 @pytest.mark.asyncio
-async def test_create_placeholder_files_with_zero_size(tmp_path: Path) -> None:
-    """A cached size of zero produces an empty placeholder, not a skip."""
+async def test_create_placeholder_files_skips_zero_size(tmp_path: Path) -> None:
+    """A cached size of zero is skipped, since AutoPkg discards empty files."""
     settings = Settings()
     settings.cache_file = tmp_path / "metadata_cache.json"
     file_path = tmp_path / "path/to/empty.dmg"
@@ -117,8 +154,7 @@ async def test_create_placeholder_files_with_zero_size(tmp_path: Path) -> None:
     ):
         await file_utils.create_placeholder_files(["Recipe1"])
 
-    assert file_path.exists()
-    assert file_path.stat().st_size == 0
+    assert not file_path.exists()
 
 
 @pytest.mark.asyncio

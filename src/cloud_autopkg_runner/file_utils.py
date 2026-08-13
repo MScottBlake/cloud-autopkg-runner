@@ -142,6 +142,15 @@ async def create_placeholder_files(
                     recipe_name,
                 )
                 continue
+            if file_size == 0:
+                # URLDownloader.clear_zero_file() deletes any empty file before
+                # it reads the xattrs, so an empty placeholder buys nothing.
+                logger.warning(
+                    "Skipping file creation: Empty 'file_size' in %s cache. "
+                    "AutoPkg discards empty downloads, so it will fetch this again.",
+                    recipe_name,
+                )
+                continue
 
             file_path = Path(the_cache.get("file_path", "")).expanduser()
             if file_path.exists():
