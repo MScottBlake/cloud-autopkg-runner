@@ -43,6 +43,15 @@ from cloud_autopkg_runner.metadata_cache import DownloadMetadata
 _ENOATTR: int = getattr(errno, "ENOATTR", errno.ENODATA)
 _MISSING_ATTR_ERRNOS: frozenset[int] = frozenset({_ENOATTR, errno.ENODATA})
 
+# AutoPkg's URLDownloader prefixes its extended attribute names with "user."
+# on Linux, whose kernel only accepts attributes in a known namespace. These
+# must match `URLDownloader.clear_vars()` or the placeholders it reads and the
+# metadata we read back are looked up under names nothing ever wrote.
+_BUNDLE_ID = "com.github.autopkg"
+_XATTR_PREFIX = "user." if sys.platform.startswith("linux") else ""
+XATTR_ETAG = f"{_XATTR_PREFIX}{_BUNDLE_ID}.etag"
+XATTR_LAST_MODIFIED = f"{_XATTR_PREFIX}{_BUNDLE_ID}.last-modified"
+
 
 def _create_and_set_attrs(file_path: Path, metadata_cache: DownloadMetadata) -> None:
     """Create the file, set its size, and set extended attributes.
@@ -77,13 +86,13 @@ def _create_and_set_attrs(file_path: Path, metadata_cache: DownloadMetadata) -> 
     if metadata_cache.get("etag"):
         xattr.setxattr(  # pyright: ignore[reportUnknownMemberType]
             file_path,
-            "com.github.autopkg.etag",
+            XATTR_ETAG,
             metadata_cache.get("etag", "").encode("utf-8"),
         )
     if metadata_cache.get("last_modified"):
         xattr.setxattr(  # pyright: ignore[reportUnknownMemberType]
             file_path,
-            "com.github.autopkg.last-modified",
+            XATTR_LAST_MODIFIED,
             metadata_cache.get("last_modified", "").encode("utf-8"),
         )
 

@@ -522,10 +522,10 @@ class Recipe:
 
         file_size_task = file_utils.get_file_size(downloaded_item_path)
         etag_task = file_utils.get_file_metadata(
-            downloaded_item_path, "com.github.autopkg.etag"
+            downloaded_item_path, file_utils.XATTR_ETAG
         )
         last_modified_task = file_utils.get_file_metadata(
-            downloaded_item_path, "com.github.autopkg.last-modified"
+            downloaded_item_path, file_utils.XATTR_LAST_MODIFIED
         )
 
         # Run the tasks concurrently and await all of them to finish

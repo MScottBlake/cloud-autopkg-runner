@@ -82,8 +82,7 @@ def test_set_file_size_rejects_negative(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(
-    sys.platform != "darwin",
-    reason="AutoPkg's xattr namespace is only writable on macOS",
+    sys.platform == "win32", reason="Windows has no extended attributes"
 )
 def test_placeholder_satisfies_urldownloader(tmp_path: Path) -> None:
     """A placeholder must survive the checks AutoPkg's URLDownloader makes.
@@ -110,13 +109,19 @@ def test_placeholder_satisfies_urldownloader(tmp_path: Path) -> None:
     # produce_etag_headers() reports this as existing_file_size.
     assert file_path.stat().st_size == 219045888
 
+    # The names are spelled out rather than taken from file_utils, since the
+    # point is that they match what URLDownloader.clear_vars() looks up.
+    prefix = "user." if sys.platform.startswith("linux") else ""
+    etag_attr = f"{prefix}com.github.autopkg.etag"
+    last_modified_attr = f"{prefix}com.github.autopkg.last-modified"
+
     # getxattr() looks the name up in listxattr() before reading it.
     listed = xattr.listxattr(file_path)
-    assert "com.github.autopkg.etag" in listed
-    assert "com.github.autopkg.last-modified" in listed
-    assert xattr.getxattr(file_path, "com.github.autopkg.etag").decode() == '"3f8a9c1d"'
+    assert etag_attr in listed
+    assert last_modified_attr in listed
+    assert xattr.getxattr(file_path, etag_attr).decode() == '"3f8a9c1d"'
     assert (
-        xattr.getxattr(file_path, "com.github.autopkg.last-modified").decode()
+        xattr.getxattr(file_path, last_modified_attr).decode()
         == "Wed, 21 Oct 2025 07:28:00 GMT"
     )
 
@@ -216,7 +221,6 @@ async def test_create_placeholder_files_skips_negative_size(tmp_path: Path) -> N
 
 
 @pytest.mark.asyncio
-@pytest.mark.usefixtures("mock_xattr")  # AutoPkg's xattr names are macOS-only
 async def test_create_placeholder_files(
     tmp_path: Path, metadata_cache: MetadataCache
 ) -> None:
@@ -343,7 +347,7 @@ async def test_get_file_metadata_errno_behavior(
     - Re-raising OSErrors for other errno codes.
     """
     mock_file_path = tmp_path / "testfile.txt"
-    mock_attr = "com.github.autopkg.etag"
+    mock_attr = file_utils.XATTR_ETAG
 
     # Set up the mock to raise the specified OSError
     mock_xattr.getxattr.side_effect = OSError(

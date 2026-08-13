@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cloud_autopkg_runner import AutoPkgPrefs, Recipe
+from cloud_autopkg_runner import AutoPkgPrefs, Recipe, file_utils
 from cloud_autopkg_runner.exceptions import (
     InvalidFileContentsError,
     RecipeFormatError,
@@ -418,8 +418,8 @@ async def test_get_metadata_for_item_all_present() -> None:
         mock_get_file_size.return_value = expected_file_size
         # Configure get_file_metadata for specific attributes
         mock_get_file_metadata.side_effect = [
-            expected_etag,  # for "com.github.autopkg.etag"
-            expected_last_modified,  # for "com.github.autopkg.last-modified"
+            expected_etag,  # for the etag attribute
+            expected_last_modified,  # for the last-modified attribute
         ]
 
         result = await Recipe._get_metadata_for_item(test_file_path_str)
@@ -427,11 +427,9 @@ async def test_get_metadata_for_item_all_present() -> None:
         # Assertions for the mock calls
         mock_get_file_size.assert_called_once_with(test_file_path)
         assert mock_get_file_metadata.call_count == 2
+        mock_get_file_metadata.assert_any_call(test_file_path, file_utils.XATTR_ETAG)
         mock_get_file_metadata.assert_any_call(
-            test_file_path, "com.github.autopkg.etag"
-        )
-        mock_get_file_metadata.assert_any_call(
-            test_file_path, "com.github.autopkg.last-modified"
+            test_file_path, file_utils.XATTR_LAST_MODIFIED
         )
 
         # Assertions for the returned DownloadMetadata
@@ -461,19 +459,17 @@ async def test_get_metadata_for_item_missing_optional_metadata() -> None:
         mock_get_file_size.return_value = expected_file_size
         # Simulate missing metadata by returning None
         mock_get_file_metadata.side_effect = [
-            None,  # for "com.github.autopkg.etag"
-            None,  # for "com.github.autopkg.last-modified"
+            None,  # for the etag attribute
+            None,  # for the last-modified attribute
         ]
 
         result = await Recipe._get_metadata_for_item(test_file_path_str)
 
         mock_get_file_size.assert_called_once_with(test_file_path)
         assert mock_get_file_metadata.call_count == 2
+        mock_get_file_metadata.assert_any_call(test_file_path, file_utils.XATTR_ETAG)
         mock_get_file_metadata.assert_any_call(
-            test_file_path, "com.github.autopkg.etag"
-        )
-        mock_get_file_metadata.assert_any_call(
-            test_file_path, "com.github.autopkg.last-modified"
+            test_file_path, file_utils.XATTR_LAST_MODIFIED
         )
 
         # Ensure only file_path and file_size are present
@@ -525,8 +521,8 @@ async def test_get_metadata_for_item_etag_error() -> None:
         mock_get_file_size.return_value = expected_file_size
         # Configure get_file_metadata to raise for etag
         mock_get_file_metadata.side_effect = [
-            expected_error,  # for "com.github.autopkg.etag"
-            "some_last_modified",  # for "com.github.autopkg.last-modified"
+            expected_error,  # for the etag attribute
+            "some_last_modified",  # for the last-modified attribute
         ]
 
         with pytest.raises(OSError) as exc_info:  # noqa: PT011
@@ -535,9 +531,7 @@ async def test_get_metadata_for_item_etag_error() -> None:
         assert exc_info.type is OSError
         assert exc_info.value.errno == expected_error.errno
         mock_get_file_size.assert_called_once_with(test_file_path)
-        mock_get_file_metadata.assert_any_call(
-            test_file_path, "com.github.autopkg.etag"
-        )
+        mock_get_file_metadata.assert_any_call(test_file_path, file_utils.XATTR_ETAG)
 
 
 @pytest.mark.asyncio
@@ -559,8 +553,8 @@ async def test_get_metadata_for_item_last_modified_error() -> None:
     ):
         mock_get_file_size.return_value = expected_file_size
         mock_get_file_metadata.side_effect = [
-            expected_etag,  # for "com.github.autopkg.etag"
-            expected_error,  # for "com.github.autopkg.last-modified"
+            expected_etag,  # for the etag attribute
+            expected_error,  # for the last-modified attribute
         ]
 
         with pytest.raises(OSError) as exc_info:  # noqa: PT011
@@ -569,11 +563,9 @@ async def test_get_metadata_for_item_last_modified_error() -> None:
         assert exc_info.type is OSError
         assert exc_info.value.errno == expected_error.errno
         mock_get_file_size.assert_called_once_with(test_file_path)
+        mock_get_file_metadata.assert_any_call(test_file_path, file_utils.XATTR_ETAG)
         mock_get_file_metadata.assert_any_call(
-            test_file_path, "com.github.autopkg.etag"
-        )
-        mock_get_file_metadata.assert_any_call(
-            test_file_path, "com.github.autopkg.last-modified"
+            test_file_path, file_utils.XATTR_LAST_MODIFIED
         )
 
 
