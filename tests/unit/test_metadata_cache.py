@@ -43,85 +43,42 @@ def test_get_cache_plugin() -> None:
         mock_get_plugin.assert_called_once()
 
 
-def test_plugin_manager_load_plugin_default() -> None:
-    """Test successful plugin loading."""
+@pytest.mark.parametrize(
+    ("plugin_name", "expected_type", "extra_settings"),
+    [
+        ("default", AsyncJsonFileCache, {}),
+        ("json", AsyncJsonFileCache, {}),
+        ("sqlite", AsyncSQLiteCache, {"cache_file": "cache_file.sqlite"}),
+        ("s3", AsyncS3Cache, {"cloud_container_name": "fake_bucket"}),
+        ("gcs", AsyncGCSCache, {"cloud_container_name": "fake_bucket"}),
+        (
+            "azure",
+            AsyncAzureBlobCache,
+            {
+                "cloud_container_name": "fake_bucket",
+                "azure_account_url": "https://fake_account_url",
+            },
+        ),
+    ],
+    ids=["default", "json", "sqlite", "s3", "gcs", "azure"],
+)
+def test_plugin_manager_load_plugin(
+    plugin_name: str,
+    expected_type: type[MetadataCachePlugin],
+    extra_settings: dict[str, str],
+) -> None:
+    """Test that each entry point resolves to its backend."""
     plugin_manager = PluginManager()
+
     settings = Settings()
-    settings.cache_plugin = "default"
+    settings.cache_plugin = plugin_name
     settings.cache_file = "cache_file.json"
+    for name, value in extra_settings.items():
+        setattr(settings, name, value)
 
     plugin_manager.load_plugin()
 
-    assert isinstance(plugin_manager.plugin, AsyncJsonFileCache)
-    assert isinstance(plugin_manager.plugin, MetadataCachePlugin)
-
-
-def test_plugin_manager_load_plugin_json() -> None:
-    """Test successful plugin loading."""
-    plugin_manager = PluginManager()
-    settings = Settings()
-    settings.cache_plugin = "json"
-    settings.cache_file = "cache_file.json"
-
-    plugin_manager.load_plugin()
-
-    assert isinstance(plugin_manager.plugin, AsyncJsonFileCache)
-    assert isinstance(plugin_manager.plugin, MetadataCachePlugin)
-
-
-def test_plugin_manager_load_plugin_azure() -> None:
-    """Test successful plugin loading."""
-    plugin_manager = PluginManager()
-    settings = Settings()
-    settings.cache_plugin = "azure"
-    settings.cache_file = "cache_file.json"
-    settings.cloud_container_name = "fake_bucket"
-    settings.azure_account_url = "https://fake_account_url"
-
-    plugin_manager.load_plugin()
-
-    assert isinstance(plugin_manager.plugin, AsyncAzureBlobCache)
-    assert isinstance(plugin_manager.plugin, MetadataCachePlugin)
-
-
-def test_plugin_manager_load_plugin_gcs() -> None:
-    """Test successful plugin loading."""
-    plugin_manager = PluginManager()
-    settings = Settings()
-    settings.cache_plugin = "gcs"
-    settings.cache_file = "cache_file.json"
-    settings.cloud_container_name = "fake_bucket"
-
-    plugin_manager.load_plugin()
-
-    assert isinstance(plugin_manager.plugin, AsyncGCSCache)
-    assert isinstance(plugin_manager.plugin, MetadataCachePlugin)
-
-
-def test_plugin_manager_load_plugin_s3() -> None:
-    """Test successful plugin loading."""
-    plugin_manager = PluginManager()
-    settings = Settings()
-    settings.cache_plugin = "s3"
-    settings.cache_file = "cache_file.json"
-    settings.cloud_container_name = "fake_bucket"
-
-    plugin_manager.load_plugin()
-
-    assert isinstance(plugin_manager.plugin, AsyncS3Cache)
-    assert isinstance(plugin_manager.plugin, MetadataCachePlugin)
-
-
-def test_plugin_manager_load_plugin_sqlite() -> None:
-    """Test successful plugin loading."""
-    plugin_manager = PluginManager()
-    settings = Settings()
-    settings.cache_plugin = "sqlite"
-    settings.cache_file = "cache_file.sqlite"
-
-    plugin_manager.load_plugin()
-
-    assert isinstance(plugin_manager.plugin, AsyncSQLiteCache)
+    assert isinstance(plugin_manager.plugin, expected_type)
     assert isinstance(plugin_manager.plugin, MetadataCachePlugin)
 
 
