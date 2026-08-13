@@ -343,10 +343,7 @@ async def test_get_recipe_path_recipe_lookup_error(
         await _get_recipe_path("test_recipe", mock_autopkg_prefs)
 
 
-# `--recipe`/`--recipe-list` cover `recipes` on the CLI, and
-# `_generate_recipe_list` reads it from the schema, so it needs no dest and no
-# Settings property.
-_SCHEMA_ONLY_FIELDS = {"recipes"}
+_CONFIG_FILE_ONLY_FIELDS = {"recipes"}
 
 
 def test_every_schema_field_has_a_cli_argument() -> None:
@@ -354,7 +351,7 @@ def test_every_schema_field_has_a_cli_argument() -> None:
     schema_fields = {field.name for field in dataclasses.fields(ConfigSchema)}
     dests = {action.dest for action in _build_parser()._actions}
 
-    assert schema_fields - dests == _SCHEMA_ONLY_FIELDS
+    assert schema_fields - dests == _CONFIG_FILE_ONLY_FIELDS
 
 
 def test_every_schema_field_has_a_settings_property() -> None:
@@ -363,7 +360,7 @@ def test_every_schema_field_has_a_settings_property() -> None:
 
     missing = {
         name
-        for name in schema_fields - _SCHEMA_ONLY_FIELDS
+        for name in schema_fields - _CONFIG_FILE_ONLY_FIELDS
         if not isinstance(getattr(Settings, name, None), property)
     }
 
