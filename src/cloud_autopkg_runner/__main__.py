@@ -21,6 +21,7 @@ The application workflow typically includes the following steps:
 """
 
 import asyncio
+import dataclasses
 import json
 import os
 import signal
@@ -70,39 +71,28 @@ def _schema_overrides_from_cli(args: Namespace) -> dict[str, object]:
     suitable for applying as overrides to ConfigSchema. Only arguments
     explicitly provided by the user are included.
 
+    Arguments are matched to schema fields by name, so an argument reaches
+    the schema as long as its `dest` matches a `ConfigSchema` field.
+    Arguments with no matching field, such as `--config-file` and
+    `--recipe`, are consumed elsewhere and ignored here.
+
     Args:
         args: Parsed command-line arguments.
 
     Returns:
         A dictionary of schema field overrides.
     """
-    overrides: dict[str, object] = {}
+    schema_fields = {field.name for field in dataclasses.fields(ConfigSchema)}
 
-    for key in (
-        "autopkg_path",
-        "autopkg_pref_file",
-        "azure_account_url",
-        "cache_file",
-        "cache_plugin",
-        "cloud_container_name",
-        "log_file",
-        "log_format",
-        "max_concurrency",
-        "recipe_timeout",
-        "report_dir",
-    ):
-        if hasattr(args, key) and getattr(args, key) is not None:
-            overrides[key] = getattr(args, key)
+    overrides: dict[str, object] = {
+        name: value
+        for name, value in vars(args).items()
+        if name in schema_fields and value is not None
+    }
 
-    # Handle keys that don't match
-    if args.verbose is not None:
-        overrides["verbosity_level"] = args.verbose
-    if args.pre_processor is not None:
-        overrides["pre_processors"] = args.pre_processor
-    if args.post_processor is not None:
-        overrides["post_processors"] = args.post_processor
-    if args.key is not None:
-        overrides["input_variables"] = dict(args.key)
+    # `--key` collects KEY=VALUE pairs that the schema wants as a mapping.
+    if "input_variables" in overrides:
+        overrides["input_variables"] = dict(args.input_variables)
 
     return overrides
 
@@ -228,19 +218,21 @@ def _key_value_pair(string: str) -> tuple[str, str]:
     return key, value
 
 
-def _parse_arguments() -> Namespace:
-    """Parse command-line arguments using argparse.
+def _build_parser() -> ArgumentParser:
+    """Build the command-line argument parser.
 
     This private helper function defines the expected command-line arguments
     for the application using `argparse`. It configures various options such
     as verbosity level, recipe sources (individual or list), log file location,
     pre/post-processors, report directory, maximum concurrency for tasks,
-    cache plugin details, and AutoPkg-specific preferences. The parsed arguments
-    are then returned as a `Namespace` object for easy access throughout the
-    application.
+    cache plugin details, and AutoPkg-specific preferences.
+
+    Arguments that correspond to a `ConfigSchema` field declare a `dest`
+    matching that field's name, which is how `_schema_overrides_from_cli`
+    finds them.
 
     Returns:
-        A `Namespace` object containing the parsed command-line arguments.
+        An `ArgumentParser` configured with every supported argument.
     """
     project_metadata = metadata("cloud-autopkg-runner")
 
@@ -261,6 +253,7 @@ def _parse_arguments() -> Namespace:
     general.add_argument(
         "-v",
         "--verbose",
+        dest="verbosity_level",
         action="count",
         help="Verbosity level. Can be specified multiple times. (-vvv)",
     )
@@ -312,6 +305,7 @@ def _parse_arguments() -> Namespace:
     recipes.add_argument(
         "-k",
         "--key",
+        dest="input_variables",
         metavar="KEY=VALUE",
         action="append",
         help=(
@@ -326,6 +320,8 @@ def _parse_arguments() -> Namespace:
     processors = parser.add_argument_group("Pre/Post Processors")
     processors.add_argument(
         "--pre-processor",
+        dest="pre_processors",
+        metavar="PRE_PROCESSOR",
         action="append",
         help=(
             "Specify a pre-processor to run before the main AutoPkg recipe. "
@@ -335,6 +331,8 @@ def _parse_arguments() -> Namespace:
     )
     processors.add_argument(
         "--post-processor",
+        dest="post_processors",
+        metavar="POST_PROCESSOR",
         action="append",
         help=(
             "Specify a post-processor to run after the main AutoPkg recipe. "
@@ -381,7 +379,16 @@ def _parse_arguments() -> Namespace:
         type=Path,
     )
 
-    return parser.parse_args()
+    return parser
+
+
+def _parse_arguments() -> Namespace:
+    """Parse command-line arguments.
+
+    Returns:
+        A `Namespace` object containing the parsed command-line arguments.
+    """
+    return _build_parser().parse_args()
 
 
 async def _process_recipe_list(

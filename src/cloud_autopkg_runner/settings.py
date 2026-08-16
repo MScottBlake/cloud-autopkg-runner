@@ -77,6 +77,9 @@ class Settings:
         self._cache_plugin: str = "default"
         self._cache_file: str = "metadata_cache.json"
 
+        self._azure_account_url: str | None = None
+        self._cloud_container_name: str | None = None
+
         self._initialized = True
 
     def load(self, schema: ConfigSchema) -> None:
@@ -455,7 +458,14 @@ class Settings:
 
         Returns:
             The URL of the Azure Account.
+
+        Raises:
+            SettingsValidationError: If no Azure Account URL has been configured.
         """
+        if self._azure_account_url is None:
+            raise SettingsValidationError(
+                "azure_account_url", "Required by the azure cache plugin"
+            )
         return self._azure_account_url
 
     @azure_account_url.setter
@@ -473,7 +483,15 @@ class Settings:
 
         Returns:
             The name of the container.
+
+        Raises:
+            SettingsValidationError: If no container name has been configured.
         """
+        if self._cloud_container_name is None:
+            raise SettingsValidationError(
+                "cloud_container_name",
+                "Required by the azure, gcs, and s3 cache plugins",
+            )
         return self._cloud_container_name
 
     @cloud_container_name.setter

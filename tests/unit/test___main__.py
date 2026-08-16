@@ -1,6 +1,7 @@
 """Unit tests for __main__.py."""
 
 import asyncio
+import dataclasses
 import json
 import os
 import plistlib
@@ -18,6 +19,7 @@ from cloud_autopkg_runner.__main__ import (
     EXIT_SUCCESS,
     STOP_WORKER,
     _async_main,
+    _build_parser,
     _create_recipe,
     _generate_recipe_list,
     _get_recipe_path,
@@ -61,14 +63,14 @@ def test_cli_overrides_schema(tmp_path: Path) -> None:
         max_concurrency=5,
         recipe_timeout=60,
         report_dir=tmp_path / "test_reports",
-        verbose=2,
-        pre_processor=["com.example.identifier/preProcessorName"],
-        post_processor=["com.example.identifier/postProcessorName"],
+        verbosity_level=2,
+        pre_processors=["com.example.identifier/preProcessorName"],
+        post_processors=["com.example.identifier/postProcessorName"],
         azure_account_url=None,
         cloud_container_name=None,
         autopkg_path=Path("/opt/homebrew/bin/autopkg"),
         autopkg_pref_file=None,
-        key=[("KEY1", "VALUE1"), ("KEY2", "VALUE2")],
+        input_variables=[("KEY1", "VALUE1"), ("KEY2", "VALUE2")],
     )
 
     overrides = _schema_overrides_from_cli(args)
@@ -197,18 +199,18 @@ def test_parse_arguments() -> None:
     with patch.object(sys, "argv", testargs):
         args = _parse_arguments()
 
-    assert args.verbose == 2
+    assert args.verbosity_level == 2
     assert args.recipe == ["Recipe1", "Recipe2"]
     assert args.recipe_list == Path("recipes.json")
     assert args.cache_file == "test_cache.json"
     assert args.log_file == Path("test_log.txt")
     assert args.log_format == "text"
-    assert args.post_processor == ["PostProcessor1"]
-    assert args.pre_processor == ["PreProcessor1"]
+    assert args.post_processors == ["PostProcessor1"]
+    assert args.pre_processors == ["PreProcessor1"]
     assert args.recipe_timeout == 60
     assert args.report_dir == Path("test_reports")
     assert args.max_concurrency == 15
-    assert args.key == [("KEY1", "VALUE1"), ("KEY2", "VALUE2")]
+    assert args.input_variables == [("KEY1", "VALUE1"), ("KEY2", "VALUE2")]
 
 
 def test_parse_arguments_diff_syntax() -> None:
@@ -234,18 +236,18 @@ def test_parse_arguments_diff_syntax() -> None:
     with patch.object(sys, "argv", testargs):
         args = _parse_arguments()
 
-    assert args.verbose == 2
+    assert args.verbosity_level == 2
     assert args.recipe == ["Recipe1", "Recipe2"]
     assert args.recipe_list == Path("recipes.json")
     assert args.cache_file == "test_cache.json"
     assert args.log_file == Path("test_log.txt")
     assert args.log_format == "text"
-    assert args.post_processor == ["PostProcessor1"]
-    assert args.pre_processor == ["PreProcessor1"]
+    assert args.post_processors == ["PostProcessor1"]
+    assert args.pre_processors == ["PreProcessor1"]
     assert args.recipe_timeout == 60
     assert args.report_dir == Path("test_reports")
     assert args.max_concurrency == 15
-    assert args.key == [("KEY1", "VALUE1"), ("KEY2", "VALUE2")]
+    assert args.input_variables == [("KEY1", "VALUE1"), ("KEY2", "VALUE2")]
 
 
 @pytest.mark.asyncio
@@ -339,6 +341,44 @@ async def test_get_recipe_path_recipe_lookup_error(
         pytest.raises(RecipeLookupError),
     ):
         await _get_recipe_path("test_recipe", mock_autopkg_prefs)
+
+
+_CONFIG_FILE_ONLY_FIELDS = {"recipes"}
+
+
+def test_every_schema_field_has_a_cli_argument() -> None:
+    """Each schema field must be reachable from the command line."""
+    schema_fields = {field.name for field in dataclasses.fields(ConfigSchema)}
+    dests = {action.dest for action in _build_parser()._actions}
+
+    assert schema_fields - dests == _CONFIG_FILE_ONLY_FIELDS
+
+
+def test_every_schema_field_has_a_settings_property() -> None:
+    """Each schema field must be settable on Settings, the library API."""
+    schema_fields = {field.name for field in dataclasses.fields(ConfigSchema)}
+
+    missing = {
+        name
+        for name in schema_fields - _CONFIG_FILE_ONLY_FIELDS
+        if not isinstance(getattr(Settings, name, None), property)
+    }
+
+    assert missing == set()
+
+
+def test_cli_arguments_reach_the_schema() -> None:
+    """Every parsed argument is either a schema field or consumed elsewhere."""
+    schema_fields = {field.name for field in dataclasses.fields(ConfigSchema)}
+    dests = {action.dest for action in _build_parser()._actions}
+
+    assert dests - schema_fields == {
+        "config_file",
+        "help",
+        "recipe",
+        "recipe_list",
+        "version",
+    }
 
 
 def test_key_value_pair() -> None:
@@ -594,17 +634,17 @@ def _cli_namespace() -> Namespace:
         cache_plugin=None,
         cloud_container_name=None,
         config_file=None,
-        key=None,
+        input_variables=None,
         log_file=None,
         log_format=None,
         max_concurrency=None,
-        post_processor=None,
-        pre_processor=None,
+        post_processors=None,
+        pre_processors=None,
         recipe=None,
         recipe_list=None,
         recipe_timeout=None,
         report_dir=None,
-        verbose=None,
+        verbosity_level=None,
     )
 
 
