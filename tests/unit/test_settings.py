@@ -1,11 +1,13 @@
 """Tests for the settings module."""
 
+from dataclasses import make_dataclass
 from pathlib import Path
+from typing import cast
 
 import pytest
 
-from cloud_autopkg_runner import Settings
-from cloud_autopkg_runner.exceptions import SettingsValidationError
+from cloud_autopkg_runner import ConfigSchema, Settings
+from cloud_autopkg_runner.exceptions import SettingsValidationError, UnknownSettingError
 
 
 def test_singleton_pattern() -> None:
@@ -271,3 +273,69 @@ def test_input_variables_setter(
     settings = Settings()
     settings.input_variables = input_value
     assert settings.input_variables == expected_output
+
+
+def test_load_applies_schema_values() -> None:
+    """Schema values reach the properties, running their setters."""
+    settings = Settings()
+    settings.load(
+        ConfigSchema(
+            log_format="json",
+            max_concurrency=4,
+            report_dir=Path("custom_reports"),
+            pre_processors="com.example/OnlyOne",
+            cache_plugin="s3",
+        )
+    )
+
+    assert settings.log_format == "json"
+    assert settings.max_concurrency == 4
+    assert settings.report_dir == Path("custom_reports")
+    assert settings.cache_plugin == "s3"
+
+    # The setter wraps a lone processor in a list.
+    assert settings.pre_processors == ["com.example/OnlyOne"]
+
+
+def test_load_leaves_defaults_for_unset_values() -> None:
+    """An empty schema changes nothing, since every field is None."""
+    settings = Settings()
+    settings.load(ConfigSchema())
+
+    assert settings.log_format == "text"
+    assert settings.max_concurrency == 10
+    assert settings.recipe_timeout == 300
+    assert settings.report_dir == Path("recipe_reports")
+    assert settings.verbosity_level == 0
+
+
+def test_load_skips_config_file_only_fields() -> None:
+    """`recipes` is read from the schema and never lands on Settings."""
+    settings = Settings()
+    settings.load(ConfigSchema(recipes=["Foo.recipe"]))
+
+    assert not hasattr(settings, "recipes")
+
+
+def test_load_raises_for_field_without_a_property() -> None:
+    """A schema field with no matching property is an error, not an attribute."""
+    schema = make_dataclass("FakeSchema", [("nonexistent_setting", "str | None")])(
+        nonexistent_setting="value"
+    )
+    settings = Settings()
+
+    with pytest.raises(UnknownSettingError, match="nonexistent_setting"):
+        settings.load(cast("ConfigSchema", schema))
+
+    assert not hasattr(settings, "nonexistent_setting")
+
+
+def test_load_raises_even_when_the_value_is_unset() -> None:
+    """The name is checked whether or not the field carries a value."""
+    schema = make_dataclass("FakeSchema", [("nonexistent_setting", "str | None")])(
+        nonexistent_setting=None
+    )
+    settings = Settings()
+
+    with pytest.raises(UnknownSettingError, match="nonexistent_setting"):
+        settings.load(cast("ConfigSchema", schema))
