@@ -318,6 +318,25 @@ class SettingsValidationError(AutoPkgRunnerError):
         super().__init__(f"Invalid value for '{field_name}': {validation_error}")
 
 
+class UnknownSettingError(AutoPkgRunnerError):
+    """Error class for handling configuration fields with no matching setting.
+
+    This error indicates that a configuration field was applied to `Settings`
+    without a property of the same name to receive it.
+    """
+
+    def __init__(self, field_name: str) -> None:
+        """Initializes UnknownSettingError with the unmatched field name.
+
+        Args:
+            field_name: The name of the unmatched configuration field.
+        """
+        super().__init__(
+            f"No Settings property named '{field_name}'. Configuration fields "
+            "must match a Settings property."
+        )
+
+
 # Shell Command
 class ShellCommandError(AutoPkgRunnerError):
     """Base error class for handling issues with shell commands.
