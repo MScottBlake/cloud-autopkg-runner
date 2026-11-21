@@ -20,7 +20,7 @@ from pathlib import Path
 
 # Keep these specific to avoid circular imports
 from cloud_autopkg_runner.config_schema import ConfigSchema
-from cloud_autopkg_runner.exceptions import SettingsValidationError
+from cloud_autopkg_runner.exceptions import SettingsValidationError, UnknownSettingError
 
 
 class Settings:
@@ -90,8 +90,20 @@ class Settings:
 
         Args:
             schema: A validated configuration schema.
+
+        Raises:
+            UnknownSettingError: If a schema field has no property of the
+                same name on this class.
         """
         for field in dataclasses.fields(schema):
+            # `recipes` selects what the runner iterates rather than how a
+            # run behaves. `_generate_recipe_list` reads it off the schema,
+            # so there is no property here to receive it.
+            if field.name == "recipes":
+                continue
+
+            self._validate_setting_exists(field.name)
+
             schema_value = getattr(schema, field.name)
             if schema_value is not None:
                 setattr(self, field.name, schema_value)
@@ -412,6 +424,24 @@ class Settings:
         """
         if value < 0:
             raise SettingsValidationError(field_name, "Must not be negative")
+
+    @classmethod
+    def _validate_setting_exists(cls, field_name: str) -> None:
+        """Validates that a name corresponds to a setting on this class.
+
+        Every setting is a property, so assigning to it runs that property's
+        setter and the validation it performs. A name that is not a property
+        would become a plain instance attribute instead, bypassing that
+        validation.
+
+        Args:
+            field_name: The name of the setting to look for.
+
+        Raises:
+            UnknownSettingError: If this class defines no property by that name.
+        """
+        if not isinstance(getattr(cls, field_name, None), property):
+            raise UnknownSettingError(field_name)
 
     # Plugin Properties
 
